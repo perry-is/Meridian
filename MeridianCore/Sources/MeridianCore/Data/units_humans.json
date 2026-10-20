@@ -1,0 +1,629 @@
+[
+ {
+  "id": "h_engineer",
+  "name": "Engineer",
+  "faction": "humans",
+  "role": "worker",
+  "hp": 50,
+  "armor": 0,
+  "speed": 2.5,
+  "sight": 7,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio",
+   "worker"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 50,
+   "wood": 0,
+   "gold": 0
+  },
+  "buildTime": 12,
+  "producedAt": "hq",
+  "requires": [],
+  "description": "Gathers resources, constructs and repairs vehicles and structures.",
+  "strongVs": "Nothing; keep it working.",
+  "weakVs": "Any combat unit.",
+  "weapon": {
+   "damage": 5,
+   "interval": 1.2,
+   "range": 0.6,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "gather",
+   "build",
+   "repair"
+  ]
+ },
+ {
+  "id": "h_pathfinder",
+  "name": "Pathfinder",
+  "faction": "humans",
+  "role": "scout",
+  "hp": 75,
+  "armor": 0,
+  "speed": 3.6,
+  "sight": 12,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 35,
+   "wood": 25,
+   "gold": 0
+  },
+  "buildTime": 14,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Long-sighted recon trooper. Detects cloaked units.",
+  "strongVs": "Workers, cloaked infiltrators.",
+  "weakVs": "Everything in a stand-up fight.",
+  "weapon": {
+   "damage": 6,
+   "interval": 1.0,
+   "range": 5,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "detector"
+  ],
+  "params": {
+   "detectRange": 9
+  }
+ },
+ {
+  "id": "h_ranger",
+  "name": "Ranger",
+  "faction": "humans",
+  "role": "infantry",
+  "hp": 100,
+  "armor": 1,
+  "speed": 2.4,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 50,
+   "wood": 30,
+   "gold": 0
+  },
+  "buildTime": 17,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Versatile rifle infantry that can shoot ground and air.",
+  "strongVs": "Light units, early air.",
+  "weakVs": "Splash (Mortar, Shockframe, Colossus), Breachers.",
+  "weapon": {
+   "damage": 9,
+   "interval": 1.0,
+   "range": 5.5,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet"
+  }
+ },
+ {
+  "id": "h_breacher",
+  "name": "Breacher",
+  "faction": "humans",
+  "role": "assault",
+  "hp": 170,
+  "armor": 2,
+  "speed": 2.6,
+  "sight": 7,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 60,
+   "wood": 40,
+   "gold": 0
+  },
+  "buildTime": 20,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Shotgun shock trooper with a breaching charge bonus against structures.",
+  "strongVs": "Light infantry, buildings.",
+  "weakVs": "Kiting ranged units, vehicles.",
+  "weapon": {
+   "damage": 15,
+   "interval": 1.1,
+   "range": 1.6,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet",
+   "splash": 0.8,
+   "bonus": {
+    "light": 1.25,
+    "structure": 1.5
+   }
+  }
+ },
+ {
+  "id": "h_lancer",
+  "name": "Lancer",
+  "faction": "humans",
+  "role": "antiarmor",
+  "hp": 110,
+  "armor": 1,
+  "speed": 2.2,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 60,
+   "wood": 50,
+   "gold": 20
+  },
+  "buildTime": 23,
+  "producedAt": "infantry",
+  "requires": [
+   "h_tier2"
+  ],
+  "description": "Rocket infantry that cracks armored targets.",
+  "strongVs": "Tanks, walkers, Colossus.",
+  "weakVs": "Light swarms (Skitter, Mantis), air.",
+  "weapon": {
+   "damage": 28,
+   "interval": 2.2,
+   "range": 6.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "rocket",
+   "projectileSpeed": 12,
+   "bonus": {
+    "armored": 1.9,
+    "light": 0.6,
+    "structure": 1.2
+   }
+  }
+ },
+ {
+  "id": "h_skyguard",
+  "name": "Skyguard",
+  "faction": "humans",
+  "role": "antiair",
+  "hp": 110,
+  "armor": 1,
+  "speed": 2.3,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 55,
+   "wood": 45,
+   "gold": 15
+  },
+  "buildTime": 19,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Missile trooper. Configurable: AA lock (default) or ground suppression mode.",
+  "strongVs": "Aircraft.",
+  "weakVs": "Melee rushes while in AA mode.",
+  "weapon": {
+   "damage": 15,
+   "interval": 1.3,
+   "range": 7.5,
+   "targetsGround": false,
+   "targetsAir": true,
+   "projectile": "missile",
+   "projectileSpeed": 14,
+   "bonus": {
+    "armored": 1.2
+   }
+  },
+  "abilities": [
+   "modes"
+  ],
+  "params": {
+   "altDamage": 8,
+   "altRange": 5.5
+  }
+ },
+ {
+  "id": "h_medic",
+  "name": "Field Medic",
+  "faction": "humans",
+  "role": "support",
+  "hp": 95,
+  "armor": 1,
+  "speed": 2.5,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 45,
+   "wood": 40,
+   "gold": 15
+  },
+  "buildTime": 20,
+  "producedAt": "infantry",
+  "requires": [
+   "h_tier2"
+  ],
+  "description": "Patches up biological allies in the field.",
+  "strongVs": "Prolonged infantry fights.",
+  "weakVs": "Burst damage, assassins.",
+  "abilities": [
+   "healBio"
+  ],
+  "params": {
+   "healRate": 9,
+   "healRange": 4
+  }
+ },
+ {
+  "id": "h_ghost",
+  "name": "Ghost Operative",
+  "faction": "humans",
+  "role": "infiltration",
+  "hp": 85,
+  "armor": 0,
+  "speed": 2.7,
+  "sight": 10,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 70,
+   "wood": 50,
+   "gold": 50
+  },
+  "buildTime": 30,
+  "producedAt": "infantry",
+  "requires": [
+   "h_tier2",
+   "h_research"
+  ],
+  "description": "Permanently cloaked saboteur. EMP disrupts machine networks, towers and deals damage to mechanical units.",
+  "strongVs": "Machine formations, towers.",
+  "weakVs": "Detectors (scouts, towers).",
+  "weapon": {
+   "damage": 20,
+   "interval": 1.5,
+   "range": 6.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet",
+   "bonus": {
+    "mech": 1.3
+   }
+  },
+  "abilities": [
+   "cloak",
+   "emp"
+  ],
+  "params": {
+   "empRadius": 3,
+   "empDuration": 8,
+   "empCooldown": 30,
+   "empRange": 8,
+   "empDamage": 40
+  }
+ },
+ {
+  "id": "h_buggy",
+  "name": "Strider Buggy",
+  "faction": "humans",
+  "role": "fast",
+  "hp": 150,
+  "armor": 1,
+  "speed": 4.3,
+  "sight": 10,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 65,
+   "wood": 55,
+   "gold": 0
+  },
+  "buildTime": 22,
+  "producedAt": "heavy",
+  "requires": [],
+  "description": "Fast raider with twin autoguns.",
+  "strongVs": "Workers, light infantry, harassment.",
+  "weakVs": "Lancers, towers, heavies.",
+  "weapon": {
+   "damage": 8,
+   "interval": 0.6,
+   "range": 4.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet",
+   "bonus": {
+    "light": 1.4
+   }
+  }
+ },
+ {
+  "id": "h_bastion",
+  "name": "Bastion Tank",
+  "faction": "humans",
+  "role": "heavy",
+  "hp": 440,
+  "armor": 4,
+  "speed": 1.8,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech",
+   "massive"
+  ],
+  "radius": 0.7,
+  "cost": {
+   "iron": 160,
+   "wood": 120,
+   "gold": 75
+  },
+  "buildTime": 45,
+  "producedAt": "heavy",
+  "requires": [
+   "h_tier3"
+  ],
+  "description": "Main battle tank. Configurable: brace mode trades mobility for +range and +armor.",
+  "strongVs": "Ground armies, armor.",
+  "weakVs": "Lancers, Piercers, Spinecasters, bombers.",
+  "weapon": {
+   "damage": 40,
+   "interval": 2.0,
+   "range": 6.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "shell",
+   "splash": 0.7,
+   "projectileSpeed": 14,
+   "bonus": {
+    "armored": 1.3
+   }
+  },
+  "abilities": [
+   "modes"
+  ],
+  "params": {
+   "braceRange": 2.5,
+   "braceArmor": 3
+  }
+ },
+ {
+  "id": "h_mortar",
+  "name": "Mortar Carrier",
+  "faction": "humans",
+  "role": "siege",
+  "hp": 170,
+  "armor": 1,
+  "speed": 1.9,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech"
+  ],
+  "radius": 0.55,
+  "cost": {
+   "iron": 110,
+   "wood": 90,
+   "gold": 50
+  },
+  "buildTime": 38,
+  "producedAt": "heavy",
+  "requires": [
+   "h_tier3"
+  ],
+  "description": "Long-range indirect fire. Outranges every tower.",
+  "strongVs": "Towers, clumped infantry.",
+  "weakVs": "Fast raiders, air, anything that closes in.",
+  "weapon": {
+   "damage": 45,
+   "interval": 3.6,
+   "range": 11.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "shell",
+   "splash": 1.4,
+   "projectileSpeed": 9,
+   "minRange": 3,
+   "bonus": {
+    "structure": 1.7,
+    "light": 1.1
+   }
+  }
+ },
+ {
+  "id": "h_minelayer",
+  "name": "Mine Layer",
+  "faction": "humans",
+  "role": "denial",
+  "hp": 160,
+  "armor": 2,
+  "speed": 2.4,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech"
+  ],
+  "radius": 0.5,
+  "cost": {
+   "iron": 80,
+   "wood": 80,
+   "gold": 25
+  },
+  "buildTime": 26,
+  "producedAt": "heavy",
+  "requires": [],
+  "description": "Seeds cloaked proximity mines around itself.",
+  "strongVs": "Ground pushes through chokepoints.",
+  "weakVs": "Air, detectors.",
+  "weapon": {
+   "damage": 6,
+   "interval": 1.0,
+   "range": 4.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "mines"
+  ],
+  "params": {
+   "mineInterval": 10,
+   "mineMax": 6,
+   "mineDamage": 70,
+   "mineRadius": 1.6
+  }
+ },
+ {
+  "id": "h_kestrel",
+  "name": "Kestrel",
+  "faction": "humans",
+  "role": "interceptor",
+  "hp": 150,
+  "armor": 1,
+  "speed": 4.6,
+  "sight": 10,
+  "domain": "air",
+  "tags": [
+   "light",
+   "mech",
+   "air"
+  ],
+  "radius": 0.45,
+  "cost": {
+   "iron": 90,
+   "wood": 50,
+   "gold": 40
+  },
+  "buildTime": 30,
+  "producedAt": "air",
+  "requires": [],
+  "description": "Agile air-superiority fighter.",
+  "strongVs": "Bombers, transports, drones.",
+  "weakVs": "Ground anti-air.",
+  "weapon": {
+   "damage": 13,
+   "interval": 0.9,
+   "range": 5.5,
+   "targetsGround": false,
+   "targetsAir": true,
+   "projectile": "missile",
+   "projectileSpeed": 18
+  }
+ },
+ {
+  "id": "h_harrier",
+  "name": "Harrier",
+  "faction": "humans",
+  "role": "bomber",
+  "hp": 230,
+  "armor": 2,
+  "speed": 3.2,
+  "sight": 9,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "mech",
+   "air"
+  ],
+  "radius": 0.55,
+  "cost": {
+   "iron": 130,
+   "wood": 80,
+   "gold": 80
+  },
+  "buildTime": 42,
+  "producedAt": "air",
+  "requires": [
+   "h_tier3"
+  ],
+  "description": "Carpet bomber that levels ground formations and bases.",
+  "strongVs": "Ground armies, structures.",
+  "weakVs": "Interceptors, Skyguard, towers.",
+  "weapon": {
+   "damage": 50,
+   "interval": 3.0,
+   "range": 1.6,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bomb",
+   "splash": 1.6,
+   "projectileSpeed": 8,
+   "bonus": {
+    "structure": 1.4
+   }
+  }
+ },
+ {
+  "id": "h_dropship",
+  "name": "Dropship",
+  "faction": "humans",
+  "role": "transport",
+  "hp": 270,
+  "armor": 2,
+  "speed": 3.9,
+  "sight": 9,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "mech",
+   "air"
+  ],
+  "radius": 0.6,
+  "cost": {
+   "iron": 80,
+   "wood": 80,
+   "gold": 20
+  },
+  "buildTime": 30,
+  "producedAt": "air",
+  "requires": [],
+  "description": "Carries 8 ground units and repairs nearby mechanical units.",
+  "strongVs": "Flanking drops.",
+  "weakVs": "Interceptors, AA.",
+  "abilities": [
+   "transport",
+   "fieldRepair"
+  ],
+  "params": {
+   "capacity": 8,
+   "repairRate": 4,
+   "repairRadius": 3
+  }
+ }
+]

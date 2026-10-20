@@ -1,0 +1,619 @@
+[
+ {
+  "id": "a_weaver",
+  "name": "Weaver",
+  "faction": "aliens",
+  "role": "worker",
+  "hp": 50,
+  "armor": 0,
+  "speed": 2.7,
+  "sight": 7,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio",
+   "worker"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 45,
+   "wood": 0,
+   "gold": 0
+  },
+  "buildTime": 12,
+  "producedAt": "hq",
+  "requires": [],
+  "description": "Harvests, grows structures and mends them.",
+  "strongVs": "-",
+  "weakVs": "Any combat unit.",
+  "weapon": {
+   "damage": 4,
+   "interval": 1.0,
+   "range": 0.6,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "gather",
+   "build",
+   "repair"
+  ]
+ },
+ {
+  "id": "a_glint",
+  "name": "Glint",
+  "faction": "aliens",
+  "role": "scout",
+  "hp": 60,
+  "armor": 0,
+  "speed": 4.6,
+  "sight": 11,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 25,
+   "wood": 20,
+   "gold": 0
+  },
+  "buildTime": 12,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Darting sensory organism; detects cloaked enemies.",
+  "strongVs": "Scouting, chasing workers.",
+  "weakVs": "Everything.",
+  "weapon": {
+   "damage": 5,
+   "interval": 0.8,
+   "range": 1.0,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "detector"
+  ],
+  "params": {
+   "detectRange": 8
+  }
+ },
+ {
+  "id": "a_mantis",
+  "name": "Mantis",
+  "faction": "aliens",
+  "role": "infantry",
+  "hp": 95,
+  "armor": 0,
+  "speed": 2.9,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 40,
+   "wood": 30,
+   "gold": 0
+  },
+  "buildTime": 16,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Fast scything melee warrior.",
+  "strongVs": "Ranged infantry, siege.",
+  "weakVs": "Splash, Shockframes, Breachers.",
+  "weapon": {
+   "damage": 11,
+   "interval": 0.9,
+   "range": 1.2,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "claw"
+  }
+ },
+ {
+  "id": "a_ravager",
+  "name": "Ravager",
+  "faction": "aliens",
+  "role": "assault",
+  "hp": 180,
+  "armor": 1,
+  "speed": 3.0,
+  "sight": 7,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 60,
+   "wood": 45,
+   "gold": 0
+  },
+  "buildTime": 20,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Hulking cleaver beast; cleave hits adjacent enemies.",
+  "strongVs": "Armored infantry, buildings.",
+  "weakVs": "Kiting, splash.",
+  "weapon": {
+   "damage": 17,
+   "interval": 1.1,
+   "range": 1.3,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "claw",
+   "splash": 0.7,
+   "bonus": {
+    "armored": 1.3,
+    "structure": 1.2
+   }
+  }
+ },
+ {
+  "id": "a_spinecaster",
+  "name": "Spinecaster",
+  "faction": "aliens",
+  "role": "antiarmor",
+  "hp": 105,
+  "armor": 0,
+  "speed": 2.4,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 55,
+   "wood": 50,
+   "gold": 15
+  },
+  "buildTime": 22,
+  "producedAt": "infantry",
+  "requires": [
+   "a_tier2"
+  ],
+  "description": "Launches acid spines that strip 2 armor for 5s.",
+  "strongVs": "Armored units.",
+  "weakVs": "Light swarms, air.",
+  "weapon": {
+   "damage": 24,
+   "interval": 2.0,
+   "range": 6.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "spine",
+   "projectileSpeed": 14,
+   "bonus": {
+    "armored": 1.8,
+    "light": 0.7
+   }
+  },
+  "abilities": [
+   "armorShred"
+  ],
+  "params": {
+   "shredAmount": 2,
+   "shredDuration": 5
+  }
+ },
+ {
+  "id": "a_needleback",
+  "name": "Needleback",
+  "faction": "aliens",
+  "role": "antiair",
+  "hp": 110,
+  "armor": 1,
+  "speed": 2.6,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 50,
+   "wood": 40,
+   "gold": 10
+  },
+  "buildTime": 18,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Quill-launching anti-air organism.",
+  "strongVs": "Aircraft.",
+  "weakVs": "Ground forces.",
+  "weapon": {
+   "damage": 10,
+   "interval": 0.7,
+   "range": 6.5,
+   "targetsGround": false,
+   "targetsAir": true,
+   "projectile": "spine",
+   "projectileSpeed": 16
+  }
+ },
+ {
+  "id": "a_lifebinder",
+  "name": "Lifebinder",
+  "faction": "aliens",
+  "role": "support",
+  "hp": 100,
+  "armor": 0,
+  "speed": 2.6,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 50,
+   "wood": 45,
+   "gold": 20
+  },
+  "buildTime": 20,
+  "producedAt": "infantry",
+  "requires": [
+   "a_tier2"
+  ],
+  "description": "Heals a biological ally and radiates passive regeneration.",
+  "strongVs": "Attrition fights.",
+  "weakVs": "Burst, detection of exposed position.",
+  "abilities": [
+   "healBio",
+   "regenAura"
+  ],
+  "params": {
+   "healRate": 7,
+   "healRange": 4,
+   "auraRegen": 2,
+   "auraRadius": 3.5
+  }
+ },
+ {
+  "id": "a_shadeling",
+  "name": "Shadeling",
+  "faction": "aliens",
+  "role": "infiltration",
+  "hp": 75,
+  "armor": 0,
+  "speed": 3.5,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 55,
+   "wood": 45,
+   "gold": 35
+  },
+  "buildTime": 26,
+  "producedAt": "infantry",
+  "requires": [
+   "a_tier2",
+   "a_research"
+  ],
+  "description": "Cloaked ambush predator, deadly to light units and workers.",
+  "strongVs": "Workers, light infantry.",
+  "weakVs": "Detectors, armor.",
+  "weapon": {
+   "damage": 16,
+   "interval": 1.0,
+   "range": 1.0,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "claw",
+   "bonus": {
+    "light": 1.6
+   }
+  },
+  "abilities": [
+   "cloak"
+  ]
+ },
+ {
+  "id": "a_skitter",
+  "name": "Skitter",
+  "faction": "aliens",
+  "role": "fast",
+  "hp": 85,
+  "armor": 0,
+  "speed": 4.8,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "bio"
+  ],
+  "radius": 0.28,
+  "cost": {
+   "iron": 30,
+   "wood": 25,
+   "gold": 0
+  },
+  "buildTime": 16,
+  "producedAt": "heavy",
+  "requires": [],
+  "description": "Spawns in pairs; extremely fast swarm hunters.",
+  "strongVs": "Siege, workers, isolated units.",
+  "weakVs": "Splash (Arc Sentry, Mortar, Shockframe).",
+  "weapon": {
+   "damage": 7,
+   "interval": 0.6,
+   "range": 1.0,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "claw"
+  },
+  "batch": 2
+ },
+ {
+  "id": "a_colossus",
+  "name": "Colossus",
+  "faction": "aliens",
+  "role": "heavy",
+  "hp": 540,
+  "armor": 3,
+  "speed": 1.7,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "bio",
+   "massive"
+  ],
+  "radius": 0.85,
+  "cost": {
+   "iron": 175,
+   "wood": 135,
+   "gold": 70
+  },
+  "buildTime": 45,
+  "producedAt": "heavy",
+  "requires": [
+   "a_tier3"
+  ],
+  "description": "Towering behemoth that crushes clustered enemies.",
+  "strongVs": "Infantry blobs, buildings.",
+  "weakVs": "Anti-armor, air.",
+  "weapon": {
+   "damage": 36,
+   "interval": 1.6,
+   "range": 2.2,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "claw",
+   "splash": 1.3,
+   "bonus": {
+    "structure": 1.3
+   }
+  }
+ },
+ {
+  "id": "a_rupturer",
+  "name": "Rupturer",
+  "faction": "aliens",
+  "role": "siege",
+  "hp": 180,
+  "armor": 1,
+  "speed": 1.7,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "bio"
+  ],
+  "radius": 0.6,
+  "cost": {
+   "iron": 120,
+   "wood": 100,
+   "gold": 55
+  },
+  "buildTime": 38,
+  "producedAt": "heavy",
+  "requires": [
+   "a_tier3"
+  ],
+  "description": "Bio-artillery lobbing acid sacs that leave burning pools.",
+  "strongVs": "Towers, static positions.",
+  "weakVs": "Fast raiders, air.",
+  "weapon": {
+   "damage": 55,
+   "interval": 4.0,
+   "range": 11,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "acid",
+   "splash": 1.6,
+   "projectileSpeed": 8,
+   "minRange": 3,
+   "bonus": {
+    "structure": 1.6
+   }
+  },
+  "abilities": [
+   "sporeCloud"
+  ],
+  "params": {
+   "cloudRadius": 1.4,
+   "cloudDps": 6,
+   "cloudDuration": 4,
+   "cloudSlow": 1.0
+  }
+ },
+ {
+  "id": "a_seeder",
+  "name": "Spore Seeder",
+  "faction": "aliens",
+  "role": "denial",
+  "hp": 150,
+  "armor": 1,
+  "speed": 2.3,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "bio"
+  ],
+  "radius": 0.5,
+  "cost": {
+   "iron": 80,
+   "wood": 80,
+   "gold": 25
+  },
+  "buildTime": 26,
+  "producedAt": "heavy",
+  "requires": [],
+  "description": "Fires spore pods that bloom into slowing, corrosive clouds.",
+  "strongVs": "Chokepoints, slow armies.",
+  "weakVs": "Air, fast units.",
+  "weapon": {
+   "damage": 4,
+   "interval": 2.5,
+   "range": 7,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "spore",
+   "splash": 0.5,
+   "projectileSpeed": 9
+  },
+  "abilities": [
+   "sporeCloud"
+  ],
+  "params": {
+   "cloudRadius": 2.2,
+   "cloudDps": 8,
+   "cloudDuration": 7,
+   "cloudSlow": 0.7
+  }
+ },
+ {
+  "id": "a_wisp",
+  "name": "Wisp",
+  "faction": "aliens",
+  "role": "interceptor",
+  "hp": 95,
+  "armor": 0,
+  "speed": 5.2,
+  "sight": 10,
+  "domain": "air",
+  "tags": [
+   "light",
+   "bio",
+   "air"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 55,
+   "wood": 40,
+   "gold": 25
+  },
+  "buildTime": 24,
+  "producedAt": "air",
+  "requires": [],
+  "description": "Swift aerial predator that swarms aircraft.",
+  "strongVs": "Bombers, drones.",
+  "weakVs": "Flak, Kestrels.",
+  "weapon": {
+   "damage": 9,
+   "interval": 0.7,
+   "range": 4.5,
+   "targetsGround": false,
+   "targetsAir": true,
+   "projectile": "spine",
+   "projectileSpeed": 18
+  }
+ },
+ {
+  "id": "a_blightwing",
+  "name": "Blightwing",
+  "faction": "aliens",
+  "role": "bomber",
+  "hp": 230,
+  "armor": 1,
+  "speed": 3.0,
+  "sight": 9,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "bio",
+   "air"
+  ],
+  "radius": 0.55,
+  "cost": {
+   "iron": 120,
+   "wood": 90,
+   "gold": 70
+  },
+  "buildTime": 40,
+  "producedAt": "air",
+  "requires": [
+   "a_tier3"
+  ],
+  "description": "Acid-spitting flyer that bombards ground targets from range.",
+  "strongVs": "Ground armies without AA.",
+  "weakVs": "Interceptors, anti-air.",
+  "weapon": {
+   "damage": 24,
+   "interval": 1.4,
+   "range": 4.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "acid",
+   "splash": 1.2,
+   "projectileSpeed": 10,
+   "bonus": {
+    "structure": 1.2
+   }
+  }
+ },
+ {
+  "id": "a_sporewing",
+  "name": "Sporewing",
+  "faction": "aliens",
+  "role": "transport",
+  "hp": 240,
+  "armor": 1,
+  "speed": 4.2,
+  "sight": 9,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "bio",
+   "air"
+  ],
+  "radius": 0.6,
+  "cost": {
+   "iron": 70,
+   "wood": 70,
+   "gold": 20
+  },
+  "buildTime": 26,
+  "producedAt": "air",
+  "requires": [],
+  "description": "Carries 8 units; while hovering still it seeds a regenerating Bloom zone.",
+  "strongVs": "Fast expansion and recovery.",
+  "weakVs": "Interceptors.",
+  "abilities": [
+   "transport",
+   "bloomNode"
+  ],
+  "params": {
+   "capacity": 8,
+   "bloomRadius": 5
+  }
+ }
+]

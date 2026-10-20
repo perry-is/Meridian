@@ -1,0 +1,74 @@
+{
+ "economy": {
+  "startIron": 250,
+  "startGold": 0,
+  "startWood": 100,
+  "startWorkers": 5,
+  "carry": [
+   6,
+   4,
+   5
+  ],
+  "gatherTime": [
+   2.2,
+   3.0,
+   2.6
+  ],
+  "valueIron": 1.0,
+  "valueGold": 2.0,
+  "valueWood": 1.2,
+  "ironNodeAmount": 1600,
+  "goldNodeAmount": 900,
+  "treeAmount": 400
+ },
+ "territory": {
+  "captureRadius": 3.0,
+  "captureTime": 26,
+  "maxCaptureMult": 3.0,
+  "income": [
+   0.7,
+   0.3,
+   0.5
+  ],
+  "vision": 9,
+  "dominanceFraction": 0.7,
+  "dominanceSeconds": 210,
+  "humanRepairRate": 3,
+  "humanStagingRadius": 6,
+  "machineNodeRadius": 7,
+  "alienBloomRadius": 8,
+  "alienSpeedBonus": 0.15,
+  "installCost": {
+   "iron": 100,
+   "wood": 75,
+   "gold": 50
+  },
+  "extractorIncomeMult": 1.75,
+  "watchVision": 14,
+  "bulwarkHp": 450,
+  "bulwarkWeapon": {
+   "damage": 14,
+   "interval": 1.0,
+   "range": 7,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet",
+   "projectileSpeed": 18
+  },
+  "dominanceStart": 840
+ },
+ "combat": {
+  "minDamageFraction": 0.25,
+  "unitCap": 200,
+  "networkLinkRadius": 3.5,
+  "networkLinkMinNeighbors": 2,
+  "networkDamageReduction": 0.15,
+  "networkDamageBonus": 0.1,
+  "alienRegenFlat": 2.0,
+  "alienRegenPercent": 0.01,
+  "outOfCombatSeconds": 5,
+  "towerCostGrowth": 0.2,
+  "towerBuildRadius": 11,
+  "buildingRegenAliens": 3
+ }
+}

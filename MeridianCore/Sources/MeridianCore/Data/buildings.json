@@ -1,0 +1,577 @@
+[
+ {
+  "id": "h_hq",
+  "name": "Command Hub",
+  "faction": "humans",
+  "kind": "hq",
+  "hp": 3300,
+  "armor": 3,
+  "size": 4,
+  "sight": 11,
+  "cost": {
+   "iron": 400,
+   "wood": 150,
+   "gold": 0
+  },
+  "buildTime": 90,
+  "requires": [],
+  "description": "Main base. Trains workers, accepts resources, researches tiers.",
+  "weapon": {
+   "damage": 8,
+   "interval": 1.0,
+   "range": 6,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "dropoff"
+  ]
+ },
+ {
+  "id": "h_depot",
+  "name": "Logistics Depot",
+  "faction": "humans",
+  "kind": "depot",
+  "hp": 1320,
+  "armor": 2,
+  "size": 2,
+  "sight": 8,
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 35,
+  "requires": [],
+  "description": "Resource drop-off; researches economy upgrades.",
+  "abilities": [
+   "dropoff"
+  ]
+ },
+ {
+  "id": "h_infantry",
+  "name": "Drill Hall",
+  "faction": "humans",
+  "kind": "infantry",
+  "hp": 1980,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 150,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 45,
+  "requires": [],
+  "description": "Trains light units."
+ },
+ {
+  "id": "h_heavy",
+  "name": "Motor Pool",
+  "faction": "humans",
+  "kind": "heavy",
+  "hp": 2200,
+  "armor": 3,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 200,
+   "wood": 100,
+   "gold": 50
+  },
+  "buildTime": 55,
+  "requires": [
+   "h_tier2"
+  ],
+  "description": "Produces vehicles, heavy organisms and siege."
+ },
+ {
+  "id": "h_air",
+  "name": "Aerodrome",
+  "faction": "humans",
+  "kind": "air",
+  "hp": 1980,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 200,
+   "wood": 100,
+   "gold": 75
+  },
+  "buildTime": 55,
+  "requires": [
+   "h_tier2"
+  ],
+  "description": "Produces aircraft."
+ },
+ {
+  "id": "h_research",
+  "name": "Tech Lab",
+  "faction": "humans",
+  "kind": "research",
+  "hp": 1760,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 0
+  },
+  "buildTime": 40,
+  "requires": [
+   "h_infantry"
+  ],
+  "description": "Military and faction research."
+ },
+ {
+  "id": "h_tower",
+  "name": "Sentry Tower",
+  "faction": "humans",
+  "kind": "tower",
+  "hp": 832,
+  "armor": 3,
+  "size": 2,
+  "sight": 10,
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "buildTime": 30,
+  "requires": [
+   "h_infantry"
+  ],
+  "description": "Configurable tower: balanced, anti-ground or anti-air mode.",
+  "weapon": {
+   "damage": 12,
+   "interval": 1.0,
+   "range": 7,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet",
+   "projectileSpeed": 18
+  },
+  "abilities": [
+   "modes",
+   "detector"
+  ],
+  "params": {
+   "detectRange": 8
+  }
+ },
+ {
+  "id": "h_forward",
+  "name": "Forward Post",
+  "faction": "humans",
+  "kind": "forward",
+  "hp": 1430,
+  "armor": 3,
+  "size": 2,
+  "sight": 10,
+  "cost": {
+   "iron": 150,
+   "wood": 75,
+   "gold": 25
+  },
+  "buildTime": 40,
+  "requires": [
+   "h_infantry"
+  ],
+  "description": "Forward drop-off point. Repairs units and structures nearby and serves as a staging rally.",
+  "abilities": [
+   "dropoff",
+   "repairAura",
+   "staging"
+  ],
+  "params": {
+   "repairRate": 4,
+   "repairRadius": 6
+  }
+ },
+ {
+  "id": "m_hq",
+  "name": "Core Nexus",
+  "faction": "machines",
+  "kind": "hq",
+  "hp": 3300,
+  "armor": 3,
+  "size": 4,
+  "sight": 11,
+  "cost": {
+   "iron": 400,
+   "wood": 150,
+   "gold": 0
+  },
+  "buildTime": 90,
+  "requires": [],
+  "description": "Main base. Trains workers, accepts resources, researches tiers.",
+  "weapon": {
+   "damage": 8,
+   "interval": 1.0,
+   "range": 6,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "dropoff"
+  ]
+ },
+ {
+  "id": "m_depot",
+  "name": "Smelter",
+  "faction": "machines",
+  "kind": "depot",
+  "hp": 1320,
+  "armor": 2,
+  "size": 2,
+  "sight": 8,
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 35,
+  "requires": [],
+  "description": "Resource drop-off; researches economy upgrades.",
+  "abilities": [
+   "dropoff"
+  ]
+ },
+ {
+  "id": "m_infantry",
+  "name": "Assembly Line",
+  "faction": "machines",
+  "kind": "infantry",
+  "hp": 1980,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 150,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 45,
+  "requires": [],
+  "description": "Trains light units."
+ },
+ {
+  "id": "m_heavy",
+  "name": "Heavy Forge",
+  "faction": "machines",
+  "kind": "heavy",
+  "hp": 2200,
+  "armor": 3,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 200,
+   "wood": 100,
+   "gold": 50
+  },
+  "buildTime": 55,
+  "requires": [
+   "m_tier2"
+  ],
+  "description": "Produces vehicles, heavy organisms and siege."
+ },
+ {
+  "id": "m_air",
+  "name": "Drone Spire",
+  "faction": "machines",
+  "kind": "air",
+  "hp": 1980,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 200,
+   "wood": 100,
+   "gold": 75
+  },
+  "buildTime": 55,
+  "requires": [
+   "m_tier2"
+  ],
+  "description": "Produces aircraft."
+ },
+ {
+  "id": "m_research",
+  "name": "Logic Array",
+  "faction": "machines",
+  "kind": "research",
+  "hp": 1760,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 0
+  },
+  "buildTime": 40,
+  "requires": [
+   "m_infantry"
+  ],
+  "description": "Military and faction research."
+ },
+ {
+  "id": "m_tower",
+  "name": "Pulse Tower",
+  "faction": "machines",
+  "kind": "tower",
+  "hp": 896,
+  "armor": 4,
+  "size": 2,
+  "sight": 10,
+  "cost": {
+   "iron": 110,
+   "wood": 50,
+   "gold": 30
+  },
+  "buildTime": 30,
+  "requires": [
+   "m_infantry"
+  ],
+  "description": "Heavily armored tower; linked to the network it gains +25% damage and +1 range.",
+  "weapon": {
+   "damage": 13,
+   "interval": 1.1,
+   "range": 7,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "pulse",
+   "projectileSpeed": 20
+  },
+  "abilities": [
+   "detector",
+   "networkNode"
+  ],
+  "params": {
+   "detectRange": 8,
+   "nodeRadius": 5
+  }
+ },
+ {
+  "id": "m_forward",
+  "name": "Relay Pylon",
+  "faction": "machines",
+  "kind": "forward",
+  "hp": 1430,
+  "armor": 3,
+  "size": 2,
+  "sight": 10,
+  "cost": {
+   "iron": 150,
+   "wood": 75,
+   "gold": 25
+  },
+  "buildTime": 40,
+  "requires": [
+   "m_infantry"
+  ],
+  "description": "Network relay: links all machines in a wide radius and accepts resources.",
+  "abilities": [
+   "networkNode",
+   "dropoff"
+  ],
+  "params": {
+   "nodeRadius": 9
+  }
+ },
+ {
+  "id": "a_hq",
+  "name": "Hive Heart",
+  "faction": "aliens",
+  "kind": "hq",
+  "hp": 3300,
+  "armor": 3,
+  "size": 4,
+  "sight": 11,
+  "cost": {
+   "iron": 400,
+   "wood": 150,
+   "gold": 0
+  },
+  "buildTime": 90,
+  "requires": [],
+  "description": "Main base. Trains workers, accepts resources, researches tiers.",
+  "weapon": {
+   "damage": 8,
+   "interval": 1.0,
+   "range": 6,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "dropoff"
+  ]
+ },
+ {
+  "id": "a_depot",
+  "name": "Siphon Gland",
+  "faction": "aliens",
+  "kind": "depot",
+  "hp": 1320,
+  "armor": 2,
+  "size": 2,
+  "sight": 8,
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 35,
+  "requires": [],
+  "description": "Resource drop-off; researches economy upgrades.",
+  "abilities": [
+   "dropoff"
+  ]
+ },
+ {
+  "id": "a_infantry",
+  "name": "Brood Hollow",
+  "faction": "aliens",
+  "kind": "infantry",
+  "hp": 1980,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 150,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 45,
+  "requires": [],
+  "description": "Trains light units."
+ },
+ {
+  "id": "a_heavy",
+  "name": "Ripening Den",
+  "faction": "aliens",
+  "kind": "heavy",
+  "hp": 2200,
+  "armor": 3,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 200,
+   "wood": 100,
+   "gold": 50
+  },
+  "buildTime": 55,
+  "requires": [
+   "a_tier2"
+  ],
+  "description": "Produces vehicles, heavy organisms and siege."
+ },
+ {
+  "id": "a_air",
+  "name": "Aerie Bloom",
+  "faction": "aliens",
+  "kind": "air",
+  "hp": 1980,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 200,
+   "wood": 100,
+   "gold": 75
+  },
+  "buildTime": 55,
+  "requires": [
+   "a_tier2"
+  ],
+  "description": "Produces aircraft."
+ },
+ {
+  "id": "a_research",
+  "name": "Cortex Garden",
+  "faction": "aliens",
+  "kind": "research",
+  "hp": 1760,
+  "armor": 2,
+  "size": 3,
+  "sight": 8,
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 0
+  },
+  "buildTime": 40,
+  "requires": [
+   "a_infantry"
+  ],
+  "description": "Military and faction research."
+ },
+ {
+  "id": "a_tower",
+  "name": "Thorn Tower",
+  "faction": "aliens",
+  "kind": "tower",
+  "hp": 800,
+  "armor": 2,
+  "size": 2,
+  "sight": 10,
+  "cost": {
+   "iron": 90,
+   "wood": 45,
+   "gold": 20
+  },
+  "buildTime": 30,
+  "requires": [
+   "a_infantry"
+  ],
+  "description": "Fast-growing thorn emplacement; regenerates inside the Bloom.",
+  "weapon": {
+   "damage": 12,
+   "interval": 0.9,
+   "range": 6.5,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "spine",
+   "projectileSpeed": 16
+  },
+  "abilities": [
+   "detector"
+  ],
+  "params": {
+   "detectRange": 8
+  }
+ },
+ {
+  "id": "a_forward",
+  "name": "Root Node",
+  "faction": "aliens",
+  "kind": "forward",
+  "hp": 1430,
+  "armor": 3,
+  "size": 2,
+  "sight": 10,
+  "cost": {
+   "iron": 150,
+   "wood": 75,
+   "gold": 25
+  },
+  "buildTime": 40,
+  "requires": [
+   "a_infantry"
+  ],
+  "description": "Spreads Bloom (regeneration and speed) and accepts resources.",
+  "abilities": [
+   "bloomNode",
+   "dropoff"
+  ],
+  "params": {
+   "bloomRadius": 10
+  }
+ }
+]

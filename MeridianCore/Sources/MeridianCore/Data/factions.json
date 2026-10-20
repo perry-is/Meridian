@@ -1,0 +1,26 @@
+[
+ {
+  "faction": "humans",
+  "name": "Terran Concord",
+  "tagline": "Tactical Adaptability",
+  "hpMult": 1.0,
+  "buildTimeMult": 1.0,
+  "description": "Combined-arms engineers. Configurable units and towers, forward posts that repair and accept resources, staging bonuses near owned territory."
+ },
+ {
+  "faction": "machines",
+  "name": "The Lattice",
+  "tagline": "Networked Strength",
+  "hpMult": 1.35,
+  "buildTimeMult": 1.4,
+  "description": "Slow to build, hard to kill. Units linked to two allies or a network structure take less damage and hit harder. EMP and jamming break the link."
+ },
+ {
+  "faction": "aliens",
+  "name": "The Verdant Brood",
+  "tagline": "Rapid Expansion",
+  "hpMult": 0.8,
+  "buildTimeMult": 0.75,
+  "description": "Fast-growing organisms that regenerate and move faster inside their Bloom territory. Adaptations force sharp tradeoffs."
+ }
+]

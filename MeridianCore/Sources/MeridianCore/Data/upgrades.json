@@ -1,0 +1,1185 @@
+[
+ {
+  "id": "h_tier2",
+  "name": "Field Command",
+  "faction": "humans",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "hq",
+  "requires": [
+   "h_infantry"
+  ],
+  "tier": 2,
+  "effects": [],
+  "description": "Unlocks tier 2 structures and units."
+ },
+ {
+  "id": "h_tier3",
+  "name": "Strategic Command",
+  "faction": "humans",
+  "cost": {
+   "iron": 200,
+   "wood": 150,
+   "gold": 150
+  },
+  "time": 60,
+  "researchedAt": "hq",
+  "requires": [
+   "h_tier2",
+   "h_research"
+  ],
+  "tier": 3,
+  "effects": [],
+  "description": "Unlocks tier 3 units."
+ },
+ {
+  "id": "h_econ1",
+  "name": "Efficient Harvesting",
+  "faction": "humans",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 0
+  },
+  "time": 30,
+  "researchedAt": "depot",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "gather",
+    "target": "workers",
+    "mul": 1.15
+   }
+  ],
+  "description": "+15% gathering speed."
+ },
+ {
+  "id": "h_econ2",
+  "name": "Advanced Harvesting",
+  "faction": "humans",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 45,
+  "researchedAt": "depot",
+  "requires": [
+   "h_econ1",
+   "h_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "gather",
+    "target": "workers",
+    "mul": 1.15
+   }
+  ],
+  "description": "+15% gathering speed."
+ },
+ {
+  "id": "h_gw1",
+  "name": "Ground Weapons I",
+  "faction": "humans",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "h_gw2",
+  "name": "Ground Weapons II",
+  "faction": "humans",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "h_gw1",
+   "h_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "h_gw3",
+  "name": "Ground Weapons III",
+  "faction": "humans",
+  "cost": {
+   "iron": 200,
+   "wood": 150,
+   "gold": 125
+  },
+  "time": 60,
+  "researchedAt": "research",
+  "requires": [
+   "h_gw2",
+   "h_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "h_ga1",
+  "name": "Ground Armor I",
+  "faction": "humans",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "ground",
+    "add": 1
+   }
+  ],
+  "description": "+1 ground unit armor."
+ },
+ {
+  "id": "h_ga2",
+  "name": "Ground Armor II",
+  "faction": "humans",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "h_ga1",
+   "h_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "ground",
+    "add": 1
+   }
+  ],
+  "description": "+1 ground unit armor."
+ },
+ {
+  "id": "h_aw1",
+  "name": "Air Weapons I",
+  "faction": "humans",
+  "cost": {
+   "iron": 125,
+   "wood": 75,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "h_air"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "air",
+    "mul": 1.12
+   },
+   {
+    "stat": "armor",
+    "target": "air",
+    "add": 1
+   }
+  ],
+  "description": "+12% air damage, +1 air armor."
+ },
+ {
+  "id": "h_mob",
+  "name": "Mobility Systems",
+  "faction": "humans",
+  "cost": {
+   "iron": 125,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "h_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "speed",
+    "target": "ground",
+    "mul": 1.12
+   }
+  ],
+  "description": "+12% ground unit speed."
+ },
+ {
+  "id": "h_tower",
+  "name": "Fortification",
+  "faction": "humans",
+  "cost": {
+   "iron": 100,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "h_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "hp",
+    "target": "towers",
+    "mul": 1.3
+   },
+   {
+    "stat": "range",
+    "target": "towers",
+    "add": 1
+   },
+   {
+    "stat": "hp",
+    "target": "buildings",
+    "mul": 1.1
+   }
+  ],
+  "description": "Towers +30% HP and +1 range; buildings +10% HP."
+ },
+ {
+  "id": "m_tier2",
+  "name": "Network Core",
+  "faction": "machines",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "hq",
+  "requires": [
+   "m_infantry"
+  ],
+  "tier": 2,
+  "effects": [],
+  "description": "Unlocks tier 2 structures and units."
+ },
+ {
+  "id": "m_tier3",
+  "name": "Singularity Core",
+  "faction": "machines",
+  "cost": {
+   "iron": 200,
+   "wood": 150,
+   "gold": 150
+  },
+  "time": 60,
+  "researchedAt": "hq",
+  "requires": [
+   "m_tier2",
+   "m_research"
+  ],
+  "tier": 3,
+  "effects": [],
+  "description": "Unlocks tier 3 units."
+ },
+ {
+  "id": "m_econ1",
+  "name": "Efficient Harvesting",
+  "faction": "machines",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 0
+  },
+  "time": 30,
+  "researchedAt": "depot",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "gather",
+    "target": "workers",
+    "mul": 1.15
+   }
+  ],
+  "description": "+15% gathering speed."
+ },
+ {
+  "id": "m_econ2",
+  "name": "Advanced Harvesting",
+  "faction": "machines",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 45,
+  "researchedAt": "depot",
+  "requires": [
+   "m_econ1",
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "gather",
+    "target": "workers",
+    "mul": 1.15
+   }
+  ],
+  "description": "+15% gathering speed."
+ },
+ {
+  "id": "m_gw1",
+  "name": "Ground Weapons I",
+  "faction": "machines",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "m_gw2",
+  "name": "Ground Weapons II",
+  "faction": "machines",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "m_gw1",
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "m_gw3",
+  "name": "Ground Weapons III",
+  "faction": "machines",
+  "cost": {
+   "iron": 200,
+   "wood": 150,
+   "gold": 125
+  },
+  "time": 60,
+  "researchedAt": "research",
+  "requires": [
+   "m_gw2",
+   "m_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "m_ga1",
+  "name": "Ground Armor I",
+  "faction": "machines",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "ground",
+    "add": 1
+   }
+  ],
+  "description": "+1 ground unit armor."
+ },
+ {
+  "id": "m_ga2",
+  "name": "Ground Armor II",
+  "faction": "machines",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "m_ga1",
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "ground",
+    "add": 1
+   }
+  ],
+  "description": "+1 ground unit armor."
+ },
+ {
+  "id": "m_aw1",
+  "name": "Air Weapons I",
+  "faction": "machines",
+  "cost": {
+   "iron": 125,
+   "wood": 75,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "m_air"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "air",
+    "mul": 1.12
+   },
+   {
+    "stat": "armor",
+    "target": "air",
+    "add": 1
+   }
+  ],
+  "description": "+12% air damage, +1 air armor."
+ },
+ {
+  "id": "m_mob",
+  "name": "Mobility Systems",
+  "faction": "machines",
+  "cost": {
+   "iron": 125,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "speed",
+    "target": "ground",
+    "mul": 1.12
+   }
+  ],
+  "description": "+12% ground unit speed."
+ },
+ {
+  "id": "m_tower",
+  "name": "Fortification",
+  "faction": "machines",
+  "cost": {
+   "iron": 100,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "hp",
+    "target": "towers",
+    "mul": 1.3
+   },
+   {
+    "stat": "range",
+    "target": "towers",
+    "add": 1
+   },
+   {
+    "stat": "hp",
+    "target": "buildings",
+    "mul": 1.1
+   }
+  ],
+  "description": "Towers +30% HP and +1 range; buildings +10% HP."
+ },
+ {
+  "id": "a_tier2",
+  "name": "Hive Maturation",
+  "faction": "aliens",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "hq",
+  "requires": [
+   "a_infantry"
+  ],
+  "tier": 2,
+  "effects": [],
+  "description": "Unlocks tier 2 structures and units."
+ },
+ {
+  "id": "a_tier3",
+  "name": "Apex Maturation",
+  "faction": "aliens",
+  "cost": {
+   "iron": 200,
+   "wood": 150,
+   "gold": 150
+  },
+  "time": 60,
+  "researchedAt": "hq",
+  "requires": [
+   "a_tier2",
+   "a_research"
+  ],
+  "tier": 3,
+  "effects": [],
+  "description": "Unlocks tier 3 units."
+ },
+ {
+  "id": "a_econ1",
+  "name": "Efficient Harvesting",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 0
+  },
+  "time": 30,
+  "researchedAt": "depot",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "gather",
+    "target": "workers",
+    "mul": 1.15
+   }
+  ],
+  "description": "+15% gathering speed."
+ },
+ {
+  "id": "a_econ2",
+  "name": "Advanced Harvesting",
+  "faction": "aliens",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 45,
+  "researchedAt": "depot",
+  "requires": [
+   "a_econ1",
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "gather",
+    "target": "workers",
+    "mul": 1.15
+   }
+  ],
+  "description": "+15% gathering speed."
+ },
+ {
+  "id": "a_gw1",
+  "name": "Ground Weapons I",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "a_gw2",
+  "name": "Ground Weapons II",
+  "faction": "aliens",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "a_gw1",
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "a_gw3",
+  "name": "Ground Weapons III",
+  "faction": "aliens",
+  "cost": {
+   "iron": 200,
+   "wood": 150,
+   "gold": 125
+  },
+  "time": 60,
+  "researchedAt": "research",
+  "requires": [
+   "a_gw2",
+   "a_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "ground",
+    "mul": 1.1
+   }
+  ],
+  "description": "+10% ground unit damage."
+ },
+ {
+  "id": "a_ga1",
+  "name": "Ground Armor I",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 50,
+   "gold": 25
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [],
+  "tier": 1,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "ground",
+    "add": 1
+   }
+  ],
+  "description": "+1 ground unit armor."
+ },
+ {
+  "id": "a_ga2",
+  "name": "Ground Armor II",
+  "faction": "aliens",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "a_ga1",
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "ground",
+    "add": 1
+   }
+  ],
+  "description": "+1 ground unit armor."
+ },
+ {
+  "id": "a_aw1",
+  "name": "Air Weapons I",
+  "faction": "aliens",
+  "cost": {
+   "iron": 125,
+   "wood": 75,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "a_air"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "air",
+    "mul": 1.12
+   },
+   {
+    "stat": "armor",
+    "target": "air",
+    "add": 1
+   }
+  ],
+  "description": "+12% air damage, +1 air armor."
+ },
+ {
+  "id": "a_mob",
+  "name": "Mobility Systems",
+  "faction": "aliens",
+  "cost": {
+   "iron": 125,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "speed",
+    "target": "ground",
+    "mul": 1.12
+   }
+  ],
+  "description": "+12% ground unit speed."
+ },
+ {
+  "id": "a_tower",
+  "name": "Fortification",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "hp",
+    "target": "towers",
+    "mul": 1.3
+   },
+   {
+    "stat": "range",
+    "target": "towers",
+    "add": 1
+   },
+   {
+    "stat": "hp",
+    "target": "buildings",
+    "mul": 1.1
+   }
+  ],
+  "description": "Towers +30% HP and +1 range; buildings +10% HP."
+ },
+ {
+  "id": "h_doctrine",
+  "name": "Adaptive Doctrine",
+  "faction": "humans",
+  "cost": {
+   "iron": 100,
+   "wood": 75,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "h_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "range",
+    "target": "h_ranger",
+    "add": 1
+   },
+   {
+    "stat": "range",
+    "target": "h_skyguard",
+    "add": 1
+   },
+   {
+    "stat": "speed",
+    "target": "h_lancer",
+    "mul": 1.15
+   }
+  ],
+  "description": "Rangers & Skyguards +1 range, Lancers +15% speed."
+ },
+ {
+  "id": "h_logistics",
+  "name": "Field Logistics",
+  "faction": "humans",
+  "cost": {
+   "iron": 100,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "h_forward"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "repairRate",
+    "target": "h_forward",
+    "mul": 2.0
+   },
+   {
+    "stat": "stagingRadius",
+    "target": "all",
+    "add": 3
+   },
+   {
+    "stat": "buildTime",
+    "target": "h_tower",
+    "mul": 0.7
+   }
+  ],
+  "description": "Forward repair x2, staging radius +3, towers build 30% faster."
+ },
+ {
+  "id": "h_composite",
+  "name": "Composite Plating",
+  "faction": "humans",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 100
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "h_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "mech",
+    "add": 2
+   }
+  ],
+  "description": "+2 armor for vehicles and aircraft."
+ },
+ {
+  "id": "m_mesh",
+  "name": "Mesh Protocol",
+  "faction": "machines",
+  "cost": {
+   "iron": 100,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "linkRadius",
+    "target": "all",
+    "add": 1.5
+   },
+   {
+    "stat": "linkBonus",
+    "target": "all",
+    "add": 0.05
+   }
+  ],
+  "description": "Link radius +1.5 and link bonuses +5%."
+ },
+ {
+  "id": "m_harden",
+  "name": "Hardened Cores",
+  "faction": "machines",
+  "cost": {
+   "iron": 125,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "m_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "empResist",
+    "target": "all",
+    "add": 0.7
+   },
+   {
+    "stat": "hp",
+    "target": "mech",
+    "mul": 1.08
+   }
+  ],
+  "description": "EMP/jam disruption 70% shorter; +8% HP."
+ },
+ {
+  "id": "m_overclock",
+  "name": "Overclock",
+  "faction": "machines",
+  "cost": {
+   "iron": 150,
+   "wood": 100,
+   "gold": 100
+  },
+  "time": 50,
+  "researchedAt": "research",
+  "requires": [
+   "m_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "interval",
+    "target": "all",
+    "mul": 0.9
+   }
+  ],
+  "description": "All weapons fire 10% faster."
+ },
+ {
+  "id": "a_chitin",
+  "name": "Chitin Plating",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 75,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "armor",
+    "target": "all",
+    "add": 2
+   },
+   {
+    "stat": "speed",
+    "target": "ground",
+    "mul": 0.92
+   }
+  ],
+  "description": "Adaptation: +2 armor, -8% ground speed.",
+  "exclusiveWith": "a_sinew"
+ },
+ {
+  "id": "a_sinew",
+  "name": "Sinew Weave",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 75,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "a_tier2"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "speed",
+    "target": "all",
+    "mul": 1.18
+   },
+   {
+    "stat": "hp",
+    "target": "all",
+    "mul": 0.92
+   }
+  ],
+  "description": "Adaptation: +18% speed, -8% HP.",
+  "exclusiveWith": "a_chitin"
+ },
+ {
+  "id": "a_acid",
+  "name": "Acid Glands",
+  "faction": "aliens",
+  "cost": {
+   "iron": 125,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "a_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "damage",
+    "target": "all",
+    "mul": 1.15
+   }
+  ],
+  "description": "Adaptation: +15% damage.",
+  "exclusiveWith": "a_gestation"
+ },
+ {
+  "id": "a_gestation",
+  "name": "Rapid Gestation",
+  "faction": "aliens",
+  "cost": {
+   "iron": 125,
+   "wood": 100,
+   "gold": 75
+  },
+  "time": 45,
+  "researchedAt": "research",
+  "requires": [
+   "a_tier3"
+  ],
+  "tier": 3,
+  "effects": [
+   {
+    "stat": "buildTime",
+    "target": "units",
+    "mul": 0.8
+   }
+  ],
+  "description": "Adaptation: units grow 20% faster.",
+  "exclusiveWith": "a_acid"
+ },
+ {
+  "id": "a_roots",
+  "name": "Deep Roots",
+  "faction": "aliens",
+  "cost": {
+   "iron": 100,
+   "wood": 100,
+   "gold": 50
+  },
+  "time": 40,
+  "researchedAt": "research",
+  "requires": [
+   "a_forward"
+  ],
+  "tier": 2,
+  "effects": [
+   {
+    "stat": "bloomRadius",
+    "target": "all",
+    "add": 3
+   },
+   {
+    "stat": "regen",
+    "target": "all",
+    "mul": 1.5
+   }
+  ],
+  "description": "Bloom radius +3, regeneration +50%."
+ }
+]

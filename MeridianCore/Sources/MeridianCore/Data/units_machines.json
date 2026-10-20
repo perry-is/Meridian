@@ -1,0 +1,599 @@
+[
+ {
+  "id": "m_fabricator",
+  "name": "Fabricator",
+  "faction": "machines",
+  "role": "worker",
+  "hp": 50,
+  "armor": 1,
+  "speed": 2.2,
+  "sight": 7,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech",
+   "worker"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 50,
+   "wood": 0,
+   "gold": 0
+  },
+  "buildTime": 12,
+  "producedAt": "hq",
+  "requires": [],
+  "description": "Gathers, assembles structures and repairs mechanical units.",
+  "strongVs": "-",
+  "weakVs": "Any combat unit.",
+  "weapon": {
+   "damage": 4,
+   "interval": 1.2,
+   "range": 0.6,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "bullet"
+  },
+  "abilities": [
+   "gather",
+   "build",
+   "repair"
+  ]
+ },
+ {
+  "id": "m_recon",
+  "name": "Recon Drone",
+  "faction": "machines",
+  "role": "scout",
+  "hp": 55,
+  "armor": 0,
+  "speed": 3.9,
+  "sight": 12,
+  "domain": "air",
+  "tags": [
+   "light",
+   "mech",
+   "air"
+  ],
+  "radius": 0.3,
+  "cost": {
+   "iron": 30,
+   "wood": 30,
+   "gold": 0
+  },
+  "buildTime": 14,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Unarmed flying sensor. Detects cloaked units and acts as a network node.",
+  "strongVs": "Vision, detection.",
+  "weakVs": "Any anti-air.",
+  "abilities": [
+   "detector"
+  ],
+  "params": {
+   "detectRange": 9
+  }
+ },
+ {
+  "id": "m_arc",
+  "name": "Arc Sentry",
+  "faction": "machines",
+  "role": "infantry",
+  "hp": 90,
+  "armor": 1,
+  "speed": 2.1,
+  "sight": 8,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 50,
+   "wood": 35,
+   "gold": 0
+  },
+  "buildTime": 17,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Arc projector whose bolts jump to 2 nearby enemies.",
+  "strongVs": "Clustered light units.",
+  "weakVs": "Spread-out armor, Breachers.",
+  "weapon": {
+   "damage": 8,
+   "interval": 1.0,
+   "range": 5,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "arc"
+  },
+  "abilities": [
+   "chain"
+  ],
+  "params": {
+   "chainCount": 2,
+   "chainFalloff": 0.5,
+   "chainRange": 2.5
+  }
+ },
+ {
+  "id": "m_shockframe",
+  "name": "Shockframe",
+  "faction": "machines",
+  "role": "assault",
+  "hp": 150,
+  "armor": 3,
+  "speed": 2.2,
+  "sight": 7,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 65,
+   "wood": 45,
+   "gold": 0
+  },
+  "buildTime": 20,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Armored brawler with a shockwave slam.",
+  "strongVs": "Light infantry swarms.",
+  "weakVs": "Anti-armor, kiting.",
+  "weapon": {
+   "damage": 13,
+   "interval": 1.3,
+   "range": 1.4,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "pulse",
+   "splash": 1.0,
+   "bonus": {
+    "light": 1.2
+   }
+  }
+ },
+ {
+  "id": "m_piercer",
+  "name": "Piercer",
+  "faction": "machines",
+  "role": "antiarmor",
+  "hp": 100,
+  "armor": 2,
+  "speed": 1.9,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 70,
+   "wood": 45,
+   "gold": 20
+  },
+  "buildTime": 24,
+  "producedAt": "infantry",
+  "requires": [
+   "m_tier2"
+  ],
+  "description": "Railgun platform; slugs pierce through a line of targets.",
+  "strongVs": "Tanks, Colossus, lines of armor.",
+  "weakVs": "Fast melee, air.",
+  "weapon": {
+   "damage": 30,
+   "interval": 2.6,
+   "range": 7.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "rail",
+   "bonus": {
+    "armored": 1.8,
+    "light": 0.6
+   }
+  },
+  "abilities": [
+   "pierce"
+  ],
+  "params": {
+   "pierceLength": 4
+  }
+ },
+ {
+  "id": "m_flak",
+  "name": "Flak Drone",
+  "faction": "machines",
+  "role": "antiair",
+  "hp": 100,
+  "armor": 1,
+  "speed": 2.4,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech",
+   "hover"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 55,
+   "wood": 45,
+   "gold": 15
+  },
+  "buildTime": 19,
+  "producedAt": "infantry",
+  "requires": [],
+  "description": "Hovering flak battery that shreds groups of aircraft.",
+  "strongVs": "Clumped air.",
+  "weakVs": "Ground units (cannot shoot them).",
+  "weapon": {
+   "damage": 8,
+   "interval": 0.8,
+   "range": 7,
+   "targetsGround": false,
+   "targetsAir": true,
+   "projectile": "flak",
+   "splash": 1.2,
+   "projectileSpeed": 16
+  }
+ },
+ {
+  "id": "m_repair",
+  "name": "Repair Drone",
+  "faction": "machines",
+  "role": "support",
+  "hp": 85,
+  "armor": 1,
+  "speed": 3.0,
+  "sight": 8,
+  "domain": "air",
+  "tags": [
+   "light",
+   "mech",
+   "air"
+  ],
+  "radius": 0.3,
+  "cost": {
+   "iron": 50,
+   "wood": 45,
+   "gold": 20
+  },
+  "buildTime": 20,
+  "producedAt": "infantry",
+  "requires": [
+   "m_tier2"
+  ],
+  "description": "Flying repair unit for mechanical units and structures.",
+  "strongVs": "Sustained machine pushes.",
+  "weakVs": "Anti-air.",
+  "abilities": [
+   "repairMech"
+  ],
+  "params": {
+   "healRate": 9,
+   "healRange": 3.5
+  }
+ },
+ {
+  "id": "m_jammer",
+  "name": "Jammer",
+  "faction": "machines",
+  "role": "infiltration",
+  "hp": 120,
+  "armor": 1,
+  "speed": 2.3,
+  "sight": 10,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 70,
+   "wood": 60,
+   "gold": 45
+  },
+  "buildTime": 30,
+  "producedAt": "infantry",
+  "requires": [
+   "m_tier2",
+   "m_research"
+  ],
+  "description": "Cloaks while stationary. Its field slows enemy weapons by 40% and silences enemy towers' detection.",
+  "strongVs": "Tower lines, enemy blobs.",
+  "weakVs": "Detectors, being caught moving.",
+  "abilities": [
+   "jamField",
+   "cloakStationary"
+  ],
+  "params": {
+   "jamRadius": 5,
+   "jamIntervalMult": 1.4
+  }
+ },
+ {
+  "id": "m_runner",
+  "name": "Skirmish Runner",
+  "faction": "machines",
+  "role": "fast",
+  "hp": 120,
+  "armor": 2,
+  "speed": 3.9,
+  "sight": 10,
+  "domain": "ground",
+  "tags": [
+   "light",
+   "mech"
+  ],
+  "radius": 0.35,
+  "cost": {
+   "iron": 70,
+   "wood": 50,
+   "gold": 0
+  },
+  "buildTime": 22,
+  "producedAt": "heavy",
+  "requires": [],
+  "description": "Fast tracked skirmisher.",
+  "strongVs": "Workers, light units.",
+  "weakVs": "Anti-armor, Shockframes.",
+  "weapon": {
+   "damage": 10,
+   "interval": 0.7,
+   "range": 4.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "beam",
+   "bonus": {
+    "light": 1.3
+   }
+  }
+ },
+ {
+  "id": "m_bulwark",
+  "name": "Bulwark Walker",
+  "faction": "machines",
+  "role": "heavy",
+  "hp": 380,
+  "armor": 5,
+  "speed": 1.5,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech",
+   "massive"
+  ],
+  "radius": 0.75,
+  "cost": {
+   "iron": 170,
+   "wood": 110,
+   "gold": 80
+  },
+  "buildTime": 45,
+  "producedAt": "heavy",
+  "requires": [
+   "m_tier3"
+  ],
+  "description": "Massive walker with dual pulse cannons that also track aircraft.",
+  "strongVs": "Mixed armies, air.",
+  "weakVs": "Lancers, Spinecasters, siege.",
+  "weapon": {
+   "damage": 24,
+   "interval": 1.0,
+   "range": 6,
+   "targetsGround": true,
+   "targetsAir": true,
+   "projectile": "pulse",
+   "projectileSpeed": 16,
+   "bonus": {
+    "air": 0.6
+   }
+  }
+ },
+ {
+  "id": "m_coil",
+  "name": "Coil Cannon",
+  "faction": "machines",
+  "role": "siege",
+  "hp": 170,
+  "armor": 2,
+  "speed": 1.4,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech"
+  ],
+  "radius": 0.6,
+  "cost": {
+   "iron": 130,
+   "wood": 80,
+   "gold": 70
+  },
+  "buildTime": 40,
+  "producedAt": "heavy",
+  "requires": [
+   "m_tier3"
+  ],
+  "description": "Magnetic siege gun. Must anchor for 2s before firing.",
+  "strongVs": "Towers, structures, heavies.",
+  "weakVs": "Fast units, air.",
+  "weapon": {
+   "damage": 75,
+   "interval": 5.0,
+   "range": 12.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "rail",
+   "splash": 0.9,
+   "projectileSpeed": 20,
+   "minRange": 4,
+   "bonus": {
+    "structure": 1.6
+   }
+  },
+  "abilities": [
+   "setup"
+  ],
+  "params": {
+   "setupTime": 2
+  }
+ },
+ {
+  "id": "m_suppress",
+  "name": "Suppression Array",
+  "faction": "machines",
+  "role": "denial",
+  "hp": 180,
+  "armor": 3,
+  "speed": 1.6,
+  "sight": 9,
+  "domain": "ground",
+  "tags": [
+   "armored",
+   "mech"
+  ],
+  "radius": 0.55,
+  "cost": {
+   "iron": 90,
+   "wood": 80,
+   "gold": 30
+  },
+  "buildTime": 28,
+  "producedAt": "heavy",
+  "requires": [],
+  "description": "Projects a field that slows enemy ground units by 40% and burns them.",
+  "strongVs": "Melee rushes, fast units.",
+  "weakVs": "Ranged units, air.",
+  "abilities": [
+   "slowField"
+  ],
+  "params": {
+   "slowRadius": 4.5,
+   "slowMult": 0.6,
+   "fieldDps": 4
+  }
+ },
+ {
+  "id": "m_vector",
+  "name": "Vector",
+  "faction": "machines",
+  "role": "interceptor",
+  "hp": 130,
+  "armor": 2,
+  "speed": 4.0,
+  "sight": 10,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "mech",
+   "air"
+  ],
+  "radius": 0.45,
+  "cost": {
+   "iron": 95,
+   "wood": 55,
+   "gold": 45
+  },
+  "buildTime": 30,
+  "producedAt": "air",
+  "requires": [],
+  "description": "Heavy interceptor with long-range missiles.",
+  "strongVs": "Bombers, transports.",
+  "weakVs": "Ground anti-air, swarming Wisps.",
+  "weapon": {
+   "damage": 22,
+   "interval": 1.6,
+   "range": 6,
+   "targetsGround": false,
+   "targetsAir": true,
+   "projectile": "missile",
+   "projectileSpeed": 16
+  }
+ },
+ {
+  "id": "m_quake",
+  "name": "Quake Drone",
+  "faction": "machines",
+  "role": "bomber",
+  "hp": 240,
+  "armor": 3,
+  "speed": 2.6,
+  "sight": 9,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "mech",
+   "massive",
+   "air"
+  ],
+  "radius": 0.6,
+  "cost": {
+   "iron": 135,
+   "wood": 95,
+   "gold": 80
+  },
+  "buildTime": 42,
+  "producedAt": "air",
+  "requires": [
+   "m_tier3"
+  ],
+  "description": "Seismic bomber that shakes everything around its target.",
+  "strongVs": "Ground blobs.",
+  "weakVs": "Interceptors, flak.",
+  "weapon": {
+   "damage": 30,
+   "interval": 2.2,
+   "range": 3.5,
+   "targetsGround": true,
+   "targetsAir": false,
+   "projectile": "quake",
+   "splash": 2.2,
+   "bonus": {
+    "structure": 1.3
+   }
+  }
+ },
+ {
+  "id": "m_carrier",
+  "name": "Carrier Drone",
+  "faction": "machines",
+  "role": "transport",
+  "hp": 280,
+  "armor": 3,
+  "speed": 3.2,
+  "sight": 9,
+  "domain": "air",
+  "tags": [
+   "armored",
+   "mech",
+   "air"
+  ],
+  "radius": 0.6,
+  "cost": {
+   "iron": 90,
+   "wood": 80,
+   "gold": 25
+  },
+  "buildTime": 30,
+  "producedAt": "air",
+  "requires": [],
+  "description": "Carries 8 units and acts as a mobile network relay.",
+  "strongVs": "Extending the network.",
+  "weakVs": "Interceptors.",
+  "abilities": [
+   "transport",
+   "networkNode"
+  ],
+  "params": {
+   "capacity": 8,
+   "nodeRadius": 5
+  }
+ }
+]
