@@ -15,6 +15,10 @@ final class EntityView {
     var lastFire: Double = -1
     var bodyY: CGFloat = 0
     var turn: CGFloat = 0
+    var lights: [SKSpriteNode] = []
+    var fxTimer: Double = 0
+    var fire: SKSpriteNode?
+    var wasComplete = true
 
     init(body: SKSpriteNode, shadow: SKSpriteNode?) {
         self.body = body
@@ -53,6 +57,10 @@ final class GameScene: SKScene {
     var hotspot: [(Double, Double)] = []
     var spectateTimer = 0.0
     var perfFrames: [Double] = []
+    var trailTick = 0
+    var lastProducedSound = -10.0
+    var shakeEnabled = true
+    var sfx: SoundEngine? { SoundEngine.shared }
     let N: Int
 
     init(controller: GameController, size: CGSize) {
@@ -305,10 +313,7 @@ final class GameScene: SKScene {
             if e.isUnit && !e.isMine {
                 animateUnit(e, v, t)
             } else if e.isBuilding {
-                v.body.alpha = e.complete ? 1 : 0.45 + 0.4 * CGFloat(e.buildProgress)
-                if t - e.lastHitTime < 0.08 { v.body.colorBlendFactor = 0.3; v.body.color = SKColor(red: 1, green: 0.3, blue: 0.2, alpha: 1) }
-                else if e.disruptedUntil > t { v.body.colorBlendFactor = 0.4; v.body.color = SKColor(red: 0.4, green: 0.6, blue: 1, alpha: 1) }
-                else { v.body.colorBlendFactor = 0 }
+                animateBuilding(e, v, t)
             } else if e.isResource {
                 let k = ResourceKind(rawValue: e.type)!
                 let full = Double(k == .iron ? world.data.rules.economy.ironNodeAmount : (k == .gold ? world.data.rules.economy.goldNodeAmount : world.data.rules.economy.treeAmount))
@@ -318,11 +323,12 @@ final class GameScene: SKScene {
             let isSel = selected.contains(e.id)
             if isSel {
                 if v.ring == nil {
-                    let r = SKSpriteNode(texture: bank.fx["ring"])
-                    let rad: CGFloat = e.isBuilding ? CGFloat(e.size) * 36 : CGFloat(max(0.35, e.radius)) * 110
+                    let r = SKSpriteNode(texture: bank.fx["selectring"])
+                    let rad: CGFloat = e.isBuilding ? CGFloat(e.size) * 40 : CGFloat(max(0.35, e.radius)) * 140
                     r.size = CGSize(width: rad, height: rad / 2)
                     r.colorBlendFactor = 1
                     r.zPosition = -0.05
+                    r.run(.repeatForever(.sequence([.scale(to: 1.07, duration: 0.45), .scale(to: 0.97, duration: 0.45)])))
                     v.root.addChild(r)
                     v.ring = r
                 }
@@ -330,15 +336,17 @@ final class GameScene: SKScene {
                 v.ring!.isHidden = false
             } else { v.ring?.isHidden = true }
             // Health / progress bars for damaged, selected or constructing things.
-            if !e.isResource && !e.isMine && (isSel || e.hp < e.maxHp - 0.5 || (e.isBuilding && !e.complete)) {
+            let hurt = e.hp < e.maxHp - 0.5
+            let showBar = isSel || (e.isBuilding && (hurt || !e.complete)) || (hurt && (zoom < 1.5 || e.hp < e.maxHp * 0.6))
+            if !e.isResource && !e.isMine && showBar {
                 let bar = bar(bars); bars += 1
-                let w: CGFloat = e.isBuilding ? CGFloat(e.size) * 22 : 26
-                let top: CGFloat = e.isBuilding ? CGFloat(WorldArt.buildingCanvas(world.bdef(e)).h) * (1 - WorldArt.buildingCanvas(world.bdef(e)).anchorY) - 10 :
+                let w: CGFloat = e.isBuilding ? CGFloat(e.size) * 22 : 20
+                let top: CGFloat = e.isBuilding ? BuildingArt.visualHeight(world.bdef(e)) + 10 :
                     (e.isAir ? 38 + v.body.size.height * 0.45 : v.body.size.height * 0.9)
                 bar.0.position = CGPoint(x: v.root.position.x, y: v.root.position.y + top)
-                bar.0.size = CGSize(width: w + 2, height: 5)
+                bar.0.size = CGSize(width: w + 2, height: e.isBuilding ? 6 : 4)
                 let frac = CGFloat(e.isBuilding && !e.complete ? e.buildProgress : e.hp / max(1, e.maxHp))
-                bar.1.size = CGSize(width: max(0.5, w * frac), height: 3)
+                bar.1.size = CGSize(width: max(0.5, w * frac), height: e.isBuilding ? 4 : 2.2)
                 bar.1.position = CGPoint(x: bar.0.position.x - w / 2, y: bar.0.position.y)
                 bar.1.color = e.isBuilding && !e.complete ? SKColor(red: 0.4, green: 0.8, blue: 1, alpha: 1) :
                     (e.owner == ctl.me ? (frac > 0.5 ? SKColor(red: 0.3, green: 0.95, blue: 0.4, alpha: 1) : (frac > 0.25 ? .yellow : .red)) : TeamColor.sk(e.owner))
@@ -349,8 +357,8 @@ final class GameScene: SKScene {
         // Remove views for dead entities.
         if seen.count != views.count {
             for (id, v) in views where !seen.contains(id) {
-                v.root.removeFromParent()
                 views.removeValue(forKey: id)
+                if let e = world.anyEntity(id), !e.alive, !v.root.isHidden { playDeath(e, v) } else { v.root.removeFromParent() }
             }
         }
         // Rally flag for selected production building.
@@ -421,213 +429,6 @@ final class GameScene: SKScene {
         barLayer.addChild(bg); barLayer.addChild(fg)
         barPool.append((bg, fg))
         return (bg, fg)
-    }
-
-    // MARK: Projectiles & effects
-
-    static func styleColor(_ s: String) -> SKColor {
-        switch s {
-        case "bullet": return SKColor(red: 1, green: 0.9, blue: 0.5, alpha: 1)
-        case "rocket", "missile": return SKColor(red: 1, green: 0.55, blue: 0.2, alpha: 1)
-        case "shell", "bomb": return SKColor(red: 1, green: 0.6, blue: 0.25, alpha: 1)
-        case "arc", "pulse", "rail", "beam": return SKColor(red: 0.45, green: 0.95, blue: 1, alpha: 1)
-        case "flak": return SKColor(red: 1, green: 0.85, blue: 0.6, alpha: 1)
-        case "quake": return SKColor(red: 0.6, green: 0.85, blue: 1, alpha: 1)
-        case "acid", "spine": return SKColor(red: 0.6, green: 1, blue: 0.3, alpha: 1)
-        case "spore": return SKColor(red: 0.85, green: 0.5, blue: 1, alpha: 1)
-        case "claw": return SKColor(red: 1, green: 0.95, blue: 0.85, alpha: 1)
-        case "mine": return SKColor(red: 1, green: 0.5, blue: 0.2, alpha: 1)
-        default: return .white
-        }
-    }
-
-    func syncProjectiles() {
-        let ps = world.projectiles
-        while projPool.count < ps.count {
-            let s = SKSpriteNode(texture: bank.fx["bolt"])
-            s.colorBlendFactor = 1
-            s.zPosition = 400
-            worldNode.addChild(s)
-            projPool.append(s)
-        }
-        for (i, p) in ps.enumerated() {
-            let s = projPool[i]
-            s.isHidden = !(world.players[ctl.me].visible[world.tileIndex(p.x, p.y)] > 0)
-            let pos = Iso.scene(p.x, p.y)
-            let total = max(0.05, p.total)
-            let t = min(1, p.age / total)
-            // Altitude: from shooter height to target height, plus an arc for artillery.
-            let srcAlt: CGFloat = 14
-            let dstAlt: CGFloat = p.targetAir ? 34 : 8
-            var alt = srcAlt + (dstAlt - srcAlt) * CGFloat(t)
-            let arcing = ["shell", "acid", "spore", "bomb"].contains(p.style)
-            if arcing { alt += CGFloat(sin(t * .pi)) * CGFloat(min(90, total * 40)) }
-            s.position = CGPoint(x: pos.x, y: pos.y + alt)
-            let dx = Iso.scene(p.tx, p.ty).x - Iso.scene(p.sx, p.sy).x, dy = Iso.scene(p.tx, p.ty).y - Iso.scene(p.sx, p.sy).y
-            s.zRotation = atan2(dy, dx)
-            switch p.style {
-            case "shell", "bomb": s.texture = bank.fx["shell"]; s.size = CGSize(width: 7, height: 7)
-            case "acid", "spore", "flak", "pulse": s.texture = bank.fx["orb"]; s.size = CGSize(width: 10, height: 10)
-            case "rocket", "missile": s.texture = bank.fx["bolt"]; s.size = CGSize(width: 12, height: 4)
-            default: s.texture = bank.fx["bolt"]; s.size = CGSize(width: 9, height: 3)
-            }
-            s.color = GameScene.styleColor(p.style)
-        }
-        for i in ps.count..<projPool.count { projPool[i].isHidden = true }
-    }
-
-    func fx() -> SKSpriteNode? {
-        guard fxBudget > 0 else { return nil }
-        fxBudget -= 1
-        let s = fxPool.popLast() ?? {
-            let n = SKSpriteNode(texture: bank.fx["glow"])
-            n.colorBlendFactor = 1
-            return n
-        }()
-        s.removeAllActions()
-        s.alpha = 1; s.setScale(1); s.zRotation = 0; s.blendMode = .add; s.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        if s.parent == nil { worldNode.addChild(s) }
-        return s
-    }
-
-    func recycle(_ s: SKSpriteNode, after d: TimeInterval) -> SKAction {
-        .sequence([.wait(forDuration: d), .run { [weak self, weak s] in
-            guard let s = s else { return }
-            s.removeFromParent(); s.isHidden = false
-            if (self?.fxPool.count ?? 99) < 300 { self?.fxPool.append(s) }
-        }])
-    }
-
-    func visibleToMe(_ x: Double, _ y: Double) -> Bool { ctl.spectating || world.players[ctl.me].visible[world.tileIndex(x, y)] > 0 }
-
-    func consumeEvents() {
-        for ev in world.events {
-            switch ev {
-            case .shot(_, let fx0, let fy0, let tx, let ty, let style, _, let air):
-                guard visibleToMe(fx0, fy0) || visibleToMe(tx, ty) else { continue }
-                if ["arc", "rail", "beam"].contains(style) { beam(fx0, fy0, tx, ty, style, air) }
-                if style == "claw" { slash(tx, ty, air) }
-                else { muzzle(fx0, fy0, style) }
-            case .impact(let x, let y, let r, let style, let air):
-                if ctl.spectating { hotspot.append((x, y)) }
-                guard visibleToMe(x, y) else { continue }
-                explosion(x, y, radius: r, color: GameScene.styleColor(style), air: air, big: false)
-            case .death(let x, let y, let big, _, let air, let building):
-                guard visibleToMe(x, y) else { continue }
-                explosion(x, y, radius: building ? 2.5 : (big ? 1.6 : 0.7), color: SKColor(red: 1, green: 0.6, blue: 0.25, alpha: 1), air: air, big: true)
-            case .heal(let x, let y):
-                guard visibleToMe(x, y), let s = fx() else { continue }
-                s.texture = bank.fx["spark"]; s.size = CGSize(width: 14, height: 14)
-                s.color = SKColor(red: 0.4, green: 1, blue: 0.5, alpha: 1)
-                let p = Iso.scene(x, y); s.position = CGPoint(x: p.x, y: p.y + 20); s.zPosition = 450
-                s.run(.group([.moveBy(x: 0, y: 14, duration: 0.6), .fadeOut(withDuration: 0.6)]))
-                s.run(recycle(s, after: 0.62))
-            case .emp(let x, let y, let r):
-                guard let s = fx() else { continue }
-                s.texture = bank.fx["ring"]; s.size = CGSize(width: 20, height: 10)
-                s.color = SKColor(red: 0.5, green: 0.8, blue: 1, alpha: 1)
-                s.position = Iso.scene(x, y); s.zPosition = 450
-                s.run(.group([.scale(to: CGFloat(r) * 6.4, duration: 0.4), .fadeOut(withDuration: 0.5)]))
-                s.run(recycle(s, after: 0.52))
-            default: break
-            }
-        }
-        world.events.removeAll(keepingCapacity: true)
-        // Spectator camera drifts toward the densest fighting.
-        if ctl.spectating {
-            spectateTimer -= 1.0 / 60
-            if spectateTimer <= 0 && !hotspot.isEmpty {
-                spectateTimer = 3
-                let hx = hotspot.reduce(0) { $0 + $1.0 } / Double(hotspot.count), hy = hotspot.reduce(0) { $0 + $1.1 } / Double(hotspot.count)
-                cam.run(.move(to: Iso.scene(hx, hy), duration: 1.0))
-                hotspot.removeAll()
-            }
-        }
-        // Command feedback ping.
-        if let cp = ctl.commandPing {
-            ctl.commandPing = nil
-            if let s = fx() {
-                s.texture = bank.fx["ring"]; s.size = CGSize(width: 46, height: 23); s.blendMode = .alpha
-                s.color = cp.2 ? SKColor(red: 1, green: 0.3, blue: 0.25, alpha: 1) : SKColor(red: 0.35, green: 1, blue: 0.45, alpha: 1)
-                s.position = Iso.scene(cp.0, cp.1); s.zPosition = 5
-                s.run(.group([.scale(to: 0.3, duration: 0.45), .fadeOut(withDuration: 0.45)]))
-                s.run(recycle(s, after: 0.47))
-            }
-        }
-        // Persistent cloud visuals.
-        for c in world.clouds where visibleToMe(c.x, c.y) && world.tick % 6 == 0 {
-            guard let s = fx() else { break }
-            s.texture = bank.fx["smoke"]; s.blendMode = .alpha
-            s.size = CGSize(width: CGFloat(c.radius) * 60, height: CGFloat(c.radius) * 30)
-            s.color = c.slow < 1 ? SKColor(red: 0.75, green: 0.45, blue: 0.95, alpha: 1) : SKColor(red: 0.55, green: 0.95, blue: 0.3, alpha: 1)
-            s.alpha = 0.5
-            let p = Iso.scene(c.x + Double(world.rng.state % 7) * 0.05, c.y); s.position = CGPoint(x: p.x, y: p.y + 6); s.zPosition = 90
-            s.run(.group([.fadeOut(withDuration: 0.6), .scale(by: 1.2, duration: 0.6)]))
-            s.run(recycle(s, after: 0.62))
-        }
-    }
-
-    func muzzle(_ x: Double, _ y: Double, _ style: String) {
-        guard let s = fx() else { return }
-        s.texture = bank.fx["glow"]; s.size = CGSize(width: 14, height: 14)
-        s.color = GameScene.styleColor(style)
-        let p = Iso.scene(x, y); s.position = CGPoint(x: p.x, y: p.y + 14); s.zPosition = 450
-        s.run(.fadeOut(withDuration: 0.08)); s.run(recycle(s, after: 0.09))
-    }
-
-    func slash(_ x: Double, _ y: Double, _ air: Bool) {
-        guard let s = fx() else { return }
-        s.texture = bank.fx["spark"]; s.size = CGSize(width: 18, height: 18)
-        s.color = GameScene.styleColor("claw")
-        let p = Iso.scene(x, y); s.position = CGPoint(x: p.x, y: p.y + (air ? 34 : 12)); s.zPosition = 450
-        s.zRotation = CGFloat(world.tick % 4) * 0.4
-        s.run(.group([.fadeOut(withDuration: 0.15), .scale(to: 1.4, duration: 0.15)])); s.run(recycle(s, after: 0.16))
-    }
-
-    func beam(_ x0: Double, _ y0: Double, _ x1: Double, _ y1: Double, _ style: String, _ air: Bool) {
-        guard let s = fx() else { return }
-        let a = Iso.scene(x0, y0), b = Iso.scene(x1, y1)
-        let pa = CGPoint(x: a.x, y: a.y + 16), pb = CGPoint(x: b.x, y: b.y + (air ? 34 : 10))
-        let len = hypot(pb.x - pa.x, pb.y - pa.y)
-        s.texture = bank.fx["beam"]
-        s.anchorPoint = CGPoint(x: 0, y: 0.5)
-        s.size = CGSize(width: len, height: style == "rail" ? 5 : 4)
-        s.position = pa; s.zRotation = atan2(pb.y - pa.y, pb.x - pa.x)
-        s.color = GameScene.styleColor(style); s.zPosition = 455
-        s.run(.fadeOut(withDuration: style == "rail" ? 0.25 : 0.12)); s.run(recycle(s, after: 0.26))
-    }
-
-    func explosion(_ x: Double, _ y: Double, radius: Double, color: SKColor, air: Bool, big: Bool) {
-        let p = Iso.scene(x, y)
-        let base = CGPoint(x: p.x, y: p.y + (air ? 34 : 6))
-        let r = CGFloat(max(0.4, radius))
-        if let s = fx() {
-            s.texture = bank.fx["glow"]; s.size = CGSize(width: 40 * r, height: 30 * r)
-            s.color = color; s.position = base; s.zPosition = 460
-            s.setScale(0.4)
-            s.run(.group([.scale(to: 1.2, duration: 0.22), .fadeOut(withDuration: 0.3)])); s.run(recycle(s, after: 0.32))
-        }
-        guard big || radius > 0.9 else { return }
-        if let s = fx() {
-            s.texture = bank.fx["smoke"]; s.blendMode = .alpha; s.size = CGSize(width: 36 * r, height: 36 * r)
-            s.color = SKColor(white: 0.25, alpha: 1); s.alpha = 0.7
-            s.position = CGPoint(x: base.x, y: base.y + 6); s.zPosition = 458
-            s.run(.group([.moveBy(x: 0, y: 22, duration: 1.0), .fadeOut(withDuration: 1.0), .scale(by: 1.5, duration: 1.0)])); s.run(recycle(s, after: 1.02))
-        }
-        for k in 0..<(big ? 4 : 2) {
-            guard let s = fx() else { break }
-            s.texture = bank.fx["spark"]; s.size = CGSize(width: 10, height: 10)
-            s.color = SKColor(red: 1, green: 0.85, blue: 0.4, alpha: 1)
-            s.position = base; s.zPosition = 461
-            let a = Double(k) * 1.7 + x
-            s.run(.group([.moveBy(x: CGFloat(cos(a)) * 30 * r, y: CGFloat(sin(a)) * 20 * r + 10, duration: 0.35), .fadeOut(withDuration: 0.35)]))
-            s.run(recycle(s, after: 0.37))
-        }
-        if !air && radius > 1.2, let s = fx() {
-            s.texture = bank.fx["scorch"]; s.blendMode = .alpha; s.size = CGSize(width: 46 * r, height: 23 * r)
-            s.color = .black; s.alpha = 0.8; s.position = p; s.zPosition = 4
-            s.run(.sequence([.wait(forDuration: 4), .fadeOut(withDuration: 2)])); s.run(recycle(s, after: 6.1))
-        }
     }
 
     // MARK: Sites, ghost

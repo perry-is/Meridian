@@ -35,6 +35,11 @@ final class TextureBank {
     private(set) var cliffs: [SKTexture] = []
     private(set) var flora: [[SKTexture]] = []
     private(set) var fx: [String: SKTexture] = [:]
+    private(set) var explosion: [SKTexture] = []
+    private(set) var sparks: [SKTexture] = []
+    private(set) var lightning: [SKTexture] = []
+    private(set) var splats: [SKTexture] = []
+    private(set) var shards: [SKTexture] = []
     private(set) var sitePlatform: SKTexture!
     private(set) var siteBeacon: SKTexture!
     /// Cached SwiftUI-friendly icons.
@@ -92,6 +97,14 @@ final class TextureBank {
         for n in fxNames { images["fx_" + n] = .from(WorldArt.effect(n)) }
         images["fx_vignette"] = .from(EnvironmentArt.vignette())
         images["fx_teamring"] = .from(EnvironmentArt.teamRing())
+        for (i, im) in EffectsArt.explosionFrames().enumerated() { images["ex\(i)"] = .from(im) }
+        for (i, im) in EffectsArt.sparkFrames().enumerated() { images["sp\(i)"] = .from(im) }
+        for v in 0..<3 { images["ln\(v)"] = .from(EffectsArt.lightning(v)); images["splat\(v)"] = .from(EffectsArt.splat(v)) }
+        for v in 0..<2 { images["shard\(v)"] = .from(EffectsArt.shard(v)) }
+        images["fx_slash"] = .from(EffectsArt.slash())
+        images["fx_rubble"] = .from(EffectsArt.rubble())
+        images["fx_shockwave"] = .from(EffectsArt.shockwave())
+        images["fx_selectring"] = .from(EffectsArt.selectRing())
         images["fx_cloud"] = .from(EnvironmentArt.cloud())
         images["site_platform"] = .from(WorldArt.sitePlatform())
         images["site_beacon"] = .from(WorldArt.siteBeacon())
@@ -102,7 +115,12 @@ final class TextureBank {
         resource = ResourceKind.allCases.map { k in (0..<3).map { atlas.textureNamed("r\(k.rawValue)_\($0)") } }
         cliffs = (0..<6).map { atlas.textureNamed("cliff\($0)") }
         flora = (0..<5).map { k in (0..<2).map { atlas.textureNamed("flora\(k)_\($0)") } }
-        for n in fxNames + ["vignette", "cloud", "teamring"] { fx[n] = atlas.textureNamed("fx_" + n) }
+        explosion = (0..<8).map { atlas.textureNamed("ex\($0)") }
+        sparks = (0..<4).map { atlas.textureNamed("sp\($0)") }
+        lightning = (0..<3).map { atlas.textureNamed("ln\($0)") }
+        splats = (0..<3).map { atlas.textureNamed("splat\($0)") }
+        shards = (0..<2).map { atlas.textureNamed("shard\($0)") }
+        for n in fxNames + ["vignette", "cloud", "teamring", "slash", "rubble", "shockwave", "selectring"] { fx[n] = atlas.textureNamed("fx_" + n) }
         sitePlatform = atlas.textureNamed("site_platform")
         siteBeacon = atlas.textureNamed("site_beacon")
     }

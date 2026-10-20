@@ -276,6 +276,9 @@ extension World {
 
     func entity(byIDAny id: Int) -> Entity? { id >= 0 && id < byID.count ? byID[id] : nil }
 
+    /// Entity by id even if dead (renderer uses this to play death animations).
+    public func anyEntity(_ id: Int) -> Entity? { entity(byIDAny: id) }
+
     func unloadAll(_ tr: Entity) {
         var k = 0
         for cid in tr.cargo {

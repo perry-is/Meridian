@@ -18,6 +18,36 @@ enum BuildingArt {
         }
     }
 
+    /// Approximate height of the artwork above the footprint centre (for health bars and effects).
+    static func visualHeight(_ d: BuildingDef) -> CGFloat {
+        let table: [Faction: [BuildingKind: CGFloat]] = [
+            .humans: [.hq: 120, .depot: 52, .infantry: 64, .heavy: 72, .air: 64, .research: 62, .tower: 100, .forward: 80],
+            .machines: [.hq: 140, .depot: 50, .infantry: 44, .heavy: 72, .air: 96, .research: 72, .tower: 112, .forward: 112],
+            .aliens: [.hq: 104, .depot: 42, .infantry: 52, .heavy: 62, .air: 92, .research: 58, .tower: 108, .forward: 90],
+        ]
+        return table[d.faction]?[d.kind] ?? 60
+    }
+
+    /// Light points (offset from footprint centre) that pulse at runtime: beacons, cores, glowing pores.
+    static func lights(_ d: BuildingDef) -> [CGPoint] {
+        switch (d.faction, d.kind) {
+        case (.humans, .hq): return [CGPoint(x: -6, y: 120)]
+        case (.humans, .tower): return [CGPoint(x: -14, y: 84)]
+        case (.humans, .forward): return [CGPoint(x: 22, y: 80), CGPoint(x: -26, y: 36)]
+        case (.humans, .air): return [CGPoint(x: -38, y: 51)]
+        case (.machines, .hq): return [CGPoint(x: 0, y: 130)]
+        case (.machines, .air): return [CGPoint(x: 0, y: 90)]
+        case (.machines, .tower): return [CGPoint(x: 0, y: 100)]
+        case (.machines, .forward): return [CGPoint(x: 0, y: 104)]
+        case (.machines, .heavy): return [CGPoint(x: -10, y: 12)]
+        case (.aliens, .hq): return [CGPoint(x: 6, y: 52)]
+        case (.aliens, .tower): return [CGPoint(x: -2, y: 90)]
+        case (.aliens, .forward): return [CGPoint(x: 2, y: 68)]
+        case (.aliens, .research): return [CGPoint(x: 4, y: 42)]
+        default: return []
+        }
+    }
+
     // MARK: Shared primitives
 
     static let outline = RGB(0.05, 0.04, 0.07, 0.9)
