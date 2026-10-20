@@ -182,6 +182,7 @@ extension World {
         let u = spawnUnit(type, owner: b.owner, x: sx, y: sy)
         u.facing = ang
         p.stats.unitsProduced += 1
+        p.stats.producedByType[type, default: 0] += 1
         if b.hasRally {
             // Rally onto a resource sends workers to gather.
             if traits[type].worker, let res = resourceAt(b.rallyX, b.rallyY) {

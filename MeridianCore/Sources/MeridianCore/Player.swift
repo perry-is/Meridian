@@ -94,6 +94,8 @@ public struct PlayerStats: Sendable {
     public var valueKilled = 0.0
     public var valueLost = 0.0
     public var peakUnits = 0
+    public var producedByType: [Int: Int] = [:]
+    public var lostByType: [Int: Int] = [:]
 }
 
 public final class Player {

@@ -72,6 +72,8 @@ public final class Entity {
     // Economy
     public var carryKind: ResourceKind = .iron
     public var gatherKind: ResourceKind = .iron
+    /// Worker retreating from danger; resumes gathering on arrival.
+    public var fleeing = false
     public var carryAmount: Int = 0
     public var gatherNode: Int = -1
     public var gatherTimer: Double = 0

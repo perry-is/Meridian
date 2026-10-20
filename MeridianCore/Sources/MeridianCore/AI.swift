@@ -32,6 +32,8 @@ public final class AIController {
     var enemyCloakSeen = false
     var siteSquads: [Int: [Int]] = [:]  // site index -> unit ids
     public private(set) var lastPlan = ""
+    var armyCount = 0
+    var raided = false
 
     public init(player: Int, difficulty: Difficulty, strategy: AIStrategy = .balanced, seed: UInt64 = 1) {
         self.player = player
@@ -39,9 +41,9 @@ public final class AIController {
         self.strategy = strategy
         rng = RNG(seed: seed &+ UInt64(player) &* 977)
         switch difficulty {
-        case .easy: thinkInterval = 2.0; workerTarget = 13; attackThreshold = 2600; maxQueue = 1
-        case .normal: thinkInterval = 1.0; workerTarget = 22; attackThreshold = 1900; maxQueue = 2
-        case .hard: thinkInterval = 0.5; workerTarget = 28; attackThreshold = 1500; maxQueue = 2
+        case .easy: thinkInterval = 2.0; workerTarget = 13; attackThreshold = 3600; maxQueue = 1
+        case .normal: thinkInterval = 1.0; workerTarget = 22; attackThreshold = 2900; maxQueue = 2
+        case .hard: thinkInterval = 0.5; workerTarget = 28; attackThreshold = 2400; maxQueue = 2
         }
         switch strategy {
         case .aggressive: attackThreshold *= 0.7; workerTarget -= 3
@@ -66,7 +68,11 @@ public final class AIController {
         let army = myUnits.filter { !w.traits[$0.type].worker && w.traits[$0.type].capacity == 0 && $0.id != scoutID }
 
         manageWorkers(w, workers, myBuildings)
-        let reserve = manageConstruction(w, p, workers, myBuildings)
+        var reserve = manageConstruction(w, p, workers, myBuildings)
+        // Units come first until a minimum army exists; only then save up for buildings.
+        let minArmy = Int(3 + w.time / 25)
+        if army.count < min(minArmy, 30) { reserve = Cost() }
+        armyCount = army.count
         manageResearch(w, p, myBuildings, reserve: reserve)
         manageProduction(w, p, myBuildings, workers: workers.count, army: army, reserve: reserve)
         manageSites(w, p)
@@ -181,11 +187,13 @@ public final class AIController {
         var goals: [(BuildingKind, Int)] = [(.infantry, 1)]
         if workers.count >= 8 || t > 70 { goals.append((.depot, 1)) }
         if t > 150 || strategy == .tech { goals.append((.research, 1)) }
-        if strategy != .aggressive || t > 300 { goals.append((.tower, t > 240 ? 1 : 0)) }
+        if strategy != .aggressive || t > 300 { goals.append((.tower, (t > 150 || raided) ? 1 : 0)) }
+        if p.faction == .machines { goals.insert((.tower, t > 75 ? (t > 220 ? 2 : 1) : 0), at: 1) }
         if ownedSites > 0 && t > 200 { goals.append((.forward, 1)) }
         if tier2 { goals.append((.heavy, 1)); if t > 330 { goals.append((.air, 1)) } }
         let slow = w.data.faction(p.faction).buildTimeMult > 1.2
-        if !easy && t > (slow ? 200 : 260) { goals.append((.infantry, 2)) }
+        let fast = w.data.faction(p.faction).buildTimeMult < 0.9
+        if !easy && t > (slow ? 120 : (fast ? 260 : 170)) { goals.append((.infantry, 2)) }
         if slow && !easy && t > 380 { goals.append((.infantry, 3)) }
         if tier2 && !easy && t > 480 { goals.append((.heavy, 2)) }
         if hard && t > 420 { goals.append((.infantry, 3)) }
@@ -193,20 +201,25 @@ public final class AIController {
         if t > 600 { goals.append((.tower, easy ? 1 : min(4, 1 + ownedSites))) }
         if tier3 && !easy { goals.append((.air, strategy == .tech ? 2 : 1)) }
         if strategy == .aggressive && !easy { goals.insert((.infantry, 2), at: 1) }
-        // Floating resources: add production capacity.
-        if !easy && p.res[0] > 450 && t > 300 {
+        // Saturated production: when every factory is busy and money is piling up, add a factory.
+        let factories = buildings.filter { $0.complete && [.infantry, .heavy, .air].contains(w.bdef($0).kind) }
+        let saturated = !factories.isEmpty && factories.allSatisfy { $0.queue.count >= maxQueue }
+        let bankThreshold = easy ? 900 : (hard ? 300 : 450)
+        if saturated && p.res[0] > bankThreshold && t > 200 && factories.count < (easy ? 3 : 9) {
             let inf = count(w, .infantry), hv = count(w, .heavy), ar = count(w, .air)
-            if tier2 && hv <= inf - 1 { goals.append((.heavy, min(4, hv + 1))) }
-            else if tier2 && p.res[1] > 300 && ar < 3 { goals.append((.air, ar + 1)) }
-            else { goals.append((.infantry, min(5, inf + 1))) }
+            if tier2 && hv < inf && p.res[1] > 150 { goals.append((.heavy, hv + 1)) }
+            else if tier2 && ar < 2 && p.res[1] > 250 { goals.append((.air, ar + 1)) }
+            else { goals.append((.infantry, inf + 1)) }
         }
-
+        // Production capacity first, then economy, then tech and defence.
+        let prio: [BuildingKind: Int] = [.infantry: 0, .depot: 1, .heavy: 2, .air: 3, .tower: 4, .research: 5, .forward: 6, .hq: 7]
+        goals = goals.enumerated().sorted { (prio[$0.element.0]!, $0.offset) < (prio[$1.element.0]!, $1.offset) }.map { $0.element }
         // Unfinished buildings without builders get a worker.
         for b in buildings where !b.complete {
             let builders = workers.filter { $0.order == .build && $0.orderTarget == b.id }
             if builders.isEmpty, let wk = nearestWorker(workers, b.x, b.y) { wk.order = .build; wk.orderTarget = b.id }
         }
-        if buildings.filter({ !$0.complete }).count >= (hard ? 2 : 1) { return Cost() }
+        if buildings.filter({ !$0.complete }).count >= (easy ? 1 : (hard ? 3 : 2)) { return Cost() }
 
         for (kind, want) in goals where count(w, kind) < want {
             let type = w.data.building(p.faction, kind)
@@ -277,8 +290,14 @@ public final class AIController {
         case .tower:
             // Between base and enemy, or guarding a forward structure.
             let fwd = buildings.filter { w.bdef($0).kind == .forward && $0.complete }
-            if let f = fwd.first, count(w, .tower) >= 1 { anchor = (f.x, f.y); minR = 2; maxR = 5 }
-            else {
+            let towers = count(w, .tower)
+            if p.faction == .machines && towers < 2 {
+                // Guard the mineral line: between HQ and the nearest iron cluster.
+                if let iron = w.nearestResource(kind: .iron, x: bx, y: by, maxDist: 14, owner: player) {
+                    anchor = ((bx + iron.x) / 2, (by + iron.y) / 2); minR = 1; maxR = 6
+                }
+            } else if let f = fwd.first, towers >= 1 { anchor = (f.x, f.y); minR = 2; maxR = 5 }
+            else if !(p.faction == .machines && towers < 2) {
                 let dx = ex - bx, dy = ey - by
                 let l = max(1, (dx * dx + dy * dy).squareRoot())
                 anchor = (bx + dx / l * 7, by + dy / l * 7); minR = 0; maxR = 5
@@ -341,6 +360,8 @@ public final class AIController {
         if difficulty == .easy && w.time < 400 { prio = Array(prio.prefix(3)) }
         let maxResearch = difficulty == .hard ? 2 : 1
         if p.researching.count >= maxResearch { return }
+        let rich = p.res[0] > 400 && p.res[1] > 150
+        if armyCount < min(10, Int(2 + w.time / 30)) && !rich { prio = prio.filter { $0.hasSuffix("tier2") || $0.hasSuffix("tier3") } }
         // Tier 2 waits for a minimal army in aggressive mode.
         for id in prio {
             guard let u = w.data.upgradeIndex[id] else { continue }
@@ -403,7 +424,9 @@ public final class AIController {
             guard d.producedAt == kind, w.unitAvailability(player, i) == nil else { continue }
             var wt: Double
             switch d.role {
-            case "scout": wt = (have["scout"] ?? 0) < (enemyCloakSeen ? 3 : 1) ? 3 : 0
+            case "scout":
+                let scouts = (have["scout"] ?? 0) + (w.entity(scoutID) != nil ? 1 : 0)
+                wt = scouts < (enemyCloakSeen ? 2 : 1) && (p.stats.producedByType[i] ?? 0) < (enemyCloakSeen ? 5 : 2) ? 3 : 0
             case "infantry": wt = 3
             case "assault": wt = 2 + 2 * comp.light
             case "antiarmor": wt = 0.6 + 6 * comp.armored
@@ -483,6 +506,17 @@ public final class AIController {
                 if threat == nil || role != "scout" { threat = e }
             }
         }
+        if threatValue > 0 { raided = true }
+        // Outnumbered at home: endangered workers fall back under the HQ's guns, then resume.
+        if let t = threat, threatValue > 0 {
+            let local = army.filter { dist2($0.x, $0.y, t.x, t.y) < 15 * 15 }
+            if armyValue(w, local) < threatValue * 0.8 {
+                let (hx, hy) = baseCenter(w)
+                for wk in w.units(of: player) where w.traits[wk.type].worker && wk.order != .build && dist2(wk.x, wk.y, t.x, t.y) < 6 * 6 && dist2(wk.x, wk.y, hx, hy) > 9 {
+                    w.commandMove([wk.id], x: hx + Double(wk.id % 5) - 2, y: hy + Double(wk.id % 3) - 1, attack: false)
+                }
+            }
+        }
         // Scouts and lone workers are handled by towers / nearby units, not the whole army.
         if threatValue < 120 { threat = nil }
         if let t = threat, threatCount >= 2 || !attacking {
@@ -505,7 +539,7 @@ public final class AIController {
             lastPlan = "Attacking"
         }
         if attacking {
-            if value < attackStartValue * 0.35 && !capped {
+            if value < attackStartValue * 0.5 && !capped {
                 attacking = false
                 lastAttackEnd = w.time
                 let st = stagingPoint(w)

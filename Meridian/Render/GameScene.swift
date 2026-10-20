@@ -46,6 +46,7 @@ final class GameScene: SKScene {
     var boxStart: CGPoint?
     var hotspot: [(Double, Double)] = []
     var spectateTimer = 0.0
+    var perfFrames: [Double] = []
     let N: Int
 
     init(controller: GameController, size: CGSize) {
@@ -83,7 +84,8 @@ final class GameScene: SKScene {
         rallyFlag.color = SKColor(red: 0.4, green: 1, blue: 0.5, alpha: 1); rallyFlag.colorBlendFactor = 1
         rallyFlag.zPosition = 5; rallyFlag.isHidden = true
         worldNode.addChild(rallyFlag)
-        if let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
+        if ctl.stressMode { focus(Double(N) / 2, Double(N) / 2); zoom = 2.6 }
+        else if let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
         ctl.focusCamera = { [weak self] x, y in self?.focus(x, y) }
         ctl.cameraWorldRect = { [weak self] in self?.visibleWorldQuad() ?? [] }
         applyZoom()
@@ -200,6 +202,7 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         let dt = lastUpdate == 0 ? 1.0 / 60 : currentTime - lastUpdate
         lastUpdate = currentTime
+        if ctl.stressMode { perfLog(dt) }
         ctl.advance(dt)
         fxBudget = 50
         consumeEvents()
@@ -212,6 +215,18 @@ final class GameScene: SKScene {
             fogTimer = 0.2
             fogShader.uniformNamed("u_fog")?.textureValue = fogTexture()
             ctl.minimapVersion &+= 1
+        }
+    }
+
+    /// Frame-time log for stress runs (printed to stdout; read with `simctl launch --console`).
+    func perfLog(_ dt: Double) {
+        perfFrames.append(dt)
+        if perfFrames.count >= 300 {
+            let s = perfFrames.sorted()
+            let avg = perfFrames.reduce(0, +) / Double(perfFrames.count)
+            let units = world.entities.filter { $0.isUnit && $0.alive && !$0.isMine }.count
+            print(String(format: "PERF units=%d nodes=%d avgFrame=%.2fms fps=%.1f p95=%.2fms projectiles=%d", units, worldNode.children.count, avg * 1000, 1 / avg, s[Int(Double(s.count) * 0.95)] * 1000, world.projectiles.count))
+            perfFrames.removeAll()
         }
     }
 

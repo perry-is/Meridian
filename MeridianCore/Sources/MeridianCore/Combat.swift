@@ -225,6 +225,14 @@ extension World {
                 t.order = .attackMove; t.ox = src.x; t.oy = src.y; t.formationDX = 0; t.formationDY = 0
             }
         }
+        // Wounded workers retreat toward a drop-off, then go back to work.
+        if t.isUnit && traits[t.type].worker && !t.fleeing && t.hp < t.maxHp * 0.6 && t.hp > 0 && (t.order == .gather || t.order == .returnCargo),
+           let src = entity(sourceID), src.isUnit, let drop = nearestDropoff(t) {
+            let dx = drop.x - src.x, dy = drop.y - src.y
+            let l = max(0.1, (dx * dx + dy * dy).squareRoot())
+            t.order = .move; t.ox = drop.x + dx / l * 2; t.oy = drop.y + dy / l * 2
+            t.formationDX = 0; t.formationDY = 0; t.fleeing = true
+        }
         if t.hp <= 0 { kill(t, killer: attackerOwner) }
     }
 
@@ -239,6 +247,7 @@ extension World {
                 let p = players[e.owner]
                 p.unitCount -= 1
                 p.stats.unitsLost += 1
+                p.stats.lostByType[e.type, default: 0] += 1
                 let v = udef(e).cost.value(data.rules.economy)
                 p.stats.valueLost += v
                 if killer >= 0 && killer != e.owner { players[killer].stats.kills += 1; players[killer].stats.valueKilled += v }

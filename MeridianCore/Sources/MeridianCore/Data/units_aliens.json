@@ -20,7 +20,7 @@
    "wood": 0,
    "gold": 0
   },
-  "buildTime": 12,
+  "buildTime": 13.8,
   "producedAt": "hq",
   "requires": [],
   "description": "Harvests, grows structures and mends them.",
@@ -56,11 +56,11 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 25,
+   "iron": 20,
    "wood": 20,
    "gold": 0
   },
-  "buildTime": 12,
+  "buildTime": 13.8,
   "producedAt": "infantry",
   "requires": [],
   "description": "Darting sensory organism; detects cloaked enemies.",
@@ -97,11 +97,11 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 40,
-   "wood": 30,
+   "iron": 35,
+   "wood": 25,
    "gold": 0
   },
-  "buildTime": 16,
+  "buildTime": 18.4,
   "producedAt": "infantry",
   "requires": [],
   "description": "Fast scything melee warrior.",
@@ -133,10 +133,10 @@
   "radius": 0.35,
   "cost": {
    "iron": 60,
-   "wood": 45,
+   "wood": 40,
    "gold": 0
   },
-  "buildTime": 20,
+  "buildTime": 23.0,
   "producedAt": "infantry",
   "requires": [],
   "description": "Hulking cleaver beast; cleave hits adjacent enemies.",
@@ -222,10 +222,10 @@
   "radius": 0.35,
   "cost": {
    "iron": 50,
-   "wood": 40,
+   "wood": 35,
    "gold": 10
   },
-  "buildTime": 18,
+  "buildTime": 20.7,
   "producedAt": "infantry",
   "requires": [],
   "description": "Quill-launching anti-air organism.",
@@ -238,7 +238,10 @@
    "targetsGround": false,
    "targetsAir": true,
    "projectile": "spine",
-   "projectileSpeed": 16
+   "projectileSpeed": 16,
+   "bonus": {
+    "armored": 1.4
+   }
   }
  },
  {
@@ -258,7 +261,7 @@
   "radius": 0.35,
   "cost": {
    "iron": 50,
-   "wood": 45,
+   "wood": 40,
    "gold": 20
   },
   "buildTime": 20,
@@ -297,8 +300,8 @@
   "radius": 0.35,
   "cost": {
    "iron": 55,
-   "wood": 45,
-   "gold": 35
+   "wood": 40,
+   "gold": 30
   },
   "buildTime": 26,
   "producedAt": "infantry",
@@ -340,11 +343,11 @@
   ],
   "radius": 0.28,
   "cost": {
-   "iron": 30,
-   "wood": 25,
+   "iron": 25,
+   "wood": 20,
    "gold": 0
   },
-  "buildTime": 16,
+  "buildTime": 18.4,
   "producedAt": "heavy",
   "requires": [],
   "description": "Spawns in pairs; extremely fast swarm hunters.",
@@ -377,8 +380,8 @@
   ],
   "radius": 0.85,
   "cost": {
-   "iron": 175,
-   "wood": 135,
+   "iron": 170,
+   "wood": 130,
    "gold": 70
   },
   "buildTime": 45,
@@ -418,7 +421,7 @@
   ],
   "radius": 0.6,
   "cost": {
-   "iron": 120,
+   "iron": 115,
    "wood": 100,
    "gold": 55
   },
@@ -472,7 +475,7 @@
   "cost": {
    "iron": 80,
    "wood": 80,
-   "gold": 25
+   "gold": 20
   },
   "buildTime": 26,
   "producedAt": "heavy",
@@ -518,8 +521,8 @@
   "radius": 0.35,
   "cost": {
    "iron": 55,
-   "wood": 40,
-   "gold": 25
+   "wood": 35,
+   "gold": 20
   },
   "buildTime": 24,
   "producedAt": "air",
@@ -554,7 +557,7 @@
   ],
   "radius": 0.55,
   "cost": {
-   "iron": 120,
+   "iron": 115,
    "wood": 90,
    "gold": 70
   },

@@ -45,12 +45,21 @@ func runMatch(_ f0: Faction, _ f1: Faction, layout: MapLayout, seed: UInt64, dif
                 let workers = u.filter { m.world.traits[$0.type].worker }.count
                 let sites = m.world.sites.filter { $0.owner == p.index }.count
                 let blds = m.world.buildings(of: p.index).count
-                line += " | \(p.faction.rawValue.prefix(3)) I\(p.res[0]) G\(p.res[1]) W\(p.res[2]) wk\(workers) army\(u.count - workers) b\(blds) s\(sites) up\(p.completedUpgrades.count) k\(p.stats.kills) \(m.ais[p.index].lastPlan)"
+                let fac = m.world.buildings(of: p.index).filter { $0.complete && [.infantry, .heavy, .air].contains(m.world.bdef($0).kind) }
+                let fq = "f\(fac.count)q\(fac.reduce(0) { $0 + $1.queue.count })"
+                line += " | \(p.faction.rawValue.prefix(3)) \(fq) I\(p.res[0]) G\(p.res[1]) W\(p.res[2]) wk\(workers) army\(u.count - workers) b\(blds) s\(sites) up\(p.completedUpgrades.count) k\(p.stats.kills) \(m.ais[p.index].lastPlan)"
             }
             print(line)
         }
     }
     let ms = Date().timeIntervalSince(t0) * 1000
+    if verbose {
+        for p in m.world.players {
+            let s = p.stats
+            let prod = s.producedByType.sorted { $0.value > $1.value }.map { "\(data.units[$0.key].name) \($0.value)/\(s.lostByType[$0.key] ?? 0)" }.joined(separator: ", ")
+            print("P\(p.index) \(p.faction.rawValue): valueKilled \(Int(s.valueKilled)) valueLost \(Int(s.valueLost)) gathered \(s.gathered) territory \(s.territoryIncome.map { Int($0) })\n   produced/lost: \(prod)")
+        }
+    }
     return MatchResult(winner: m.world.winner!, reason: m.world.victoryReason, time: m.world.time,
                        factions: [f0, f1], peak: m.world.players.map { $0.stats.peakUnits }, ms: ms)
 }
@@ -273,12 +282,15 @@ case "stress":
     for p in 0..<2 { w.commandMove(w.units(of: p).filter { !w.traits[$0.type].worker }.map { $0.id }, x: p == 0 ? mid + 25 : mid - 25, y: mid, attack: true) }
     print("Spawned \(w.units(of: 0).count) vs \(w.units(of: 1).count) units (incl. starting workers)")
     var tickTimes: [Double] = []
+    var heavy: [Double] = []
     var maxProj = 0
     let ticks = Int(seconds / w.dt)
     for k in 0..<ticks {
         let t0 = DispatchTime.now().uptimeNanoseconds
         w.step()
-        tickTimes.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6
+        tickTimes.append(ms)
+        if w.units(of: 0).count > perPlayer / 2 && w.units(of: 1).count > perPlayer / 2 { heavy.append(ms) }
         maxProj = max(maxProj, w.projectiles.count)
         w.events.removeAll(keepingCapacity: true)
         if k % 200 == 0 {
@@ -288,6 +300,10 @@ case "stress":
     let s = tickTimes.sorted()
     let avg = tickTimes.reduce(0, +) / Double(tickTimes.count)
     print("Sim tick (20 Hz) over \(ticks) ticks: avg \(fmt(avg, 2)) ms, p50 \(fmt(s[s.count / 2], 2)), p95 \(fmt(s[Int(Double(s.count) * 0.95)], 2)), max \(fmt(s.last!, 2)) ms")
+    if !heavy.isEmpty {
+        let hs = heavy.sorted()
+        print("While both sides > 50% strength (\(heavy.count) ticks): avg \(fmt(heavy.reduce(0, +) / Double(heavy.count), 2)) ms, p95 \(fmt(hs[Int(Double(hs.count) * 0.95)], 2)), max \(fmt(hs.last!, 2)) ms")
+    }
     print("Peak projectiles \(maxProj); survivors \(w.units(of: 0).count) vs \(w.units(of: 1).count); flow fields built \(w.nav.totalFieldsBuilt)")
 
 default:

@@ -407,10 +407,11 @@
    "targetsGround": true,
    "targetsAir": false,
    "projectile": "shell",
-   "splash": 0.7,
+   "splash": 1.0,
    "projectileSpeed": 14,
    "bonus": {
-    "armored": 1.3
+    "armored": 1.3,
+    "light": 1.2
    }
   },
   "abilities": [

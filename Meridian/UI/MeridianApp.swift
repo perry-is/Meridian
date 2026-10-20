@@ -59,6 +59,7 @@ struct RootView: View {
             if a.contains("-autostart") && controller == nil {
                 let c = GameController(settings: settings, spectate: a.contains("-spectate"))
                 if let w = arg("-warp"), let secs = Double(w) { c.warp(seconds: secs) }
+                if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
                 controller = c
             }
         }

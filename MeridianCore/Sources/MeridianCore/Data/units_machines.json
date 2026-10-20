@@ -20,7 +20,7 @@
    "wood": 0,
    "gold": 0
   },
-  "buildTime": 12,
+  "buildTime": 9.6,
   "producedAt": "hq",
   "requires": [],
   "description": "Gathers, assembles structures and repairs mechanical units.",
@@ -61,7 +61,7 @@
    "wood": 30,
    "gold": 0
   },
-  "buildTime": 14,
+  "buildTime": 11.2,
   "producedAt": "infantry",
   "requires": [],
   "description": "Unarmed flying sensor. Detects cloaked units and acts as a network node.",
@@ -90,11 +90,11 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 50,
+   "iron": 55,
    "wood": 35,
    "gold": 0
   },
-  "buildTime": 17,
+  "buildTime": 13.6,
   "producedAt": "infantry",
   "requires": [],
   "description": "Arc projector whose bolts jump to 2 nearby enemies.",
@@ -133,11 +133,11 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 65,
-   "wood": 45,
+   "iron": 75,
+   "wood": 50,
    "gold": 0
   },
-  "buildTime": 20,
+  "buildTime": 16.0,
   "producedAt": "infantry",
   "requires": [],
   "description": "Armored brawler with a shockwave slam.",
@@ -172,9 +172,9 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 70,
-   "wood": 45,
-   "gold": 20
+   "iron": 80,
+   "wood": 50,
+   "gold": 25
   },
   "buildTime": 24,
   "producedAt": "infantry",
@@ -220,11 +220,11 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 55,
-   "wood": 45,
-   "gold": 15
+   "iron": 60,
+   "wood": 50,
+   "gold": 20
   },
-  "buildTime": 19,
+  "buildTime": 15.2,
   "producedAt": "infantry",
   "requires": [],
   "description": "Hovering flak battery that shreds groups of aircraft.",
@@ -258,9 +258,9 @@
   ],
   "radius": 0.3,
   "cost": {
-   "iron": 50,
-   "wood": 45,
-   "gold": 20
+   "iron": 55,
+   "wood": 50,
+   "gold": 25
   },
   "buildTime": 20,
   "producedAt": "infantry",
@@ -294,9 +294,9 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 70,
-   "wood": 60,
-   "gold": 45
+   "iron": 80,
+   "wood": 65,
+   "gold": 50
   },
   "buildTime": 30,
   "producedAt": "infantry",
@@ -332,8 +332,8 @@
   ],
   "radius": 0.35,
   "cost": {
-   "iron": 70,
-   "wood": 50,
+   "iron": 80,
+   "wood": 55,
    "gold": 0
   },
   "buildTime": 22,
@@ -371,9 +371,9 @@
   ],
   "radius": 0.75,
   "cost": {
-   "iron": 170,
-   "wood": 110,
-   "gold": 80
+   "iron": 190,
+   "wood": 120,
+   "gold": 85
   },
   "buildTime": 45,
   "producedAt": "heavy",
@@ -412,9 +412,9 @@
   ],
   "radius": 0.6,
   "cost": {
-   "iron": 130,
-   "wood": 80,
-   "gold": 70
+   "iron": 140,
+   "wood": 85,
+   "gold": 80
   },
   "buildTime": 40,
   "producedAt": "heavy",
@@ -461,8 +461,8 @@
   ],
   "radius": 0.55,
   "cost": {
-   "iron": 90,
-   "wood": 80,
+   "iron": 100,
+   "wood": 85,
    "gold": 30
   },
   "buildTime": 28,
@@ -497,9 +497,9 @@
   ],
   "radius": 0.45,
   "cost": {
-   "iron": 95,
-   "wood": 55,
-   "gold": 45
+   "iron": 105,
+   "wood": 60,
+   "gold": 50
   },
   "buildTime": 30,
   "producedAt": "air",
@@ -535,9 +535,9 @@
   ],
   "radius": 0.6,
   "cost": {
-   "iron": 135,
-   "wood": 95,
-   "gold": 80
+   "iron": 145,
+   "wood": 105,
+   "gold": 85
   },
   "buildTime": 42,
   "producedAt": "air",
@@ -577,9 +577,9 @@
   ],
   "radius": 0.6,
   "cost": {
-   "iron": 90,
-   "wood": 80,
-   "gold": 25
+   "iron": 100,
+   "wood": 85,
+   "gold": 30
   },
   "buildTime": 30,
   "producedAt": "air",

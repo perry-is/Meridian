@@ -38,6 +38,7 @@ extension World {
             u.formationDX = dx; u.formationDY = dy
             u.target = -1
             u.stuckTimer = 0
+            u.fleeing = false
             u.lastProgressX = u.x; u.lastProgressY = u.y
             if traits[u.type].worker { u.gatherNode = -1 }
         }

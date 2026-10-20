@@ -27,7 +27,10 @@ extension World {
                 followWounded(e)
             }
         case .move:
-            if moveFormation(e) { becomeIdle(e) }
+            if moveFormation(e) {
+                if e.fleeing { e.fleeing = false; e.order = e.gatherNode >= 0 ? .gather : .idle; if e.order == .idle { becomeIdle(e) } }
+                else { becomeIdle(e) }
+            }
         case .attackMove, .patrol:
             if let tg = entity(e.target) {
                 engage(e, tg)

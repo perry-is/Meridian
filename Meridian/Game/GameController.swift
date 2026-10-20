@@ -128,6 +128,27 @@ final class GameController: ObservableObject {
         refreshHUD()
     }
 
+    /// Renderer stress scenario: N units per side fighting mid-map with towers (development).
+    func setupStress(_ perSide: Int) {
+        world.sandbox = true
+        world.unlockAll(0); world.unlockAll(1)
+        var r = RNG(seed: 7)
+        let mid = Double(world.map.size) / 2
+        for p in 0..<2 {
+            let pool = data.unitIDs(world.players[p].faction).filter { data.units[$0].role != "worker" && data.units[$0].role != "transport" }
+            for _ in 0..<perSide {
+                var x = mid + (p == 0 ? -12 : 12) + r.range(-8, 8), y = mid + r.range(-8, 8)
+                if world.nav.isBlocked(Int(x), Int(y)) { let o = world.nav.nearestOpen(Int(x), Int(y)); x = Double(o.0) + 0.5; y = Double(o.1) + 0.5 }
+                world.spawnUnit(pool[r.int(pool.count)], owner: p, x: x, y: y)
+            }
+        }
+        for p in 0..<2 {
+            world.commandMove(world.units(of: p).filter { !world.traits[$0.type].worker }.map { $0.id }, x: mid + (p == 0 ? 20 : -20), y: mid, attack: true)
+        }
+        stressMode = true
+    }
+    var stressMode = false
+
     /// Fast-forward the simulation (development / demo).
     func warp(seconds: Double) {
         world.collectEvents = false
