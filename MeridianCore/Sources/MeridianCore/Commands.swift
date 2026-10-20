@@ -1,12 +1,18 @@
 import Foundation
 
+/// Group formations for move / attack-move orders.
+public enum Formation: String, CaseIterable, Sendable {
+    case balanced, assault, defensive
+    public var title: String { rawValue.capitalized }
+}
+
 /// Player-facing command API shared by the touch UI, desktop input, and the AI.
 extension World {
 
     // MARK: Movement & combat
 
     /// Move or attack-move a group with a loose formation that preserves relative layout.
-    public func commandMove(_ ids: [Int], x: Double, y: Double, attack: Bool, patrol: Bool = false) {
+    public func commandMove(_ ids: [Int], x: Double, y: Double, attack: Bool, patrol: Bool = false, formation: Formation = .balanced) {
         let units = ids.compactMap { entity($0) }.filter { $0.isUnit && $0.onMap && !$0.isMine }
         guard !units.isEmpty else { return }
         let cx = units.reduce(0) { $0 + $1.x } / Double(units.count)

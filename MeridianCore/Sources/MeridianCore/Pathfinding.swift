@@ -30,6 +30,13 @@ public final class NavGrid {
         x < 0 || y < 0 || x >= n || y >= n || blocked[y * n + x]
     }
 
+    /// Sandbox scenarios: make a tile permanently impassable terrain.
+    func setTerrainBlocked(_ x: Int, _ y: Int) {
+        guard x >= 0, y >= 0, x < n, y < n else { return }
+        terrainBlocked[y * n + x] = true
+        if !blocked[y * n + x] { blocked[y * n + x] = true; invalidate() }
+    }
+
     func setBlocked(_ x: Int, _ y: Int, _ b: Bool) {
         guard x >= 0, y >= 0, x < n, y < n else { return }
         let i = y * n + x

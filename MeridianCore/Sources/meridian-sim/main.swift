@@ -306,6 +306,99 @@ case "stress":
     }
     print("Peak projectiles \(maxProj); survivors \(w.units(of: 0).count) vs \(w.units(of: 1).count); flow fields built \(w.nav.totalFieldsBuilt)")
 
+case "tactics":
+    // Reproducible tactical scenarios with movement/combat quality metrics.
+    let only = opt("only", "")
+    let formation = Formation(rawValue: opt("formation", "balanced")) ?? .balanced
+    var rows: [String] = []
+    rows.append("| Scenario | Result | Time | Overlap % | Peak density | Mean density | Weapon uptime % | Stuck unit·s | Arrived % (t90) | Response t90 | Special | Sim ms avg/max |")
+    rows.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for sc in TacticalScenario.allCases where only.isEmpty || only.split(separator: ",").contains(Substring(sc.rawValue)) {
+        let w = World(config: MatchConfig(factions: sc.factions, layout: .arena, seed: 21, mapSize: 112))
+        w.collectEvents = false
+        let setup = sc.setup(w, formation: formation)
+        let e = data.rules.economy
+        let all = setup.groups.flatMap { $0.ids }
+        let start = Dictionary(uniqueKeysWithValues: all.compactMap { id in w.entity(id).map { (id, ($0.x, $0.y)) } })
+        let initialValue = (0..<2).map { p in Double(w.units(of: p).reduce(0.0) { $0 + data.units[$1.type].cost.value(e) }) }
+        let siegeIDs = all.filter { w.entity($0).map { data.units[$0.type].role == "siege" } ?? false }
+        let airIDs = setup.groups.first.map { g in g.ids.filter { w.entity($0)?.isAir ?? false } } ?? []
+        var overlapSum = 0.0, densSum = 0.0, samples = 0, peak = 0
+        var upIn = 0, upAll = 0
+        var stuck = 0.0
+        var lastPos: [Int: (Double, Double)] = start
+        var responseT: Double? = nil, arriveT: Double? = nil
+        var contact = 0, contactAll = 0
+        var simTimes: [Double] = []
+        var ticks = 0
+        while w.time < sc.timeLimit {
+            let t0 = DispatchTime.now().uptimeNanoseconds
+            w.step()
+            simTimes.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
+            ticks += 1
+            if responseT == nil && ticks % 2 == 0 {
+                let moved = all.filter { id in guard let u = w.entity(id), let p0 = start[id] else { return true }; return dist2(u.x, u.y, p0.0, p0.1) > 0.09 }.count
+                if Double(moved) >= Double(all.count) * 0.9 { responseT = w.time }
+            }
+            if ticks % 10 == 0 {
+                let s = w.tacticalSample()
+                let ground = max(1, w.entities.filter { $0.isUnit && $0.onMap && !$0.isAir && !$0.isMine }.count)
+                overlapSum += Double(s.deepOverlaps) / Double(ground); densSum += s.meanDensity; samples += 1
+                peak = max(peak, s.maxDensity)
+                if s.inRange + s.outOfRange > 0 { upIn += s.inRange; upAll += s.inRange + s.outOfRange }
+                if sc == .kite {
+                    for r in setup.groups[0].ids { guard let u = w.entity(r) else { continue }
+                        contactAll += 1
+                        var near = false
+                        for m in setup.groups[1].ids { if let o = w.entity(m), dist2(o.x, o.y, u.x, u.y) < 1.3 * 1.3 { near = true; break } }
+                        if near { contact += 1 }
+                    }
+                }
+            }
+            if ticks % 40 == 0 {
+                for id in all {
+                    guard let u = w.entity(id) else { continue }
+                    let p0 = lastPos[id] ?? (u.x, u.y)
+                    let moving = [.move, .attackMove, .patrol].contains(u.order)
+                    let fighting = w.entity(u.target).map { t in w.weapon(u).map { w.edgeDist(u, t) <= $0.range + 0.5 } ?? false } ?? false
+                    let gx = u.ox + u.formationDX, gy = u.oy + u.formationDY
+                    if moving && !fighting && dist2(u.x, u.y, p0.0, p0.1) < 0.09 && dist2(u.x, u.y, gx, gy) > 4 { stuck += 2 }
+                    lastPos[id] = (u.x, u.y)
+                }
+            }
+            if sc.isMovementOnly {
+                var arrived = 0
+                for g in setup.groups { for id in g.ids { if let u = w.entity(id), dist2(u.x, u.y, g.goal.0, g.goal.1) < 6.5 * 6.5 { arrived += 1 } } }
+                if arriveT == nil && Double(arrived) >= Double(all.count) * 0.9 { arriveT = w.time }
+                if arrived == all.count { break }
+            } else if !w.units(of: 0).contains(where: { !$0.isMine }) || !w.units(of: 1).contains(where: { !$0.isMine }) { break }
+        }
+        var result = "-"
+        var special = ""
+        if !sc.isMovementOnly {
+            let rem = (0..<2).map { p in w.units(of: p).filter { !$0.isMine }.reduce(0.0) { $0 + data.units[$1.type].cost.value(e) * $1.hp / $1.maxHp } }
+            result = "P0 \(Int(100 * rem[0] / max(1, initialValue[0])))% / P1 \(Int(100 * rem[1] / max(1, initialValue[1])))%"
+        }
+        var arrivedPct = "-"
+        if sc.isMovementOnly {
+            var arrived = 0
+            for g in setup.groups { for id in g.ids { if let u = w.entity(id), dist2(u.x, u.y, g.goal.0, g.goal.1) < 6.5 * 6.5 { arrived += 1 } } }
+            arrivedPct = "\(100 * arrived / max(1, all.count))% (\(arriveT.map { fmt($0, 1) + "s" } ?? "—"))"
+        }
+        switch sc {
+        case .kite: special = "ranger melee-contact \(fmt(100 * Double(contact) / Double(max(1, contactAll)), 0))%"
+        case .siege: special = "siege alive \(siegeIDs.filter { w.entity($0) != nil }.count)/\(siegeIDs.count)"
+        case .airstrike: special = "aircraft alive \(airIDs.filter { w.entity($0) != nil }.count)/\(airIDs.count)"
+        default: break
+        }
+        let st = simTimes.sorted()
+        let row = "| \(sc.rawValue) | \(result) | \(fmt(w.time, 1))s | \(fmt(100 * overlapSum / Double(max(1, samples)), 1)) | \(peak) | \(fmt(densSum / Double(max(1, samples)), 2)) | \(upAll > 0 ? fmt(100 * Double(upIn) / Double(upAll), 0) : "-") | \(Int(stuck)) | \(arrivedPct) | \(responseT.map { fmt($0, 2) + "s" } ?? "—") | \(special) | \(fmt(simTimes.reduce(0, +) / Double(max(1, simTimes.count)), 2))/\(fmt(st.last ?? 0, 1)) |"
+        rows.append(row)
+        print(row); fflush(stdout)
+    }
+    let outPath = opt("out", "")
+    if !outPath.isEmpty { try? rows.joined(separator: "\n").write(toFile: outPath, atomically: true, encoding: .utf8) }
+
 default:
     print("unknown command \(cmd)")
 }

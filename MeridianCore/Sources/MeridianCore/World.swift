@@ -64,7 +64,7 @@ public struct MatchConfig: Sendable {
 
 public final class World {
     public let data: GameData
-    public let map: MapData
+    public internal(set) var map: MapData
     public let nav: NavGrid
     public let config: MatchConfig
     public var players: [Player] = []
