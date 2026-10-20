@@ -1,0 +1,6 @@
+Sim tick (20 Hz) over 800 ticks: avg 0.17 ms, p50 0.09, p95 0.50, max 5.93 ms
+While both sides > 50% strength (258 ticks): avg 0.28 ms, p95 0.85, max 5.93 ms
+Sim tick (20 Hz) over 800 ticks: avg 0.24 ms, p50 0.13, p95 0.79, max 5.99 ms
+While both sides > 50% strength (208 ticks): avg 0.48 ms, p95 1.00, max 5.99 ms
+Sim tick (20 Hz) over 800 ticks: avg 0.48 ms, p50 0.32, p95 1.48, max 6.90 ms
+While both sides > 50% strength (182 ticks): avg 1.15 ms, p95 2.00, max 6.90 ms

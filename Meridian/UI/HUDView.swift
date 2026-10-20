@@ -8,6 +8,8 @@ struct HUDView: View {
     let scene: GameScene
     @Binding var showPause: Bool
 
+    var showCard: Bool { !controller.hud.buttons.isEmpty || controller.hud.menuTitle != nil }
+
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
@@ -29,14 +31,15 @@ struct HUDView: View {
                     HStack(alignment: .bottom, spacing: 8) {
                         MinimapView(controller: controller, scene: scene).frame(width: mini * 1.3, height: mini * 0.68)
                         SelectionPanel(controller: controller).frame(maxWidth: .infinity)
-                        CommandCard(controller: controller, columns: 5).frame(width: min(330, w * 0.36))
+                        if showCard { CommandCard(controller: controller, columns: 5).frame(width: min(330, w * 0.36)) }
                     }
                 } else {
                     VStack(spacing: 6) {
                         SelectionPanel(controller: controller, compact: compact)
                         HStack(alignment: .bottom, spacing: 6) {
                             MinimapView(controller: controller, scene: scene).frame(width: mini * 1.3, height: mini * 0.68)
-                            CommandCard(controller: controller, columns: compact ? 4 : 5)
+                            if showCard { CommandCard(controller: controller, columns: compact ? 4 : 5) }
+                            Spacer(minLength: 0)
                         }
                     }
                 }
@@ -288,7 +291,6 @@ struct CommandCard: View {
             }
         }
         .frame(width: CGFloat(columns) * 58 + 12)
-        .opacity(h.buttons.isEmpty && h.menuTitle == nil ? 0 : 1)
         .foregroundColor(.white)
     }
 }

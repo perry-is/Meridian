@@ -1,0 +1,11 @@
+In-app renderer stress (iPhone Duo SIMULATOR on Apple M4 Max host — not real device hardware)
+== 50 per side
+PERF units=100 nodes=897 avgFrame=16.82ms fps=59.5 p95=16.67ms projectiles=7
+PERF units=81 nodes=883 avgFrame=16.67ms fps=60.0 p95=16.67ms projectiles=7
+PERF units=67 nodes=856 avgFrame=16.67ms fps=60.0 p95=16.67ms projectiles=6
+PERF units=51 nodes=826 avgFrame=16.67ms fps=60.0 p95=16.67ms projectiles=1
+== 200 per side
+PERF units=347 nodes=1550 avgFrame=17.16ms fps=58.3 p95=16.67ms projectiles=18
+PERF units=242 nodes=1357 avgFrame=16.94ms fps=59.0 p95=16.67ms projectiles=15
+PERF units=154 nodes=1120 avgFrame=16.72ms fps=59.8 p95=16.67ms projectiles=6
+PERF units=125 nodes=1053 avgFrame=16.72ms fps=59.8 p95=16.67ms projectiles=2

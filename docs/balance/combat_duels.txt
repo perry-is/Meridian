@@ -1,0 +1,39 @@
+Equal-cost (1500 value) mirror-role duels. Score = wins over the 2 other factions' same-role units.
+infantry     | Ranger v Arc Sentry: Arc Sentry (58%) | Ranger v Mantis: Mantis (39%) | Arc Sentry v Mantis: Arc Sentry (61%)
+assault      | Breacher v Shockframe: Shockframe (39%) | Breacher v Ravager: Breacher (51%) | Shockframe v Ravager: Shockframe (31%)
+antiarmor    | Lancer v Piercer: Piercer (76%) | Lancer v Spinecaster: Spinecaster (32%) | Piercer v Spinecaster: Piercer (71%)
+antiair      | Skyguard v Flak Drone: draw | Skyguard v Needleback: draw | Flak Drone v Needleback: draw
+fast         | Strider Buggy v Skirmish Runner: Skirmish Runner (46%) | Strider Buggy v Skitter: Skitter (56%) | Skirmish Runner v Skitter: Skirmish Runner (10%)
+heavy        | Bastion Tank v Bulwark Walker: Bastion Tank (65%) | Bastion Tank v Colossus: Bastion Tank (33%) | Bulwark Walker v Colossus: Colossus (46%)
+siege        | Mortar Carrier v Coil Cannon: Mortar Carrier (31%) | Mortar Carrier v Rupturer: Rupturer (42%) | Coil Cannon v Rupturer: Rupturer (45%)
+interceptor  | Kestrel v Vector: draw | Kestrel v Wisp: Wisp (10%) | Vector v Wisp: Vector (6%)
+bomber       | Harrier v Quake Drone: draw | Harrier v Blightwing: draw | Quake Drone v Blightwing: draw
+scout        | Pathfinder v Recon Drone: Pathfinder (100%) | Pathfinder v Glint: Glint (32%) | Recon Drone v Glint: draw
+infiltration | Ghost Operative v Jammer: Ghost Operative (100%) | Ghost Operative v Shadeling: draw | Jammer v Shadeling: Shadeling (100%)
+denial       | Mine Layer v Suppression Array: Suppression Array (70%) | Mine Layer v Spore Seeder: Spore Seeder (88%) | Suppression Array v Spore Seeder: Spore Seeder (57%)
+
+Counter checks (equal cost):
+  Lancer vs Bulwark Walker: WIN (80% left)
+  Lancer vs Colossus: WIN (75% left)
+  Piercer vs Bastion Tank: WIN (59% left)
+  Spinecaster vs Bastion Tank: loss
+  Skyguard vs Blightwing: WIN (25% left)
+  Flak Drone vs Harrier: WIN (56% left)
+  Needleback vs Quake Drone: WIN (25% left)
+  Kestrel vs Sporewing: WIN (100% left)
+  Arc Sentry vs Skitter: WIN (32% left)
+  Shockframe vs Mantis: WIN (76% left)
+  Mantis vs Mortar Carrier: WIN (36% left)
+  Breacher vs Mantis: WIN (74% left)
+  Skitter vs Coil Cannon: WIN (100% left)
+  Strider Buggy vs Weaver: WIN (80% left)
+  Skirmish Runner vs Engineer: WIN (85% left)
+  Ravager vs Bastion Tank: WIN (11% left)
+  Bastion Tank vs Ravager: draw
+  Bulwark Walker vs Wisp: WIN (100% left)
+  Wisp vs Quake Drone: WIN (100% left)
+  Vector vs Harrier: WIN (100% left)
+  Ranger vs Mantis: loss
+  Mantis vs Ranger: WIN (40% left)
+  Arc Sentry vs Ranger: WIN (60% left)
+  Colossus vs Ranger: WIN (17% left)
