@@ -60,7 +60,8 @@ final class GameScene: SKScene {
     var trailTick = 0
     var lastProducedSound = -10.0
     var shakeEnabled = true
-    var sfx: SoundEngine? { silent ? nil : SoundEngine.shared }
+    var sfx: SoundEngine? { silent || GameScene.flags.contains("nosound") ? nil : SoundEngine.shared }
+    static let flags: Set<String> = Set((ProcessInfo.processInfo.arguments.firstIndex(of: "-perf").map { ProcessInfo.processInfo.arguments[$0 + 1] } ?? "").split(separator: ",").map(String.init))
     var silent = false
     var backdrop = false
     let N: Int
@@ -191,7 +192,7 @@ final class GameScene: SKScene {
             SKUniform(name: "u_fog", texture: fogTexture()),
         ]
         fogNode.shader = fogShader
-        worldNode.addChild(fogNode)
+        if !GameScene.flags.contains("nofog") { worldNode.addChild(fogNode) }
     }
 
     func fogTexture() -> SKTexture {
@@ -458,6 +459,11 @@ final class GameScene: SKScene {
                 pip.alpha = s.contested ? (world.tick % 10 < 5 ? 1 : 0.4) : 1
             }
             v.platform.alpha = ctl.selectedSite == i ? 1 : 0.85
+            // Owned beacons breathe with their owner's light.
+            if s.owner >= 0 {
+                let pulse = CGFloat(0.5 + 0.5 * sin(world.time * 2.2 + Double(i)))
+                v.beacon.colorBlendFactor = 0.45 + 0.35 * pulse
+            }
         }
     }
 

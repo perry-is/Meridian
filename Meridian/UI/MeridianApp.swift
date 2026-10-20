@@ -119,7 +119,7 @@ struct GameView: View {
                 if let s = scene {
                     SpriteHost(scene: s).ignoresSafeArea()
                 }
-                if let s = scene {
+                if let s = scene, !GameScene.flags.contains("nohud") {
                     HUDView(controller: controller, scene: s, showPause: $showPause)
                 }
                 if showPause {

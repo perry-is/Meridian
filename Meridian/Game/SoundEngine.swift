@@ -17,6 +17,10 @@ final class SoundEngine {
     private var lastPlayed: [String: Double] = [:]
     private let format: AVAudioFormat
     private var started = false
+    private var busyUntil: [Double] = []
+    private var windowStart = 0.0
+    private var windowCount = 0
+    private let queue = DispatchQueue(label: "meridian.audio", qos: .userInitiated)
     private let rate: Double = 44_100
 
     /// Camera position and visible half-width in scene points (set by the scene each frame).
@@ -64,8 +68,11 @@ final class SoundEngine {
             engine.connect(v, to: sfxMixer, format: format)
             voices.append(v)
         }
+        busyUntil = Array(repeating: 0, count: voices.count)
         apply()
         do { try engine.start(); started = true } catch { started = false }
+        // Voices run permanently; playback is just queueing buffers onto an idle voice.
+        if started { voices.forEach { $0.play() } }
         if started, let m = buffers["music"]?.first {
             music.scheduleBuffer(m, at: nil, options: .loops)
             music.volume = 0.9
@@ -87,14 +94,21 @@ final class SoundEngine {
             vol *= Float(max(0.08, 1 - d / (hearing * 1.6)))
             pan = Float(max(-0.85, min(0.85, dx / hearing)))
         }
+        // Global budget keeps huge battles from flooding the mixer (and the main thread).
+        if now - windowStart > 0.1 { windowStart = now; windowCount = 0 }
+        guard windowCount < 14 else { return }
+        guard let vi = (0..<voices.count).first(where: { busyUntil[($0 + nextVoice) % voices.count] <= now }).map({ ($0 + nextVoice) % voices.count }) else { return }
+        windowCount += 1
         lastPlayed[name] = now
-        let v = voices[nextVoice]
-        nextVoice = (nextVoice + 1) % voices.count
-        v.stop()
-        v.volume = vol
-        v.pan = pan
-        v.scheduleBuffer(set[Int.random(in: 0..<set.count)], at: nil, options: [])
-        v.play()
+        nextVoice = (vi + 1) % voices.count
+        let buf = set[Int.random(in: 0..<set.count)]
+        busyUntil[vi] = now + Double(buf.frameLength) / rate + 0.01
+        let v = voices[vi]
+        queue.async {
+            v.volume = vol
+            v.pan = pan
+            v.scheduleBuffer(buf, at: nil, options: [], completionHandler: nil)
+        }
     }
 
     func shot(_ style: String, at p: CGPoint?) {

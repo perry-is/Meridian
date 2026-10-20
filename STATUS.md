@@ -1,7 +1,7 @@
 # Meridian: Three Fronts — Project Status
 
 Original isometric 2.5D sci-fi RTS for iPhone (primary target: **iPhone Duo**, cover + inner screens), also runs on iPad and macOS for desktop testing.
-Last updated: 2026-10-20.
+Last updated: 2026-10-20 (Mission 2 visual overhaul).
 
 ## Architecture
 
@@ -79,6 +79,36 @@ Equal-cost combat simulations (`meridian-sim combat --counters`, `comps`): 21/24
 3. Lengthen AI games toward 20–30 min (stronger early defence, slower aggression ramp) and fix the aggressive-strategy imbalance.
 4. Make Hard measurably stronger (multi-prong attacks, harassment, better army splitting, transport drops).
 5. Audio, unit voice/feedback, last-seen fog snapshots, more maps and 2v2.
+
+## Mission 2: presentation overhaul (v0.2)
+
+Simulation, balance, AI, economy, unit stats and victory conditions are unchanged. The core tests still pass 9/9, including the deterministic replay hash. The only core addition is a read-only `World.anyEntity(_:)` accessor used by the renderer for death animations. The prototype is tagged `v0.1-prototype`.
+
+**Implemented** (art direction in `docs/ART_DIRECTION.md`):
+- **Terrain:** shader-drawn terrain with blended biomes, animated water and foam, and relief lighting.
+- **Environment:** faceted rock formations, alien flora, three tree species, new ore and gold deposits.
+- **Atmosphere:** cloud shadows, vignette, motes, drifting fog-of-war haze.
+- **Units:** 4-frame animation for all 45 units (legs, wheels, treads, engines), an automatic rim-light pass, team rings, faction motion language (sway, judder, breathing, banking), recoil, hit and cloak tints.
+- **Buildings:** all 24 redesigned with faction architecture, plus pulsing lights and cores, faction-specific construction effects, production smoke and sparks, damage smoke and fire, and collapse into rubble.
+- **Combat effects:**
+  - glowing projectiles, missile smoke trails and arcing artillery,
+  - forked lightning, two-layer rail beams, melee slashes,
+  - 8-frame fireballs, shockwaves, flying debris and scorch or ichor decals,
+  - faction death animations, camera shake, capture light-pillars.
+- **Interface:** tactical-glass HUD, site strip, portraits and stat chips, production rings and queue badges, multi-select tiles, control-group previews, idle-worker badge.
+- **Screens:** live-battle main menu, styled pause, game-over and tech tree.
+- **Audio:** synthesized and spatialised effects with a global throttle, an ambient score, volume settings.
+
+**Measured (simulator on an M4 Max host, not phone hardware):** the renderer stress test (`-stress N`) holds a 16.7 ms p95 frame time at 50, 100 and 200 units per side. With 298 live units the average is 18.5 ms over the first 300 frames, which include startup, then 60 fps. Texture generation at match start takes 0.28 s. An audio bottleneck (per-shot `stop()`/`play()` on the main thread) cut the frame rate to 36–44 fps in large battles. It was found with `-perf nosound` and fixed by queueing buffers onto permanently running voices from a background queue, with a global trigger budget.
+
+**Before/after:** `docs/screenshots/compare/*.jpg` (same scripted scenarios, `tools/capture.sh`). The inner-screen layout is at `docs/screenshots/after/07_inner_screen_ipad_mini_proxy.png`.
+
+**Visual limitations:**
+- Sprites face only left or right (mirrored); there are no front or back views and no turret rotation.
+- Animations are 4 procedural frames plus transforms, not hand-keyed.
+- Audio is synthesized and functional, but I couldn't listen to it.
+- All performance numbers come from the simulator.
+- The cover/inner fold transition and device rotation remain unverified (see above).
 
 ## How to build, play and test
 

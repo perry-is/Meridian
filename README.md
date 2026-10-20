@@ -2,7 +2,10 @@
 
 An original isometric sci-fi real-time strategy game for iPhone (designed around the foldable **iPhone Duo**), built with Swift, SpriteKit and SwiftUI. Three factions: the Terran Concord, the Lattice and the Verdant Brood. 45 units, Iron/Gold/Wood economy, contested territory and a full computer opponent. Everything, including the art, is generated in code.
 
+![Before and after](docs/screenshots/compare/04_battle.jpg)
+
 - Project status, test results and known issues: [STATUS.md](STATUS.md)
+- Art direction: [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)
 - Unit, building and upgrade reference: [docs/UNITS.md](docs/UNITS.md)
 
 ## Requirements
@@ -19,7 +22,7 @@ From the command line:
 xcodebuild -project Meridian.xcodeproj -scheme Meridian -configuration Release -destination 'platform=iOS Simulator,name=RTS Duo' -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build
 ```
 
-Development launch arguments: `-autostart`, `-spectate` (AI plays both sides), `-warp <seconds>` (fast-forward), `-stress <units per side>` (renderer stress test, prints `PERF` lines), `-faction/-enemy humans|machines|aliens`, `-map crossroads|riverbend|highlands`, `-seed <n>`. On macOS, `--art-sheet <file.png>` renders every unit and building to one image.
+Development launch arguments: `-autostart`, `-spectate` (AI plays both sides), `-warp <seconds>` (fast-forward), `-stress <units per side>` (renderer stress test, prints `PERF` lines), `-faction/-enemy humans|machines|aliens`, `-map crossroads|riverbend|highlands`, `-seed <n>`, `-zoom <scale>`, `-perf nosound,nofog,nohud` (performance isolation). `tools/capture.sh <dir>` captures the standard screenshot set, `tools/shot.sh` takes one quick capture, and `swift tools/compare.swift before after out` builds side-by-side comparisons. On macOS, `--art-sheet <file.png>` renders every unit and building to one image.
 
 ## Test
 

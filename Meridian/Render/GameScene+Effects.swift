@@ -166,8 +166,9 @@ extension GameScene {
                 if let e = world.entity(id), e.owner == ctl.me { sfx?.play("built", at: nil) }
             case .produced(let id):
                 if let e = world.entity(id), e.owner == ctl.me, world.time - lastProducedSound > 1.5 { lastProducedSound = world.time; sfx?.play("ready", at: nil) }
-            case .captured(_, let owner):
+            case .captured(let site, let owner):
                 sfx?.play(owner == ctl.me ? "capture" : "alert", at: nil)
+                capturePillar(site, owner)
             default: break
             }
         }
@@ -204,6 +205,32 @@ extension GameScene {
             let p = Iso.scene(c.x + jx, c.y); s.position = CGPoint(x: p.x, y: p.y + 6); s.zPosition = 90
             s.run(.group([.fadeOut(withDuration: 0.8), .scale(by: 1.25, duration: 0.8), .moveBy(x: 0, y: 8, duration: 0.8)]))
             s.run(recycle(s, after: 0.82))
+        }
+    }
+
+    /// A column of team-coloured light and a ground shockwave when a site changes hands.
+    func capturePillar(_ i: Int, _ owner: Int) {
+        guard i < world.sites.count else { return }
+        let st = world.sites[i]
+        let p = Iso.scene(st.x, st.y)
+        let col = TeamColor.sk(owner)
+        if let b = fx() {
+            b.texture = bank.fx["beam"]; b.anchorPoint = CGPoint(x: 0, y: 0.5)
+            b.size = CGSize(width: 520, height: 46); b.zRotation = .pi / 2
+            b.position = p; b.color = col; b.zPosition = 470; b.alpha = 0
+            b.run(.sequence([.fadeAlpha(to: 0.95, duration: 0.15), .wait(forDuration: 0.5), .group([.fadeOut(withDuration: 1.2), .scaleY(to: 0.1, duration: 1.2)])]))
+            b.run(recycle(b, after: 1.9))
+        }
+        for k in 0..<3 {
+            guard let w = fx() else { break }
+            w.texture = bank.fx["shockwave"]; w.size = CGSize(width: 60, height: 30); w.color = col
+            w.position = p; w.zPosition = 7; w.setScale(0.4)
+            w.run(.sequence([.wait(forDuration: Double(k) * 0.18), .group([.scale(to: 5.5, duration: 0.9), .fadeOut(withDuration: 0.9)])]))
+            w.run(recycle(w, after: 1.5))
+        }
+        if let g = fx() {
+            g.texture = bank.fx["glow"]; g.size = CGSize(width: 220, height: 160); g.color = col; g.position = CGPoint(x: p.x, y: p.y + 40); g.zPosition = 469
+            g.run(.fadeOut(withDuration: 1.0)); g.run(recycle(g, after: 1.02))
         }
     }
 
