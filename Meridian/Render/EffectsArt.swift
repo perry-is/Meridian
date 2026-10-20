@@ -113,6 +113,40 @@ enum EffectsArt {
         }
     }
 
+    /// Class markers drawn under units (tinted with team colour at runtime).
+    static func classRing(_ kind: String) -> CGImage {
+        Pen.image(64, 32) { p in
+            switch kind {
+            case "heavy":
+                p.fill(p.ellipsePath(32, 16, 28, 13), RGB(1, 1, 1, 0.22))
+                p.stroke(p.ellipsePath(32, 16, 28.5, 13.5), RGB(1, 1, 1, 0.95), 2.6)
+                p.stroke(p.ellipsePath(32, 16, 23, 10.5), RGB(1, 1, 1, 0.8), 1.6)
+            case "siege":
+                p.fill(p.ellipsePath(32, 16, 27, 12.5), RGB(1, 1, 1, 0.18))
+                p.stroke(p.ellipsePath(32, 16, 27, 12.5), RGB(1, 1, 1, 0.95), 2.2)
+                for (a, b) in [((2.0, 16.0), (9.0, 16.0)), ((55.0, 16.0), (62.0, 16.0)), ((32.0, 1.5), (32.0, 6.0)), ((32.0, 26.0), (32.0, 30.5))] as [((CGFloat, CGFloat), (CGFloat, CGFloat))] {
+                    p.line(a, b, RGB(1, 1, 1, 1), 2.4)
+                }
+            case "air":
+                for k in 0..<12 where k % 2 == 0 {
+                    var pts: [(CGFloat, CGFloat)] = []
+                    let a0 = CGFloat(k) / 12 * .pi * 2, a1 = CGFloat(k + 1) / 12 * .pi * 2
+                    for s in 0...6 { let a = a0 + (a1 - a0) * CGFloat(s) / 6; pts.append((32 + cos(a) * 27, 16 + sin(a) * 12.5)) }
+                    let pp = CGMutablePath(); pp.move(to: CGPoint(x: pts[0].0, y: pts[0].1)); for q in pts.dropFirst() { pp.addLine(to: CGPoint(x: q.0, y: q.1)) }
+                    p.stroke(pp, RGB(1, 1, 1, 0.95), 2.2)
+                }
+            case "marker":
+                p.fill(p.ellipsePath(32, 16, 29, 13.5), RGB(1, 1, 1, 0.18))
+                p.stroke(p.ellipsePath(32, 16, 29, 13.5), RGB(1, 1, 1, 0.9), 2)
+                p.stroke(p.ellipsePath(32, 16, 15, 7), RGB(1, 1, 1, 0.7), 1.4)
+                p.line((32, 9), (32, 23), RGB(1, 1, 1, 0.9), 1.4); p.line((22, 16), (42, 16), RGB(1, 1, 1, 0.9), 1.4)
+            default: // field dome edge
+                p.fill(p.ellipsePath(32, 16, 30, 14), RGB(1, 1, 1, 0.07))
+                p.stroke(p.ellipsePath(32, 16, 30, 14), RGB(1, 1, 1, 0.55), 1.2)
+            }
+        }
+    }
+
     static func selectRing() -> CGImage {
         Pen.image(80, 40) { p in
             for k in 0..<8 where k % 2 == 0 {

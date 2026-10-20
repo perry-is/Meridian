@@ -138,7 +138,16 @@ extension World {
 
     func hit(at x: Double, _ y: Double, primary: Entity?, damage: Double, splash: Double, w: EffWeapon, owner: Int, srcType: Int, sourceID: Int) {
         let airImpact = primary?.isAir ?? false
-        emit(.impact(x: x, y: y, radius: splash, style: w.style, air: airImpact))
+        if collectEvents {
+            var surface = "ground"
+            if let p = primary {
+                if p.isBuilding { surface = "structure" }
+                else if p.isUnit && !p.isMine {
+                    surface = udef(p).tags.contains("bio") ? (players[p.owner].faction == .aliens ? "ichor" : "flesh") : "metal"
+                }
+            }
+            emit(.impact(x: x, y: y, radius: splash, style: w.style, air: airImpact, power: damage, surface: surface))
+        }
         if splash > 0 {
             forEachNear(x, y, splash + 1) { o in
                 guard o.kind != .resource, o.onMap, isEnemy(owner, o.owner), canHit(w, o) else { return }

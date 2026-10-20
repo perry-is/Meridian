@@ -157,7 +157,8 @@ public enum Installation: Int, Sendable, CaseIterable { case none, extractor, wa
 /// Transient visual events for the renderer.
 public enum GameEvent: Sendable {
     case shot(from: Int, fx: Double, fy: Double, tx: Double, ty: Double, style: String, owner: Int, air: Bool)
-    case impact(x: Double, y: Double, radius: Double, style: String, air: Bool)
+    /// power = raw weapon damage; surface = what was hit ("metal", "flesh", "structure", "ground") for impact styling.
+    case impact(x: Double, y: Double, radius: Double, style: String, air: Bool, power: Double, surface: String)
     case death(x: Double, y: Double, big: Bool, owner: Int, air: Bool, building: Bool)
     case heal(x: Double, y: Double)
     case emp(x: Double, y: Double, radius: Double)

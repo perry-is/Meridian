@@ -19,6 +19,13 @@ final class EntityView {
     var fxTimer: Double = 0
     var fire: SKSpriteNode?
     var wasComplete = true
+    var turnT: Double = 0
+    var lastHit: Double = -10
+    var jolt: CGFloat = 0
+    var dustT: Double = 0
+    var field: SKSpriteNode?
+    var heavy = false
+    var vehicle = false
 
     init(body: SKSpriteNode, shadow: SKSpriteNode?) {
         self.body = body
@@ -55,15 +62,34 @@ final class GameScene: SKScene {
     var boxStart: CGPoint?
     var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
+    let battleCam = BattleCamera()
     var spectateTimer = 0.0
     var perfFrames: [Double] = []
+    var perfSim: [Double] = []
+    var perfUpd: [Double] = []
     var trailTick = 0
+    var markerPool: [SKSpriteNode] = []
+    var linePool: [SKSpriteNode] = []
+    var quality = 2
+    var forcedQuality: Int? = ProcessInfo.processInfo.arguments.firstIndex(of: "-quality").flatMap { Int(ProcessInfo.processInfo.arguments[$0 + 1]) }
+    var frameEMA = 16.7
+    var slowTime = 0.0
+    var fastTime = 0.0
+    var trauma: CGFloat = 0
+    let sceneStart = CACurrentMediaTime()
+    lazy var rangeRing: SKSpriteNode = {
+        let r = SKSpriteNode(texture: bank.fx["ring_field"])
+        r.color = SKColor(red: 1, green: 0.9, blue: 0.5, alpha: 1); r.colorBlendFactor = 1; r.alpha = 0.5; r.zPosition = 9
+        worldNode.addChild(r)
+        return r
+    }()
     var lastProducedSound = -10.0
     var shakeEnabled = true
     var sfx: SoundEngine? { silent || GameScene.flags.contains("nosound") ? nil : SoundEngine.shared }
     static let flags: Set<String> = Set((ProcessInfo.processInfo.arguments.firstIndex(of: "-perf").map { ProcessInfo.processInfo.arguments[$0 + 1] } ?? "").split(separator: ",").map(String.init))
     var silent = false
     var backdrop = false
+    var backdropStatic = false
     let N: Int
 
     init(controller: GameController, size: CGSize) {
@@ -102,7 +128,8 @@ final class GameScene: SKScene {
         rallyFlag.zPosition = 5; rallyFlag.isHidden = true
         worldNode.addChild(rallyFlag)
         if ctl.stressMode { focus(Double(N) / 2, Double(N) / 2); zoom = 2.6 }
-        if ctl.battleMode { focus(Double(N) / 2, Double(N) / 2); zoom = 1.6 }
+        if ctl.battleMode { focus(Double(N) / 2, Double(N) / 2); zoom = 1.5 }
+        if ProcessInfo.processInfo.arguments.contains("-nozoom") { battleCam.autoZoom = false }
         if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
         else if let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
         ctl.focusCamera = { [weak self] x, y in self?.focus(x, y) }
@@ -215,13 +242,21 @@ final class GameScene: SKScene {
         let dt = lastUpdate == 0 ? 1.0 / 60 : currentTime - lastUpdate
         lastUpdate = currentTime
         if ctl.stressMode || ctl.battleMode { perfLog(dt) }
+        if ctl.spectating && !backdropStatic { battleCam.update(self, dt: min(dt, 0.05)) }
+        fogNode?.isHidden = ctl.spectating
+        let tSim0 = CACurrentMediaTime()
         ctl.advance(dt)
+        let tSim1 = CACurrentMediaTime()
+        defer { perfSim.append((tSim1 - tSim0) * 1000); perfUpd.append((CACurrentMediaTime() - tSim1) * 1000) }
         if !silent { sfx?.listener = cam.position; sfx?.hearing = max(500, size.width * zoom * 0.7) }
         shakeEnabled = UserDefaults.standard.object(forKey: "fx.shake") as? Bool ?? true
-        fxBudget = 50
+        updateQuality(dt)
+        fxBudget = fxBudgetForQuality
         consumeEvents()
         syncEntities()
         syncProjectiles()
+        syncSelectionOverlays()
+        applyShake(dt)
         syncSites()
         syncGhost()
         fogTimer -= dt
@@ -235,12 +270,15 @@ final class GameScene: SKScene {
     /// Frame-time log for stress runs (printed to stdout; read with `simctl launch --console`).
     func perfLog(_ dt: Double) {
         perfFrames.append(dt)
-        if perfFrames.count >= 300 {
+        if perfFrames.count >= 120 {
             let s = perfFrames.sorted()
             let avg = perfFrames.reduce(0, +) / Double(perfFrames.count)
             let units = world.entities.filter { $0.isUnit && $0.alive && !$0.isMine }.count
-            print(String(format: "PERF units=%d nodes=%d avgFrame=%.2fms fps=%.1f p95=%.2fms projectiles=%d", units, worldNode.children.count, avg * 1000, 1 / avg, s[Int(Double(s.count) * 0.95)] * 1000, world.projectiles.count))
-            perfFrames.removeAll()
+            let sim = perfSim.reduce(0, +) / Double(max(1, perfSim.count)), upd = perfUpd.reduce(0, +) / Double(max(1, perfUpd.count))
+            let simMax = perfSim.max() ?? 0
+            print(String(format: "PERF t=%.0fs units=%d nodes=%d frame=%.2fms fps=%.1f p95=%.2fms | sim=%.2fms (max %.1f) sceneUpdate=%.2fms | proj=%d q=%d size=%.0fx%.0f",
+                         world.time, units, worldNode.children.count, avg * 1000, 1 / avg, s[Int(Double(s.count) * 0.95)] * 1000, sim, simMax, upd, world.projectiles.count, quality, size.width, size.height))
+            perfFrames.removeAll(); perfSim.removeAll(); perfUpd.removeAll()
         }
     }
 
@@ -277,9 +315,21 @@ final class GameScene: SKScene {
             let v = EntityView(body: s, shadow: sh)
             v.frames = frames
             v.bodyY = s.position.y
-            // Team ring: the primary readability cue in big battles.
-            let ring = SKSpriteNode(texture: bank.fx["teamring"])
+            // Team ring: the primary readability cue in big battles. Shape encodes class.
+            let cls = e.isAir ? "ring_air" : (d.role == "siege" ? "ring_siege" : (d.tags.contains("massive") ? "ring_heavy" : "teamring"))
+            let ring = SKSpriteNode(texture: bank.fx[cls])
             let rw = max(30, CGFloat(d.radius) * 120)
+            v.heavy = d.tags.contains("massive") || d.role == "siege"
+            v.vehicle = !e.isAir && d.tags.contains("mech") && (d.tags.contains("armored") || d.role == "fast")
+            let t = world.traits[e.type]
+            if t.slowField || t.jam {
+                let fr = CGFloat(t.slowField ? t.slowRadius : t.jamRadius)
+                let f = SKSpriteNode(texture: bank.fx["ring_field"], size: CGSize(width: fr * 90, height: fr * 45))
+                f.color = t.slowField ? SKColor(red: 0.4, green: 0.9, blue: 1, alpha: 1) : SKColor(red: 0.75, green: 0.5, blue: 1, alpha: 1)
+                f.colorBlendFactor = 1; f.alpha = 0.5; f.zPosition = -0.2
+                f.run(.repeatForever(.sequence([.fadeAlpha(to: 0.25, duration: 1.2), .fadeAlpha(to: 0.55, duration: 1.2)])))
+                v.root.insertChild(f, at: 0); v.field = f
+            }
             ring.size = CGSize(width: rw, height: rw / 2)
             ring.color = TeamColor.sk(e.owner); ring.colorBlendFactor = 1
             ring.alpha = e.isAir ? 0.45 : 0.75
@@ -352,7 +402,7 @@ final class GameScene: SKScene {
             } else { v.ring?.isHidden = true }
             // Health / progress bars for damaged, selected or constructing things.
             let hurt = e.hp < e.maxHp - 0.5
-            let showBar = isSel || (e.isBuilding && (hurt || !e.complete)) || (hurt && (zoom < 1.5 || e.hp < e.maxHp * 0.6))
+            let showBar = isSel || (e.isBuilding && (hurt || !e.complete)) || (hurt && (e.hp < e.maxHp * 0.7 || zoom < 0.8))
             if !e.isResource && !e.isMine && showBar {
                 let bar = bar(bars); bars += 1
                 let w: CGFloat = e.isBuilding ? CGFloat(e.size) * 22 : 20
@@ -381,56 +431,6 @@ final class GameScene: SKScene {
             rallyFlag.isHidden = false
             rallyFlag.position = Iso.scene(b.rallyX, b.rallyY)
         } else { rallyFlag.isHidden = true }
-    }
-
-    /// Per-faction motion language on top of the sprite frames.
-    func animateUnit(_ e: Entity, _ v: EntityView, _ t: Double) {
-        let sx = cos(e.facing) + sin(e.facing)
-        if abs(sx) > 0.15 { v.facingSign = sx < 0 ? -1 : 1 }
-        let fac = world.players[e.owner].faction
-        let seed = Double(e.id % 97)
-        let speed = world.speed(e)
-        // Frame cycling: walk cycle while moving, idle engines for aircraft.
-        if !v.frames.isEmpty {
-            let rate = e.isAir ? 10.0 : 3.2 * max(1.5, speed)
-            let fr = (e.moving || e.isAir) ? Int(t * rate + seed) % v.frames.count : 0
-            if v.body.texture !== v.frames[fr] { v.body.texture = v.frames[fr] }
-        }
-        var y = v.bodyY
-        var rot: CGFloat = 0
-        var sy: CGFloat = 1
-        if e.isAir {
-            y += CGFloat(sin(t * 2.2 + seed)) * 2.5
-            // Bank into turns: compare heading change.
-            let target = CGFloat(-sx) * 0.12 * (e.moving ? 1 : 0.2)
-            v.turn += (target - v.turn) * 0.1
-            rot = v.turn
-        } else if e.moving {
-            switch fac {
-            case .humans: y += CGFloat(abs(sin(t * 10 + seed))) * 1.3
-            case .machines: rot = CGFloat(sin(t * 7 + seed)) * 0.025; y += CGFloat(abs(sin(t * 7 + seed))) * 0.8
-            case .aliens: sy = 1 + CGFloat(sin(t * 12 + seed)) * 0.05; rot = CGFloat(sin(t * 6 + seed)) * 0.05
-            }
-        } else if fac == .aliens {
-            sy = 1 + CGFloat(sin(t * 2.5 + seed)) * 0.03     // breathing
-        } else if fac == .machines {
-            v.teamRing?.alpha = 0.6 + (e.linked ? 0.35 : 0) * CGFloat(0.6 + 0.4 * sin(t * 4 + seed))
-        }
-        // Recoil kick when firing.
-        let sinceFire = t - e.lastFireTime
-        var kick: CGFloat = 0
-        if sinceFire < 0.12 && world.weapon(e) != nil { kick = CGFloat(1 - sinceFire / 0.12) * 2.2 }
-        v.body.position = CGPoint(x: -v.facingSign * kick, y: y)
-        v.body.zRotation = rot * v.facingSign
-        v.body.xScale = v.facingSign
-        v.body.yScale = sy
-        // State tints: cloaked shimmer, hit flash, network link glow.
-        v.body.alpha = world.isCloaked(e) ? 0.4 + 0.1 * CGFloat(sin(t * 6)) : 1
-        if t - e.lastHitTime < 0.08 {
-            v.body.colorBlendFactor = 0.55; v.body.color = SKColor(red: 1, green: 0.25, blue: 0.15, alpha: 1)
-        } else if e.disruptedUntil > t {
-            v.body.colorBlendFactor = 0.35; v.body.color = SKColor(red: 0.4, green: 0.6, blue: 1, alpha: 1)
-        } else { v.body.colorBlendFactor = 0 }
     }
 
     func bar(_ i: Int) -> (SKSpriteNode, SKSpriteNode) {

@@ -95,6 +95,7 @@ struct HUDState {
     var tileHP: [Int: Double] = [:]
     var idleWorkers = 0
     var armyCount = 0
+    var sides: [(faction: Faction, units: Int, value: Double, kills: Int)] = []
 }
 
 @MainActor
@@ -170,7 +171,10 @@ final class GameController: ObservableObject {
         .aliens: [("a_mantis", 13), ("a_ravager", 6), ("a_spinecaster", 6), ("a_needleback", 4), ("a_lifebinder", 3), ("a_skitter", 3), ("a_colossus", 4), ("a_rupturer", 4), ("a_seeder", 1), ("a_wisp", 3), ("a_blightwing", 3)],
     ]
 
+    var battleSize = 50
+
     func setupBattle(_ perSide: Int) {
+        battleSize = perSide
         world.sandbox = true
         world.clearAll()
         world.unlockAll(0); world.unlockAll(1)
@@ -488,6 +492,13 @@ final class GameController: ObservableObject {
             h.income = (0..<3).map { Double(last.1[$0] - first.1[$0]) / span * 60 }
         }
         h.faction = p.faction
+        h.sides = world.players.map { pl in
+            var n = 0, v = 0.0
+            for e in world.entities where e.isUnit && e.alive && !e.isMine && e.owner == pl.index && !world.traits[e.type].worker {
+                n += 1; v += data.units[e.type].cost.value(data.rules.economy) * e.hp / max(1, e.maxHp)
+            }
+            return (pl.faction, n, v, pl.stats.kills)
+        }
         h.siteOwners = world.sites.map { $0.control >= 1 ? $0.owner : -1 }
         h.siteProgress = world.sites.map { $0.owner >= 0 ? $0.control : ($0.capturer >= 0 ? -$0.control : 0) }
         let mine = world.units(of: me)

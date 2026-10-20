@@ -223,10 +223,13 @@ enum TerrainLayer {
                 s.anchorPoint = CGPoint(x: 0.5, y: 0.15)
                 let jx = Double(hnoise(x, y, 14)) * 0.8 + 0.1, jy = Double(hnoise(x, y, 15)) * 0.8 + 0.1
                 s.position = Iso.scene(Double(x) + jx, Double(y) + jy)
-                s.setScale(0.7 + hnoise(x, y, 16) * 0.5)
+                // Decor stays quieter than combatants: smaller and slightly desaturated toward the ground.
+                s.setScale((kind == 4 ? 0.5 : 0.6) + hnoise(x, y, 16) * 0.3)
+                s.alpha = kind == 4 ? 0.8 : 0.85
+                s.color = SKColor(red: 0.2, green: 0.25, blue: 0.2, alpha: 1); s.colorBlendFactor = kind >= 3 ? 0.15 : 0.25
                 s.zPosition = kind == 4 ? 100 + Iso.depth(Double(x) + jx, Double(y) + jy) * 0.4 : 6
                 if kind == 3 || kind == 4 {
-                    s.run(.repeatForever(.sequence([.fadeAlpha(to: 0.7, duration: 1.5 + Double(r) * 2), .fadeAlpha(to: 1, duration: 1.5)])))
+                    s.run(.repeatForever(.sequence([.fadeAlpha(to: 0.55, duration: 1.5 + Double(r) * 2), .fadeAlpha(to: 0.85, duration: 1.5)])))
                 }
                 parent.addChild(s)
             }

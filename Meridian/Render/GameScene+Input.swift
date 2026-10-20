@@ -21,12 +21,14 @@ extension GameScene {
     }
 
     func pan(by d: CGPoint) {
+        battleCam.manualOverride()
         cam.position.x -= d.x * zoom
         cam.position.y += d.y * zoom
         clampCamera()
     }
 
     func zoom(by factor: CGFloat, around p: CGPoint?) {
+        battleCam.manualOverride()
         let before = p.map { convertPoint(fromView: $0) }
         zoom /= factor
         applyZoom()

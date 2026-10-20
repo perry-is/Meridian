@@ -32,6 +32,8 @@ struct Panel<Content: View>: View {
 struct MainMenuView: View {
     @Binding var settings: GameSettings
     var loading: Bool
+    var onSpectate: () -> Void = {}
+    var onBattle: (Int) -> Void = { _ in }
     var onStart: () -> Void
     @State private var showHelp = false
     @State private var showSettings = false
@@ -88,6 +90,11 @@ struct MainMenuView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("DEPLOY")
                         .padding(.top, 4)
+                        section("OBSERVE")
+                        HStack(spacing: 8) {
+                            observeButton("Watch AI Match", "eye.fill") { onSpectate() }
+                            ForEach([50, 100, 200], id: \.self) { n in observeButton("Battle \(n)v\(n)", "flame.fill") { onBattle(n) } }
+                        }.padding(.horizontal)
                         HStack(spacing: 24) {
                             Button { showHelp = true } label: { Label("How to play", systemImage: "questionmark.circle") }
                             Button { showSettings = true } label: { Label("Audio", systemImage: "speaker.wave.2") }
@@ -104,6 +111,18 @@ struct MainMenuView: View {
         .sheet(isPresented: $showSettings) { VStack(spacing: 16) { Text("Audio").font(.title3.bold()); AudioSettings() }.padding(30).presentationDetents([.medium]) }
         .onAppear { backdrop.start() }
         .onDisappear { backdrop.stop() }
+    }
+
+    func observeButton(_ t: String, _ sym: String, _ a: @escaping () -> Void) -> some View {
+        Button { SoundEngine.shared?.play("confirm", at: nil); a() } label: {
+            VStack(spacing: 3) {
+                Image(systemName: sym).font(.system(size: 14, weight: .bold))
+                Text(t).font(.system(size: 10, weight: .heavy)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 9)
+            .background(Chamfer(cut: 8).fill(Color.black.opacity(0.6)))
+            .overlay(Chamfer(cut: 8).stroke(Theme.faction(settings.aiFaction).opacity(0.6)))
+        }.buttonStyle(.plain).foregroundColor(.white)
     }
 
     func section(_ s: String) -> some View {

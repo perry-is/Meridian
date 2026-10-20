@@ -28,6 +28,15 @@ struct MeridianApp: App {
 
 struct RootView: View {
     @State private var settings = GameSettings()
+
+    func startBattle(_ n: Int, _ f0: Faction, _ f1: Faction) {
+        var s = settings
+        s.layout = .arena
+        s.playerFaction = f0; s.aiFaction = f1
+        let c = GameController(settings: s, spectate: true)
+        c.setupBattle(n)
+        controller = c
+    }
     @State private var controller: GameController? = nil
     @State private var loading = false
     @State private var fixedSeed = false
@@ -35,10 +44,18 @@ struct RootView: View {
     var body: some View {
         ZStack {
             if let c = controller {
-                GameView(controller: c, onQuit: { controller = nil })
+                GameView(controller: c, onQuit: { controller = nil }, onRestart: c.battleMode ? {
+                    let n = c.battleSize, f0 = c.settings.playerFaction, f1 = c.settings.aiFaction
+                    controller = nil
+                    DispatchQueue.main.async { startBattle(n, f0, f1) }
+                } : nil)
                     .transition(.opacity)
             } else {
-                MainMenuView(settings: $settings, loading: loading) {
+                MainMenuView(settings: $settings, loading: loading, onSpectate: {
+                    var s = settings
+                    s.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000
+                    controller = GameController(settings: s, spectate: true)
+                }, onBattle: { n in startBattle(n, settings.playerFaction, settings.aiFaction) }) {
                     loading = true
                     // Give the menu a frame to show the loading state before generating textures.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -62,9 +79,7 @@ struct RootView: View {
                 settings.layout = .arena
                 if arg("-faction") == nil { settings.playerFaction = .humans }
                 if arg("-enemy") == nil { settings.aiFaction = .machines }
-                let c = GameController(settings: settings, spectate: true)
-                c.setupBattle(n)
-                controller = c
+                startBattle(n, settings.playerFaction, settings.aiFaction)
                 return
             }
             if a.contains("-autostart") && controller == nil {
@@ -119,6 +134,7 @@ struct SpriteHost: NSViewRepresentable {
 struct GameView: View {
     @ObservedObject var controller: GameController
     let onQuit: () -> Void
+    var onRestart: (() -> Void)? = nil
     @State private var scene: GameScene? = nil
     @State private var showPause = false
 
@@ -129,7 +145,11 @@ struct GameView: View {
                     SpriteHost(scene: s).ignoresSafeArea()
                 }
                 if let s = scene, !GameScene.flags.contains("nohud") {
-                    HUDView(controller: controller, scene: s, showPause: $showPause)
+                    if controller.spectating {
+                        SpectatorHUD(controller: controller, scene: s, onQuit: onQuit, onRestart: onRestart)
+                    } else {
+                        HUDView(controller: controller, scene: s, showPause: $showPause)
+                    }
                 }
                 if showPause {
                     PauseView(controller: controller, onResume: { showPause = false; controller.paused = false }, onQuit: onQuit)
