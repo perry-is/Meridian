@@ -191,6 +191,12 @@ private struct Generator {
     mutating func build(_ layout: MapLayout) -> MapData {
         let N = Double(n)
         if layout == .arena {
+            // Open battlefield: purely cosmetic passable variety (dirt and moss), no obstacles.
+            let s1 = rng.next()
+            for y in 0..<n { for x in 0..<n {
+                let v = noise(Double(x) * 0.07, Double(y) * 0.07, s1)
+                terrain[idx(x, y)] = (v > 0.66 ? Terrain.dirt : (v < 0.3 ? Terrain.moss : Terrain.grass)).rawValue
+            } }
             return MapData(size: n, terrain: terrain, elevation: elevation, resources: [],
                            starts: [(x: 4, y: 4), (x: n - 8, y: n - 8)], sites: [], name: layout.title)
         }

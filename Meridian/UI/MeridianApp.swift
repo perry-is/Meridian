@@ -58,6 +58,15 @@ struct RootView: View {
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
             if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
+            if let b = arg("-battle"), let n = Int(b), controller == nil {
+                settings.layout = .arena
+                if arg("-faction") == nil { settings.playerFaction = .humans }
+                if arg("-enemy") == nil { settings.aiFaction = .machines }
+                let c = GameController(settings: settings, spectate: true)
+                c.setupBattle(n)
+                controller = c
+                return
+            }
             if a.contains("-autostart") && controller == nil {
                 let c = GameController(settings: settings, spectate: a.contains("-spectate"))
                 if let w = arg("-warp"), let secs = Double(w) { c.warp(seconds: secs) }

@@ -160,6 +160,59 @@ final class GameController: ObservableObject {
         stressMode = true
     }
     var stressMode = false
+    var battleMode = false
+
+    /// Staged combined-arms battle: N units per side in formation, attack-moving into each other.
+    /// Composition per 50: front infantry/assault, anti-armor + AA second line, armor, siege at the rear, aircraft above.
+    static let battleRoster: [Faction: [(String, Int)]] = [
+        .humans: [("h_ranger", 13), ("h_breacher", 6), ("h_lancer", 6), ("h_skyguard", 4), ("h_medic", 3), ("h_buggy", 3), ("h_bastion", 4), ("h_mortar", 4), ("h_minelayer", 1), ("h_kestrel", 3), ("h_harrier", 3)],
+        .machines: [("m_arc", 13), ("m_shockframe", 6), ("m_piercer", 6), ("m_flak", 4), ("m_repair", 3), ("m_runner", 3), ("m_bulwark", 4), ("m_coil", 4), ("m_suppress", 1), ("m_vector", 3), ("m_quake", 3)],
+        .aliens: [("a_mantis", 13), ("a_ravager", 6), ("a_spinecaster", 6), ("a_needleback", 4), ("a_lifebinder", 3), ("a_skitter", 3), ("a_colossus", 4), ("a_rupturer", 4), ("a_seeder", 1), ("a_wisp", 3), ("a_blightwing", 3)],
+    ]
+
+    func setupBattle(_ perSide: Int) {
+        world.sandbox = true
+        world.clearAll()
+        world.unlockAll(0); world.unlockAll(1)
+        let mid = Double(world.map.size) / 2
+        for p in 0..<2 {
+            let f = world.players[p].faction
+            let dir: Double = p == 0 ? -1 : 1
+            var list: [Int] = []
+            let roster = GameController.battleRoster[f]!
+            for (id, n) in roster { list += Array(repeating: data.unitIndex[id]!, count: max(1, n * perSide / 50)) }
+            while list.count > perSide { list.removeLast() }
+            var k = 0
+            while list.count < perSide { list.append(data.unitIndex[roster[k % 2].0]!); k += 1 }
+            // Rank by role: front line closest to the enemy.
+            func rank(_ u: Int) -> Int {
+                switch data.units[u].role {
+                case "assault", "fast": return 0
+                case "infantry": return 1
+                case "antiarmor", "antiair", "support", "denial": return 2
+                case "heavy": return 3
+                case "siege": return 5
+                default: return 4
+                }
+            }
+            let groups = Dictionary(grouping: list, by: rank)
+            for (r, units) in groups {
+                let cols = max(1, Int(Double(units.count).squareRoot() * 2.2))
+                for (i, u) in units.enumerated() {
+                    let row = i / cols, col = i % cols
+                    let depth = 10 + Double(r) * 2.4 + Double(row) * 1.1
+                    let x = mid + dir * depth
+                    let y = mid + (Double(col) - Double(cols - 1) / 2) * 1.05
+                    let e = world.spawnUnit(u, owner: p, x: x, y: y)
+                    e.facing = p == 0 ? 0 : .pi
+                }
+            }
+        }
+        for p in 0..<2 {
+            world.commandMove(world.units(of: p).map { $0.id }, x: mid + (p == 0 ? 14 : -14), y: mid, attack: true)
+        }
+        battleMode = true
+    }
 
     /// Fast-forward the simulation (development / demo).
     func warp(seconds: Double) {

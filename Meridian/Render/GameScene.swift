@@ -102,6 +102,7 @@ final class GameScene: SKScene {
         rallyFlag.zPosition = 5; rallyFlag.isHidden = true
         worldNode.addChild(rallyFlag)
         if ctl.stressMode { focus(Double(N) / 2, Double(N) / 2); zoom = 2.6 }
+        if ctl.battleMode { focus(Double(N) / 2, Double(N) / 2); zoom = 1.6 }
         if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
         else if let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
         ctl.focusCamera = { [weak self] x, y in self?.focus(x, y) }
@@ -213,7 +214,7 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         let dt = lastUpdate == 0 ? 1.0 / 60 : currentTime - lastUpdate
         lastUpdate = currentTime
-        if ctl.stressMode { perfLog(dt) }
+        if ctl.stressMode || ctl.battleMode { perfLog(dt) }
         ctl.advance(dt)
         if !silent { sfx?.listener = cam.position; sfx?.hearing = max(500, size.width * zoom * 0.7) }
         shakeEnabled = UserDefaults.standard.object(forKey: "fx.shake") as? Bool ?? true

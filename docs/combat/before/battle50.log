@@ -1,0 +1,8 @@
+BANK generated in 0.31s
+BANK generated in 0.29s
+IOSurfaceClientSetSurfaceNotify failed e00002c7
+PERF units=94 nodes=1068 avgFrame=18.62ms fps=53.7 p95=16.67ms projectiles=6
+PERF units=60 nodes=1088 avgFrame=16.67ms fps=60.0 p95=16.67ms projectiles=13
+PERF units=28 nodes=994 avgFrame=16.67ms fps=60.0 p95=16.67ms projectiles=1
+PERF units=18 nodes=923 avgFrame=16.67ms fps=60.0 p95=16.67ms projectiles=0
+dev.meridian.rts: 4537
