@@ -96,7 +96,7 @@ final class BattleCamera {
         guard n > 0, scene.size.width > 0 else { return }
         let need = max((maxX - minX + 160) / scene.size.width, (maxY - minY + 220) / (scene.size.height * 0.6))
         // Readability cap: on a narrow phone screen stay close enough that infantry remain legible.
-        let cap: CGFloat = scene.size.width < 520 ? 1.6 : 2.1
+        let cap: CGFloat = scene.size.width < 520 ? 1.45 : 2.0
         let desired = min(cap, max(0.85, need))
         let zk: CGFloat = 1.6
         let za = (desired - scene.zoom) * zk * zk - 2 * zk * zoomVelocity

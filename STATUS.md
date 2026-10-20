@@ -110,6 +110,31 @@ Simulation, balance, AI, economy, unit stats and victory conditions are unchange
 - All performance numbers come from the simulator.
 - The cover/inner fold transition and device rotation remain unverified (see above).
 
+## Mission 3: combat presentation (v0.3)
+
+Simulation, balance, stats, production and victory are unchanged. Core tests pass 9/9, and the `meridian-sim combat --counters` output is byte-identical to the recorded results. The core gained only renderer-facing event data: impact `power` and `surface`.
+
+- **Reproducible staged battle:** `-battle N`, or **Battle Lab** in the main menu. Combined-arms rosters for each faction, deterministic formation, both sides attack-moving.
+- **Combat visuals, readability and spectator mode:** see `docs/combat/REVIEW.md`. That covers weapon families, power- and surface-aware impacts, artillery telegraphs, wrecks, damage reactions, class markers, the battle camera, the spectator HUD, adaptive effect quality (3 tiers, auto) and trauma-based shake.
+- **Before/after:** `docs/combat/before/` and `docs/combat/after/`, each with timed mid-combat screenshots and a demo video, plus close-ups in `after_closeup/`.
+
+### Performance (in-app renderer; Xcode 27.1 simulators, iOS 27.1, Apple M4 Max host; **not phone hardware**)
+
+Staged battle, all units fighting (moving, pathing, projectiles, deaths). Averages are per 2-second window after the 2-second start-up window; *sim* is time inside `match.step()` per frame and *scene* is our SpriteKit update work.
+
+| Screen | Per side | Frame (p95) | sim avg / max | scene update | Peak nodes |
+|---|---|---|---|---|---|
+| iPhone Duo cover, 466×678 pt | 50 | 16.7 ms | 0.29 / 2.6 ms | 0.57 ms | 1,279 |
+| iPhone Duo cover | 100 | 16.7 ms | 0.61 / 4.1 ms | 0.70 ms | 1,716 |
+| iPhone Duo cover | 200 | 16.7 ms | 1.20 / 8.6 ms | 0.77 ms | 2,493 |
+| iPad mini, 744×1133 pt (unfolded-size stand-in) | 50 | 16.7 ms | 0.30 / 2.5 ms | 0.43 ms | 1,300 |
+| iPad mini | 100 | 16.7 ms | 0.60 / 4.5 ms | 0.60 ms | 1,714 |
+| iPad mini | 200 | 16.7 ms (avg 16.8–17.1) | 1.34 / 10.2 ms | 0.75 ms | 2,489 |
+
+- The first run on a freshly booted iPad simulator stalled, with 150 ms frames that our update code didn't cause. The adaptive quality system dropped to tier 0 as designed. The re-run held 60 fps.
+- The headless simulation stress test (`meridian-sim stress`) is unchanged.
+- The Duo's inner display couldn't be selected in the simulator, so the iPad mini stands in for the unfolded size.
+
 ## How to build, play and test
 
 See `README.md`.
