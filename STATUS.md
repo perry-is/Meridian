@@ -112,7 +112,7 @@ Simulation, balance, AI, economy, unit stats and victory conditions are unchange
 
 ## Mission 3: combat presentation (v0.3)
 
-Simulation, balance, stats, production and victory are unchanged. Core tests pass 9/9, and the `meridian-sim combat --counters` output is byte-identical to the recorded results. The core gained only renderer-facing event data: impact `power` and `surface`.
+Simulation, balance, stats, production and victory are unchanged. Core tests pass 9/9 and UI tests 3/3 (the new `testSpectatorBattle` drives Battle Lab: FOLLOW, ½× speed, CINEMA). The `meridian-sim combat --counters` output is byte-identical to the recorded results. The core gained only renderer-facing event data: impact `power` and `surface`.
 
 - **Reproducible staged battle:** `-battle N`, or **Battle Lab** in the main menu. Combined-arms rosters for each faction, deterministic formation, both sides attack-moving.
 - **Combat visuals, readability and spectator mode:** see `docs/combat/REVIEW.md`. That covers weapon families, power- and surface-aware impacts, artillery telegraphs, wrecks, damage reactions, class markers, the battle camera, the spectator HUD, adaptive effect quality (3 tiers, auto) and trauma-based shake.

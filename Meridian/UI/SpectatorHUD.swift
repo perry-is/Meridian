@@ -33,6 +33,9 @@ struct SpectatorHUD: View {
                     MinimapFrame(controller: controller, scene: scene, accent: Theme.accent).frame(width: 150, height: 82)
                 }
                 Spacer()
+                if cinematic {
+                    pill("HUD", on: true, symbol: "film") { cinematic = false }
+                } else {
                 VStack(alignment: .trailing, spacing: 6) {
                     HStack(spacing: 6) {
                         ForEach([0.5, 1.0, 2.0, 4.0], id: \.self) { s in
@@ -41,13 +44,14 @@ struct SpectatorHUD: View {
                     }
                     HStack(spacing: 6) {
                         pill(follow ? "FOLLOW ON" : "FOLLOW OFF", on: follow, symbol: "scope") { follow.toggle(); scene.battleCam.enabled = follow }
-                        pill(cinematic ? "HUD" : "CINEMA", on: cinematic, symbol: "film") { cinematic.toggle() }
+                        pill("CINEMA", on: false, symbol: "film") { cinematic = true }
                     }
                     HStack(spacing: 6) {
                         pill(controller.paused ? "PLAY" : "PAUSE", on: controller.paused, symbol: controller.paused ? "play.fill" : "pause.fill") { controller.paused.toggle() }
                         if let r = onRestart { pill("RESTART", on: false, symbol: "arrow.counterclockwise") { r() } }
                         pill("EXIT", on: false, symbol: "xmark") { onQuit() }
                     }
+                }
                 }
             }
         }

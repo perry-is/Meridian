@@ -7,6 +7,7 @@ final class PlaythroughUITests: XCTestCase {
 
     override func setUp() {
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launchArguments = ["-seed", "42", "-faction", "humans", "-enemy", "machines"]
         app.launch()
