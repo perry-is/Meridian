@@ -139,6 +139,10 @@ public final class World {
                 let u = spawnUnit(w, owner: p.index, x: hq.x + cos(a) * 3.2, y: hq.y + sin(a) * 3.2)
                 u.facing = a
             }
+            // Starting workers begin mining the nearest iron.
+            for u in units(of: p.index) {
+                if let node = nearestResource(kind: .iron, x: u.x, y: u.y, maxDist: 14, owner: -1) { commandGather([u.id], node: node.id) }
+            }
         }
         refreshZones()
         updateFog()
