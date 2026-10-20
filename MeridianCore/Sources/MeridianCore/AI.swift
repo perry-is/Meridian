@@ -43,7 +43,7 @@ public final class AIController {
         switch difficulty {
         case .easy: thinkInterval = 2.0; workerTarget = 13; attackThreshold = 3600; maxQueue = 1
         case .normal: thinkInterval = 1.0; workerTarget = 22; attackThreshold = 2900; maxQueue = 2
-        case .hard: thinkInterval = 0.5; workerTarget = 28; attackThreshold = 2400; maxQueue = 2
+        case .hard: thinkInterval = 0.5; workerTarget = 34; attackThreshold = 2600; maxQueue = 2
         }
         switch strategy {
         case .aggressive: attackThreshold *= 0.7; workerTarget -= 3
@@ -346,7 +346,7 @@ public final class AIController {
 
     func manageResearch(_ w: World, _ p: Player, _ buildings: [Entity], reserve: Cost) {
         let px = prefix(p)
-        var prio: [String] = ["\(px)_tier2", "\(px)_econ1", "\(px)_gw1", "\(px)_ga1", "\(px)_tier3", "\(px)_econ2", "\(px)_mob", "\(px)_gw2", "\(px)_tower", "\(px)_ga2", "\(px)_aw1", "\(px)_gw3"]
+        var prio: [String] = ["\(px)_tier2", "\(px)_econ1", "\(px)_tier3", "\(px)_gw1", "\(px)_ga1", "\(px)_econ2", "\(px)_mob", "\(px)_gw2", "\(px)_tower", "\(px)_ga2", "\(px)_aw1", "\(px)_gw3"]
         switch p.faction {
         case .humans: prio.insert(contentsOf: ["h_doctrine", "h_logistics"], at: 5); prio.append("h_composite")
         case .machines: prio.insert(contentsOf: ["m_mesh", "m_harden"], at: 5); prio.append("m_overclock")
@@ -445,6 +445,8 @@ public final class AIController {
             if strategy == .tech && ["heavy", "siege", "bomber"].contains(d.role) { wt *= 1.6 }
             if strategy == .aggressive && ["infantry", "assault", "fast"].contains(d.role) { wt *= 1.4 }
             if p.res[1] < d.cost.gold + 50 && d.cost.gold > 0 { wt *= 0.5 }
+            // Spend floating gold on the units that need it.
+            if p.res[1] > 300 && d.cost.gold > 0 { wt *= 1 + min(3, Double(p.res[1]) / 400) }
             if wt > 0 { weights.append((i, wt)) }
         }
         let total = weights.reduce(0) { $0 + $1.1 }
@@ -494,6 +496,7 @@ public final class AIController {
         let ids = army.map { $0.id }
         let value = armyValue(w, army)
 
+        if difficulty == .hard { micro(w, army) }
         // 1. Defence: enemies near our structures take priority.
         var threat: Entity? = nil
         var threatCount = 0
@@ -528,11 +531,20 @@ public final class AIController {
             return
         }
 
+        // 1b. Hard AI defends its territory: respond to owned sites being contested or decapped.
+        if difficulty == .hard && !attacking {
+            for s in w.sites where s.owner == player && (s.contested || s.control < 0.95) {
+                let responders = army.filter { dist2($0.x, $0.y, s.x, s.y) < 45 * 45 && ($0.order == .idle || $0.order == .hold) }
+                if responders.count >= 3 { w.commandMove(responders.map { $0.id }, x: s.x, y: s.y, attack: true); lastPlan = "Holding territory"; return }
+            }
+        }
         // 2. Attack timing.
         let growth = 1 + w.time / 900          // thresholds grow so late attacks are bigger
         let threshold = attackThreshold * growth
         let capped = p.unitCount >= w.data.rules.combat.unitCap - 10
-        if !attacking && (value >= threshold || capped) && w.time - lastAttackEnd > (difficulty == .easy ? 120 : 45) && w.time > (strategy == .aggressive ? 240 : 330) {
+        let enemyEst = enemySeen.reduce(0.0) { $0 + Double($1.value) * w.data.units[$1.key].cost.value(w.data.rules.economy) * (w.data.units[$1.key].role == "worker" ? 0 : 1) }
+        let confident = difficulty != .hard || value > enemyEst * 1.25
+        if !attacking && (value >= threshold && confident || capped) && w.time - lastAttackEnd > (difficulty == .easy ? 120 : 45) && w.time > (strategy == .aggressive ? 240 : 330) {
             attacking = true
             attackStartValue = value
             attackTarget = chooseAttackTarget(w)
@@ -583,6 +595,26 @@ public final class AIController {
         let st = stagingPoint(w)
         let loose = army.filter { !assigned.contains($0.id) && $0.order == .idle && $0.target < 0 && dist2($0.x, $0.y, st.0, st.1) > 64 }
         if !loose.isEmpty { w.commandMove(loose.map { $0.id }, x: st.0, y: st.1, attack: true) }
+    }
+
+    /// Hard AI: focus fire on the weakest enemy in range and pull badly damaged units back to heal.
+    func micro(_ w: World, _ army: [Entity]) {
+        let (bx, by) = baseCenter(w)
+        for u in army {
+            guard let wpn = w.weapon(u), u.target >= 0 else { continue }
+            if u.hp < u.maxHp * 0.25 && w.players[player].faction != .machines && dist2(u.x, u.y, bx, by) > 400 {
+                w.commandMove([u.id], x: bx, y: by, attack: false)   // regenerate / repair at home
+                continue
+            }
+            var best: Entity? = nil
+            var bestHP = Double.infinity
+            for e in w.entities where e.isUnit && e.onMap && !e.isMine && w.isEnemy(player, e.owner) {
+                guard abs(e.x - u.x) < wpn.range + 1.5, abs(e.y - u.y) < wpn.range + 1.5 else { continue }
+                guard (e.isAir ? wpn.air : wpn.ground), w.edgeDist(u, e) <= wpn.range, w.canSee(player, e) else { continue }
+                if e.hp < bestHP { bestHP = e.hp; best = e }
+            }
+            if let b = best, b.id != u.target { u.target = b.id }
+        }
     }
 
     func targetStillValid(_ w: World, _ t: (Double, Double)) -> Bool {
