@@ -44,6 +44,7 @@ final class GameScene: SKScene {
     var fogTimer = 0.0
     var fxBudget = 0
     var boxStart: CGPoint?
+    var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
     var spectateTimer = 0.0
     var perfFrames: [Double] = []
@@ -95,34 +96,18 @@ final class GameScene: SKScene {
     // MARK: Static layers
 
     func buildTerrain() {
-        let tm = SKTileMapNode(tileSet: bank.tileSet, columns: N, rows: N, tileSize: CGSize(width: 64, height: 32))
-        let map = world.map
-        for r in 0..<N {
-            for c in 0..<N {
-                let t = map.terrainAt(c, r)
-                let g = bank.group(t, elevated: map.elevation[map.idx(c, r)] > 0)
-                let defs = g.rules[0].tileDefinitions
-                let v = Int(hnoise(c, r, 77) * CGFloat(defs.count)) % defs.count
-                tm.setTileGroup(g, andTileDefinition: defs[v], forColumn: c, row: r)
-            }
-        }
-        let c00 = tm.centerOfTile(atColumn: 0, row: 0)
-        let want = Iso.scene(0.5, 0.5)
-        tm.position = CGPoint(x: want.x - c00.x, y: want.y - c00.y)
-        tm.zPosition = 0
-        worldNode.addChild(tm)
-        // Boulders on rock tiles give cliffs real height.
-        for r in 0..<N {
-            for c in 0..<N where map.terrainAt(c, r) == .rock {
-                if hnoise(c, r, 5) < 0.25 { continue }
-                let s = SKSpriteNode(texture: bank.boulders[Int(hnoise(c, r, 6) * 3) % 3])
-                s.anchorPoint = CGPoint(x: 0.5, y: 0.22)
-                s.position = Iso.scene(Double(c) + 0.5, Double(r) + 0.5)
-                s.setScale(0.55 + hnoise(c, r, 8) * 0.3)
-                s.zPosition = 100 + Iso.depth(Double(c) + 0.5, Double(r) + 0.5) * 0.4
-                worldNode.addChild(s)
-            }
-        }
+        worldNode.addChild(TerrainLayer.groundNode(world))
+        TerrainLayer.populate(world, bank: bank, into: worldNode)
+        TerrainLayer.clouds(world, bank: bank, into: worldNode)
+        let v = TerrainLayer.vignette(size: size, bank: bank)
+        vignette = v
+        cam.addChild(v)
+        cam.addChild(TerrainLayer.motes(bank: bank))
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        vignette?.size = size
     }
 
     func buildSites() {
@@ -270,8 +255,8 @@ final class GameScene: SKScene {
             let k = ResourceKind(rawValue: e.type)!
             let v = e.id % 3
             let s = SKSpriteNode(texture: bank.resource[k.rawValue][v])
-            s.anchorPoint = CGPoint(x: 0.5, y: k == .wood ? 0.1 : 0.25)
-            if k == .wood { s.setScale(0.85 + CGFloat(e.id % 5) * 0.06) }
+            s.anchorPoint = CGPoint(x: 0.5, y: k == .wood ? 0.08 : (k == .iron ? 0.22 : 0.16))
+            if k == .wood { s.setScale(0.8 + CGFloat(e.id % 5) * 0.06); s.xScale *= e.id % 2 == 0 ? 1 : -1 }
             return EntityView(body: s, shadow: nil)
         }
     }

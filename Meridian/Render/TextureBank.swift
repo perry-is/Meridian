@@ -32,12 +32,11 @@ final class TextureBank {
     private(set) var unit: [[SKTexture]] = []       // [player][unitType]
     private(set) var building: [[SKTexture]] = []   // [player][buildingType]
     private(set) var resource: [[SKTexture]] = []   // [kind][variant]
-    private(set) var boulders: [SKTexture] = []
+    private(set) var cliffs: [SKTexture] = []
+    private(set) var flora: [[SKTexture]] = []
     private(set) var fx: [String: SKTexture] = [:]
     private(set) var sitePlatform: SKTexture!
     private(set) var siteBeacon: SKTexture!
-    private(set) var tileSet: SKTileSet!
-    private(set) var tileGroups: [String: SKTileGroup] = [:]
     /// Cached SwiftUI-friendly icons.
     private(set) var unitIcons: [Int: CGImage] = [:]
     private(set) var buildingIcons: [Int: CGImage] = [:]
@@ -80,10 +79,17 @@ final class TextureBank {
         // Icons for every faction (tech screens show all of the player's own faction only, but keep complete).
         for (i, u) in data.units.enumerated() where unitIcons[i] == nil { unitIcons[i] = UnitArt.render(u, team: TeamColor.rgb(0)) }
         for (i, b) in data.buildings.enumerated() where buildingIcons[i] == nil { buildingIcons[i] = WorldArt.building(b, team: TeamColor.rgb(0)) }
-        for k in ResourceKind.allCases { for v in 0..<3 { images["r\(k.rawValue)_\(v)"] = .from(WorldArt.resource(k, variant: v)) } }
-        for v in 0..<3 { images["boulder\(v)"] = .from(WorldArt.boulder(variant: v)) }
+        for v in 0..<3 {
+            images["r0_\(v)"] = .from(EnvironmentArt.iron(v))
+            images["r1_\(v)"] = .from(EnvironmentArt.gold(v))
+            images["r2_\(v)"] = .from(EnvironmentArt.tree(v))
+        }
+        for v in 0..<6 { images["cliff\(v)"] = .from(EnvironmentArt.cliff(v)) }
+        for k in 0..<5 { for v in 0..<2 { images["flora\(k)_\(v)"] = .from(EnvironmentArt.flora(k, v)) } }
         let fxNames = ["glow", "ring", "shadow", "beam", "bolt", "orb", "shell", "spark", "smoke", "scorch", "pixel"]
         for n in fxNames { images["fx_" + n] = .from(WorldArt.effect(n)) }
+        images["fx_vignette"] = .from(EnvironmentArt.vignette())
+        images["fx_cloud"] = .from(EnvironmentArt.cloud())
         images["site_platform"] = .from(WorldArt.sitePlatform())
         images["site_beacon"] = .from(WorldArt.siteBeacon())
 
@@ -91,32 +97,11 @@ final class TextureBank {
         unit = unitNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
         building = buildingNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
         resource = ResourceKind.allCases.map { k in (0..<3).map { atlas.textureNamed("r\(k.rawValue)_\($0)") } }
-        boulders = (0..<3).map { atlas.textureNamed("boulder\($0)") }
-        for n in fxNames { fx[n] = atlas.textureNamed("fx_" + n) }
+        cliffs = (0..<6).map { atlas.textureNamed("cliff\($0)") }
+        flora = (0..<5).map { k in (0..<2).map { atlas.textureNamed("flora\(k)_\($0)") } }
+        for n in fxNames + ["vignette", "cloud"] { fx[n] = atlas.textureNamed("fx_" + n) }
         sitePlatform = atlas.textureNamed("site_platform")
         siteBeacon = atlas.textureNamed("site_beacon")
-        buildTiles()
     }
 
-    private func buildTiles() {
-        var groups: [SKTileGroup] = []
-        for t in [Terrain.grass, .dirt, .moss, .rock, .water] {
-            for elev in [false, true] {
-                var defs: [SKTileDefinition] = []
-                for v in 0..<4 {
-                    let tex = SKTexture(cgImage: WorldArt.tile(t, variant: v + (elev ? 10 : 0), elevated: elev))
-                    tex.filteringMode = .linear
-                    defs.append(SKTileDefinition(texture: tex, size: CGSize(width: 64, height: 32)))
-                }
-                let rule = SKTileGroupRule(adjacency: .adjacencyAll, tileDefinitions: defs)
-                let g = SKTileGroup(rules: [rule])
-                g.name = "\(t.rawValue)_\(elev)"
-                tileGroups[g.name!] = g
-                groups.append(g)
-            }
-        }
-        tileSet = SKTileSet(tileGroups: groups, tileSetType: .isometric)
-    }
-
-    func group(_ t: Terrain, elevated: Bool) -> SKTileGroup { tileGroups["\(t.rawValue)_\(elevated && t.groundPassable)"]! }
 }
