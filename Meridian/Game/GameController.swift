@@ -38,6 +38,8 @@ struct CommandButton: Identifiable {
     var reason: String? = nil
     var highlighted = false
     var badge: String? = nil
+    var progress: Double? = nil
+    var queued = 0
     var hotkey: Character? = nil
     var action: () -> Void
 }
@@ -83,6 +85,16 @@ struct HUDState {
     var placing: String? = nil
     var placementValid = false
     var placementReason: String? = nil
+    // Presentation extras.
+    var faction: Faction = .humans
+    var portrait: (type: Int, building: Bool, owner: Int)? = nil
+    var stats: [(symbol: String, value: String)] = []
+    var tags: [String] = []
+    var siteOwners: [Int] = []
+    var siteProgress: [Double] = []
+    var tileHP: [Int: Double] = [:]
+    var idleWorkers = 0
+    var armyCount = 0
 }
 
 @MainActor
@@ -172,6 +184,7 @@ final class GameController: ObservableObject {
         if world.time - lastHUD > 0.2 { lastHUD = world.time; refreshHUD() }
         if let w = world.winner, gameOver == nil {
             gameOver = (w == me, world.victoryReason)
+            SoundEngine.shared?.play(w == me ? "victory" : "defeat", at: nil, minGap: 0)
         }
     }
 
@@ -421,6 +434,12 @@ final class GameController: ObservableObject {
             let span = last.0 - first.0
             h.income = (0..<3).map { Double(last.1[$0] - first.1[$0]) / span * 60 }
         }
+        h.faction = p.faction
+        h.siteOwners = world.sites.map { $0.control >= 1 ? $0.owner : -1 }
+        h.siteProgress = world.sites.map { $0.owner >= 0 ? $0.control : ($0.capturer >= 0 ? -$0.control : 0) }
+        let mine = world.units(of: me)
+        h.idleWorkers = mine.filter { world.traits[$0.type].worker && $0.order == .idle }.count
+        h.armyCount = mine.filter { !world.traits[$0.type].worker && !$0.isMine }.count
         describeSelection(&h)
         h.buttons = buildButtons(&h)
         if case .place(let t) = mode {
@@ -458,8 +477,19 @@ final class GameController: ObservableObject {
         if ents.count == 1 {
             let e = first
             h.selectionHP = (e.hp, e.maxHp)
+            h.portrait = (e.type, e.isBuilding, e.owner)
             if e.isUnit {
                 let d = world.udef(e)
+                h.stats = [("shield.fill", fmt(world.armor(e))), ("hare.fill", fmt(world.speed(e)))]
+                if let w = world.weapon(e) {
+                    h.stats.insert(("burst.fill", "\(fmt(w.damage))/\(fmt(w.interval))s"), at: 0)
+                    h.stats.insert(("scope", fmt(w.range) + (w.ground && w.air ? " G+A" : (w.air ? " AIR" : " GND"))), at: 1)
+                }
+                if e.linked { h.tags.append("LINKED") }
+                if e.inBloom { h.tags.append("IN BLOOM") }
+                if e.supplied { h.tags.append("SUPPLIED") }
+                if world.isCloaked(e) { h.tags.append("CLOAKED") }
+                if let m = world.modeName(e) { h.tags.append(m.uppercased()) }
                 h.selectionTitle = d.name
                 var sub = "\(world.players[e.owner].faction == .humans ? "Concord" : world.players[e.owner].faction == .machines ? "Lattice" : "Brood") · \(d.role.capitalized)"
                 if let m = world.modeName(e) { sub += " · \(m)" }
@@ -478,6 +508,9 @@ final class GameController: ObservableObject {
                 h.selectionDetail = det
             } else if e.isBuilding {
                 let d = world.bdef(e)
+                if let w = world.weapon(e) { h.stats = [("burst.fill", fmt(w.damage)), ("scope", fmt(w.range))] }
+                h.stats.append(("shield.fill", fmt(world.armor(e))))
+                if e.linked { h.tags.append("LINKED") }
                 h.selectionTitle = d.name
                 h.selectionSubtitle = e.complete ? (world.modeName(e).map { "Mode: \($0)" } ?? d.kind.rawValue.capitalized) : "Under construction \(Int(e.buildProgress * 100))%"
                 var det = d.description
@@ -495,7 +528,12 @@ final class GameController: ObservableObject {
             }
         } else {
             var counts: [Int: Int] = [:]
-            for e in ents where e.isUnit { counts[e.type, default: 0] += 1 }
+            var typeHP: [Int: (Double, Double)] = [:]
+            for e in ents where e.isUnit {
+                counts[e.type, default: 0] += 1
+                let o = typeHP[e.type] ?? (0, 0); typeHP[e.type] = (o.0 + e.hp, o.1 + e.maxHp)
+            }
+            h.tileHP = typeHP.mapValues { $0.0 / max(1, $0.1) }
             h.selectionTitle = "\(ents.count) selected"
             h.selectionIcons = counts.sorted { $0.value > $1.value }.map { (type: $0.key, count: $0.value, building: false) }
             let hp = ents.reduce(0) { $0 + $1.hp }, mx = ents.reduce(0) { $0 + $1.maxHp }
@@ -550,8 +588,10 @@ final class GameController: ObservableObject {
             for u in data.unitIDs(p.faction) where data.units[u].producedAt == d.kind {
                 let ud = data.units[u]
                 let reason = world.unitAvailability(me, u) ?? (p.canAfford(ud.cost) ? nil : "Not enough resources")
+                let q = e.queue.filter { !$0.isUpgrade && $0.index == u }.count
+                let prog: Double? = e.queue.first.flatMap { !$0.isUpgrade && $0.index == u ? 1 - $0.remaining / $0.total : nil }
                 b.append(CommandButton(id: "u\(u)", title: ud.name, symbol: "unit:\(u)", cost: ud.cost, enabled: reason == nil, reason: reason,
-                                       badge: ud.batch.map { "×\($0)" }) { [weak self] in
+                                       badge: ud.batch.map { "×\($0)" }, progress: prog, queued: q) { [weak self] in
                     guard let self = self else { return }
                     if let err = self.world.commandTrain(e.id, unitType: u) { self.toast(err, warning: true) }
                     self.refreshHUD()
@@ -561,8 +601,9 @@ final class GameController: ObservableObject {
                 let gd = data.upgrades[g]
                 if p.completedUpgrades.contains(g) { continue }
                 let reason = world.upgradeAvailability(me, g) ?? (p.canAfford(gd.cost) ? nil : "Not enough resources")
+                let gp: Double? = e.queue.first.flatMap { $0.isUpgrade && $0.index == g ? 1 - $0.remaining / $0.total : nil }
                 b.append(CommandButton(id: "g\(g)", title: gd.name, symbol: "upgrade:\(gd.tier)", cost: gd.cost, enabled: reason == nil, reason: reason,
-                                       highlighted: p.researching.contains(g)) { [weak self] in
+                                       highlighted: p.researching.contains(g), progress: gp) { [weak self] in
                     guard let self = self else { return }
                     if let err = self.world.commandResearch(e.id, upgrade: g) { self.toast(err, warning: true) }
                     self.refreshHUD()

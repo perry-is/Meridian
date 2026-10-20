@@ -48,6 +48,15 @@ final class TextureBank {
 
     static var cache: [String: TextureBank] = [:]
 
+    /// Standalone portrait (menu showcase) rendered on demand and memoised.
+    nonisolated(unsafe) static var portraits: [Int: CGImage] = [:]
+    static func portrait(_ unit: Int, team: Int) -> CGImage? {
+        if let p = portraits[unit] { return p }
+        let img = UnitArt.render(GameData.shared.units[unit], team: TeamColor.rgb(team))
+        portraits[unit] = img
+        return img
+    }
+
     static func make(data: GameData, factions: [Faction]) -> TextureBank {
         let key = factions.map { $0.rawValue }.joined(separator: "-")
         if let c = cache[key] { return c }
@@ -58,6 +67,8 @@ final class TextureBank {
 
     private init(data: GameData, factions: [Faction]) {
         self.data = data
+        let t0 = Date()
+        defer { print(String(format: "BANK generated in %.2fs", Date().timeIntervalSince(t0))) }
         var images: [String: PlatformImage] = [:]
         var unitNames: [[String]] = [], buildingNames: [[String]] = []
         for (pi, f) in factions.enumerated() {

@@ -60,7 +60,9 @@ final class GameScene: SKScene {
     var trailTick = 0
     var lastProducedSound = -10.0
     var shakeEnabled = true
-    var sfx: SoundEngine? { SoundEngine.shared }
+    var sfx: SoundEngine? { silent ? nil : SoundEngine.shared }
+    var silent = false
+    var backdrop = false
     let N: Int
 
     init(controller: GameController, size: CGSize) {
@@ -203,6 +205,8 @@ final class GameScene: SKScene {
         lastUpdate = currentTime
         if ctl.stressMode { perfLog(dt) }
         ctl.advance(dt)
+        if !silent { sfx?.listener = cam.position; sfx?.hearing = max(500, size.width * zoom * 0.7) }
+        shakeEnabled = UserDefaults.standard.object(forKey: "fx.shake") as? Bool ?? true
         fxBudget = 50
         consumeEvents()
         syncEntities()

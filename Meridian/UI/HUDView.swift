@@ -9,36 +9,37 @@ struct HUDView: View {
     @Binding var showPause: Bool
 
     var showCard: Bool { !controller.hud.buttons.isEmpty || controller.hud.menuTitle != nil }
+    var accent: Color { Accent.of(controller.hud.faction) }
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
             let landscape = w > h * 1.15
             let compact = w < 520
-            let mini = min(landscape ? h * 0.32 : w * (compact ? 0.30 : 0.27), 220)
+            let mini = min(landscape ? h * 0.30 : w * (compact ? 0.30 : 0.26), 210)
             VStack(spacing: 6) {
-                TopBar(controller: controller, compact: compact, showPause: $showPause)
+                TopBar(controller: controller, compact: compact, showPause: $showPause, accent: accent)
                 ToastStack(controller: controller)
                 HStack(alignment: .top) {
-                    SideButtons(controller: controller)
+                    SideRail(controller: controller, accent: accent)
                     Spacer()
                 }
                 Spacer(minLength: 0)
                 if let placing = controller.hud.placing {
-                    PlacementBar(controller: controller, title: placing)
+                    PlacementBar(controller: controller, title: placing, accent: accent)
                 }
                 if landscape {
                     HStack(alignment: .bottom, spacing: 8) {
-                        MinimapView(controller: controller, scene: scene).frame(width: mini * 1.3, height: mini * 0.68)
-                        SelectionPanel(controller: controller).frame(maxWidth: .infinity)
-                        if showCard { CommandCard(controller: controller, columns: 5).frame(width: min(330, w * 0.36)) }
+                        MinimapFrame(controller: controller, scene: scene, accent: accent).frame(width: mini * 1.35, height: mini * 0.72)
+                        SelectionPanel(controller: controller, accent: accent).frame(maxWidth: .infinity)
+                        if showCard { CommandCard(controller: controller, columns: 5, accent: accent).frame(width: min(340, w * 0.36)) }
                     }
                 } else {
                     VStack(spacing: 6) {
-                        SelectionPanel(controller: controller, compact: compact)
+                        SelectionPanel(controller: controller, compact: compact, accent: accent)
                         HStack(alignment: .bottom, spacing: 6) {
-                            MinimapView(controller: controller, scene: scene).frame(width: mini * 1.3, height: mini * 0.68)
-                            if showCard { CommandCard(controller: controller, columns: compact ? 4 : 5) }
+                            MinimapFrame(controller: controller, scene: scene, accent: accent).frame(width: mini * 1.35, height: mini * 0.72)
+                            if showCard { CommandCard(controller: controller, columns: compact ? 4 : 5, accent: accent) }
                             Spacer(minLength: 0)
                         }
                     }
@@ -51,29 +52,24 @@ struct HUDView: View {
     }
 }
 
+struct ResourceIcon: View {
+    let kind: Int
+    var body: some View { ResourceGlyph(kind: kind) }
+}
+
 struct ResourceLabel: View {
     let kind: Int
     let value: Int
     let income: Double
     let compact: Bool
     var body: some View {
-        HStack(spacing: 3) {
-            ResourceIcon(kind: kind).frame(width: 14, height: 14)
+        HStack(spacing: 4) {
+            ResourceGlyph(kind: kind).frame(width: 15, height: 15)
             VStack(alignment: .leading, spacing: -2) {
-                Text("\(value)").font(.system(size: compact ? 12 : 14, weight: .bold, design: .monospaced))
-                if !compact { Text("+\(Int(income))/m").font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.55)) }
+                Text("\(value)").font(.system(size: compact ? 12.5 : 14, weight: .bold, design: .monospaced))
+                    .contentTransition(.numericText())
+                if !compact { Text("+\(Int(income))/m").font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.5)) }
             }
-        }
-    }
-}
-
-struct ResourceIcon: View {
-    let kind: Int
-    var body: some View {
-        switch kind {
-        case 0: RoundedRectangle(cornerRadius: 2).fill(Theme.iron).rotationEffect(.degrees(45)).scaleEffect(0.75)
-        case 1: Circle().fill(Theme.gold).overlay(Circle().stroke(Color.black.opacity(0.4), lineWidth: 1))
-        default: Capsule().fill(Theme.wood).frame(height: 7).rotationEffect(.degrees(-30))
         }
     }
 }
@@ -82,23 +78,33 @@ struct TopBar: View {
     @ObservedObject var controller: GameController
     let compact: Bool
     @Binding var showPause: Bool
+    let accent: Color
     var body: some View {
         let h = controller.hud
-        Panel(padding: 6) {
-            HStack(spacing: compact ? 8 : 14) {
-                ForEach(0..<3, id: \.self) { k in ResourceLabel(kind: [0, 2, 1][k], value: h.res[[0, 2, 1][k]], income: h.income[[0, 2, 1][k]], compact: compact) }
-                HStack(spacing: 3) {
-                    Image(systemName: "person.3.fill").font(.system(size: 10))
-                    Text("\(h.units)/\(h.cap)").font(.system(size: compact ? 11 : 13, weight: .semibold, design: .monospaced))
-                }.foregroundColor(h.units >= h.cap ? .red : .white)
-                Spacer(minLength: 0)
-                SitesIndicator(h: h, compact: compact)
-                if !compact {
-                    Text(String(format: "%d:%02d", Int(h.time) / 60, Int(h.time) % 60)).font(.system(size: 13, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.7))
+        GlassPanel(accent: accent, padding: 7, cut: 9) {
+            HStack(spacing: compact ? 9 : 14) {
+                ForEach([0, 2, 1], id: \.self) { k in ResourceLabel(kind: k, value: h.res[k], income: h.income[k], compact: compact) }
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "person.3.fill").font(.system(size: 9))
+                        Text("\(h.units)").font(.system(size: compact ? 11.5 : 13, weight: .semibold, design: .monospaced))
+                    }
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.12))
+                            Capsule().fill(h.units >= h.cap ? Color.red : accent).frame(width: g.size.width * CGFloat(h.units) / CGFloat(max(1, h.cap)))
+                        }
+                    }.frame(width: 34, height: 2.5)
                 }
-                Button { controller.showTech = true } label: { Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 15, weight: .semibold)) }
+                .foregroundColor(h.units >= h.cap ? .red : .white)
+                Spacer(minLength: 0)
+                SiteStrip(h: h, compact: compact)
+                if !compact {
+                    Text(String(format: "%d:%02d", Int(h.time) / 60, Int(h.time) % 60)).font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                }
+                Button { controller.showTech = true } label: { Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 14, weight: .semibold)) }
                     .buttonStyle(.plain).accessibilityLabel("Tech tree")
-                Button { showPause = true; controller.paused = true } label: { Image(systemName: "pause.circle.fill").font(.system(size: 20)) }
+                Button { showPause = true; controller.paused = true; SoundEngine.shared?.play("click", at: nil) } label: { Image(systemName: "pause.circle.fill").font(.system(size: 21)) }
                     .buttonStyle(.plain).accessibilityLabel("Pause")
             }
             .foregroundColor(.white)
@@ -106,87 +112,118 @@ struct TopBar: View {
     }
 }
 
-struct SitesIndicator: View {
+/// Seven diamond pips coloured by site owner, with the dominance countdown when active.
+struct SiteStrip: View {
     let h: HUDState
     let compact: Bool
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "flag.2.crossed.fill").font(.system(size: 11))
-            Text("\(h.sitesOwned)").foregroundColor(Theme.team(0)).bold()
-            Text("/").foregroundColor(.white.opacity(0.4))
-            Text("\(h.sitesEnemy)").foregroundColor(Theme.team(1)).bold()
+            HStack(spacing: 2.5) {
+                ForEach(Array(h.siteOwners.enumerated()), id: \.offset) { i, o in
+                    let pr = i < h.siteProgress.count ? h.siteProgress[i] : 0
+                    Rectangle()
+                        .fill(o >= 0 ? Theme.team(o) : Color.white.opacity(0.15))
+                        .overlay(Rectangle().stroke(Color.white.opacity(o >= 0 ? 0.5 : 0.25), lineWidth: 0.6))
+                        .overlay(alignment: .bottom) {
+                            if o < 0 && abs(pr) > 0.02 { Rectangle().fill(Color.white.opacity(0.6)).frame(height: 7 * CGFloat(abs(pr))) }
+                        }
+                        .frame(width: 7, height: 7)
+                        .rotationEffect(.degrees(45))
+                        .frame(width: compact ? 8 : 10, height: 10)
+                }
+            }
             if h.myDominance > 0 || h.enemyDominance > 0 {
                 let mine = h.myDominance >= h.enemyDominance
                 let left = Int(h.dominanceSeconds - max(h.myDominance, h.enemyDominance))
-                Text("\(mine ? "WIN" : "LOSS") in \(left / 60):\(String(format: "%02d", left % 60))")
-                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                Text("\(mine ? "WIN" : "LOSE") \(left / 60):\(String(format: "%02d", left % 60))")
+                    .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
                     .padding(.horizontal, 5).padding(.vertical, 2)
                     .background(Capsule().fill(mine ? Theme.team(0) : Theme.team(1)))
                     .foregroundColor(.black)
-            } else if !compact && !h.dominanceActive {
-                Text("need \(h.dominanceNeed)").font(.system(size: 9)).foregroundColor(.white.opacity(0.5))
             }
         }
-        .font(.system(size: 13, design: .monospaced))
+        .accessibilityLabel("Sites: \(h.sitesOwned) yours, \(h.sitesEnemy) enemy")
     }
 }
 
 struct ToastStack: View {
     @ObservedObject var controller: GameController
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 4) {
             ForEach(controller.toasts) { t in
-                Text(t.text).font(.system(size: 12, weight: .semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(Capsule().fill(t.warning ? Color(red: 0.55, green: 0.12, blue: 0.1).opacity(0.9) : Color.black.opacity(0.7)))
-                    .foregroundColor(.white)
-                    .transition(.opacity)
+                HStack(spacing: 6) {
+                    Image(systemName: t.warning ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                        .foregroundColor(t.warning ? Color(red: 1, green: 0.45, blue: 0.35) : Theme.accent)
+                    Text(t.text).font(.system(size: 12, weight: .semibold))
+                }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Chamfer(cut: 6).fill(Color.black.opacity(0.72)))
+                .overlay(Chamfer(cut: 6).stroke((t.warning ? Color.red : Theme.accent).opacity(0.5), lineWidth: 1))
+                .foregroundColor(.white)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.2), value: controller.toasts.map { $0.id })
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: controller.toasts.map { $0.id })
     }
 }
 
-struct SideButtons: View {
+struct SideRail: View {
     @ObservedObject var controller: GameController
+    let accent: Color
     var body: some View {
         VStack(spacing: 6) {
-            side("figure.walk.motion", "Army") { controller.selectArmy() }
-            side("hammer.circle", "Idle") { controller.selectIdleWorker() }
+            railButton("figure.walk.motion", "Army", badge: controller.hud.armyCount) { controller.selectArmy() }
+            railButton("hammer.circle", "Idle", badge: controller.hud.idleWorkers, alert: controller.hud.idleWorkers > 0) { controller.selectIdleWorker() }
             ForEach(1...4, id: \.self) { n in
-                Text("\(n)").font(.system(size: 14, weight: .bold, design: .rounded))
-                    .frame(width: 38, height: 30)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(controller.controlGroups[n]?.isEmpty == false ? Theme.accent.opacity(0.35) : Theme.panel))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.panelStroke))
-                    .onTapGesture { controller.groupRecall(n) }
-                    .onLongPressGesture(minimumDuration: 0.4) { controller.groupAssign(n) }
-                    .accessibilityLabel("Control group \(n). Long press to assign.")
+                let g = controller.controlGroups[n]?.compactMap { controller.world.entity($0) } ?? []
+                ZStack(alignment: .topTrailing) {
+                    VStack(spacing: 0) {
+                        if let f = g.first, f.isUnit, let img = TextureBank.cache.values.first?.unitIcons[f.type] {
+                            Image(decorative: img, scale: 2).resizable().scaledToFit().frame(width: 22, height: 18)
+                        }
+                        Text("\(n)").font(.system(size: g.isEmpty ? 14 : 10, weight: .heavy, design: .rounded))
+                    }
+                    if !g.isEmpty { Text("\(g.count)").font(.system(size: 8, weight: .bold)).padding(2).background(Capsule().fill(accent)).foregroundColor(.black).offset(x: 4, y: -4) }
+                }
+                .frame(width: 40, height: 34)
+                .background(Chamfer(cut: 6).fill(g.isEmpty ? Color.black.opacity(0.55) : accent.opacity(0.22)))
+                .overlay(Chamfer(cut: 6).stroke(Color.white.opacity(0.14)))
+                .foregroundColor(.white)
+                .onTapGesture { controller.groupRecall(n); SoundEngine.shared?.play("click", at: nil) }
+                .onLongPressGesture(minimumDuration: 0.4) { controller.groupAssign(n); SoundEngine.shared?.play("confirm", at: nil) }
+                .accessibilityLabel("Control group \(n). Long press to assign.")
             }
         }
     }
 
-    func side(_ sym: String, _ label: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 0) {
-                Image(systemName: sym).font(.system(size: 15))
-                Text(label).font(.system(size: 8, weight: .semibold))
+    func railButton(_ sym: String, _ label: String, badge: Int, alert: Bool = false, _ action: @escaping () -> Void) -> some View {
+        Button { action(); SoundEngine.shared?.play("click", at: nil) } label: {
+            VStack(spacing: 1) {
+                Image(systemName: sym).font(.system(size: 15, weight: .semibold))
+                Text(label).font(.system(size: 8, weight: .bold))
             }
-            .frame(width: 38, height: 38)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.panelStroke))
+            .frame(width: 40, height: 40)
+            .background(Chamfer(cut: 6).fill(Color.black.opacity(0.6)))
+            .overlay(Chamfer(cut: 6).stroke(alert ? Color.orange.opacity(0.8) : Color.white.opacity(0.14)))
+            .overlay(alignment: .topTrailing) {
+                if badge > 0 { Text("\(badge)").font(.system(size: 8, weight: .bold)).padding(.horizontal, 3).padding(.vertical, 1).background(Capsule().fill(alert ? Color.orange : accent)).foregroundColor(.black).offset(x: 5, y: -5) }
+            }
         }
         .buttonStyle(.plain).foregroundColor(.white)
+        .accessibilityLabel(label)
     }
 }
 
 struct PlacementBar: View {
     @ObservedObject var controller: GameController
     let title: String
+    let accent: Color
     var body: some View {
         let h = controller.hud
-        Panel(padding: 8) {
+        GlassPanel(accent: h.placementValid ? .green : .orange, padding: 8) {
             HStack(spacing: 10) {
+                Image(systemName: "hammer.fill").foregroundColor(accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Placing \(title)").font(.system(size: 13, weight: .bold))
                     Text(h.placementReason ?? "Drag to adjust, then confirm").font(.system(size: 11)).accessibilityIdentifier("placementReason")
@@ -199,6 +236,7 @@ struct PlacementBar: View {
                     .buttonStyle(.borderedProminent).tint(.green).disabled(!h.placementValid)
                     .accessibilityLabel("Confirm placement").accessibilityIdentifier("confirmPlacement")
             }
+            .foregroundColor(.white)
         }
     }
 }
@@ -206,91 +244,131 @@ struct PlacementBar: View {
 struct SelectionPanel: View {
     @ObservedObject var controller: GameController
     var compact = false
+    let accent: Color
+    @State private var expanded = false
+
     var body: some View {
         let h = controller.hud
-        Panel(padding: 8) {
+        GlassPanel(accent: accent, padding: 8) {
             if h.selectionTitle.isEmpty {
-                HStack {
-                    Text(controller.mode == .normal ? "Tap a unit or building. Hold and drag to box-select." : (h.menuTitle ?? ""))
+                HStack(spacing: 8) {
+                    Image(systemName: "hand.tap.fill").foregroundColor(accent.opacity(0.8))
+                    Text(controller.mode == .normal ? "Tap a unit or building · Hold & drag to box-select" : (h.menuTitle ?? ""))
                         .font(.system(size: 12)).foregroundColor(.white.opacity(0.6))
                     Spacer()
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(h.selectionTitle).font(.system(size: 15, weight: .bold)).accessibilityIdentifier("selectionTitle")
-                        Text(h.selectionSubtitle).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    if let hp = h.selectionHP {
-                        HStack(spacing: 6) {
-                            GeometryReader { g in
-                                ZStack(alignment: .leading) {
-                                    Capsule().fill(Color.white.opacity(0.12))
-                                    Capsule().fill(hp.0 / hp.1 > 0.5 ? Color.green : (hp.0 / hp.1 > 0.25 ? Color.yellow : Color.red))
-                                        .frame(width: g.size.width * CGFloat(max(0, min(1, hp.0 / max(1, hp.1)))))
-                                }
-                            }.frame(height: 6)
-                            Text("\(Int(hp.0))/\(Int(hp.1))").font(.system(size: 10, design: .monospaced)).foregroundColor(.white.opacity(0.7))
+                HStack(alignment: .top, spacing: 8) {
+                    if let pt = h.portrait { Portrait(type: pt.type, building: pt.building, owner: pt.owner, size: compact ? 48 : 56) }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(h.selectionTitle).font(.system(size: 15, weight: .bold)).accessibilityIdentifier("selectionTitle")
+                            Text(h.selectionSubtitle).font(.system(size: 10.5)).foregroundColor(.white.opacity(0.6)).lineLimit(1)
+                            Spacer(minLength: 0)
                         }
-                    }
-                    if !h.queue.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 4) {
-                                ForEach(h.queue) { q in
-                                    VStack(spacing: 1) {
-                                        Text(q.title).font(.system(size: 9, weight: .semibold)).lineLimit(1)
-                                        ProgressView(value: q.progress).tint(q.isUpgrade ? .purple : Theme.accent).frame(width: 60)
-                                    }
-                                    .padding(4)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.07)))
-                                    .onTapGesture { if let b = controller.selection.first { controller.world.commandCancel(b, index: q.id); controller.refreshHUD() } }
-                                    .accessibilityElement(children: .combine).accessibilityIdentifier("queue_\(q.id)")
-                                }
+                        if let hp = h.selectionHP {
+                            HStack(spacing: 6) {
+                                HealthBar(frac: hp.0 / max(1, hp.1))
+                                Text("\(Int(hp.0))/\(Int(hp.1))").font(.system(size: 9.5, design: .monospaced)).foregroundColor(.white.opacity(0.65))
                             }
                         }
-                    }
-                    if !h.selectionDetail.isEmpty {
-                        Text(h.selectionDetail).font(.system(size: 10.5)).foregroundColor(.white.opacity(0.75))
-                            .lineLimit(compact ? 3 : 5).fixedSize(horizontal: false, vertical: true)
+                        if !h.stats.isEmpty || !h.tags.isEmpty {
+                            HStack(spacing: 4) {
+                                ForEach(Array(h.stats.enumerated()), id: \.offset) { _, s in StatChip(symbol: s.symbol, value: s.value) }
+                                ForEach(h.tags, id: \.self) { Chip(text: $0, color: accent) }
+                            }
+                        }
+                        if !h.selectionIcons.isEmpty { tiles(h) }
+                        if !h.queue.isEmpty { queue(h) }
+                        if !h.selectionDetail.isEmpty && h.selectionIcons.isEmpty {
+                            Text(h.selectionDetail).font(.system(size: 10.5)).foregroundColor(.white.opacity(0.72))
+                                .lineLimit(expanded ? 8 : (compact ? 2 : 3)).fixedSize(horizontal: false, vertical: true)
+                                .onTapGesture { expanded.toggle() }
+                        }
                     }
                 }
             }
         }
         .foregroundColor(.white)
     }
+
+    func tiles(_ h: HUDState) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                ForEach(h.selectionIcons.prefix(12), id: \.type) { t in
+                    VStack(spacing: 1) {
+                        ZStack(alignment: .bottomTrailing) {
+                            Portrait(type: t.type, building: false, owner: controller.me, size: 34)
+                            Text("\(t.count)").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 3).background(Capsule().fill(Color.black.opacity(0.75)))
+                        }
+                        HealthBar(frac: h.tileHP[t.type] ?? 1, height: 3).frame(width: 30)
+                    }
+                    .onTapGesture {
+                        // Narrow the selection to this type.
+                        controller.select(controller.selection.filter { controller.world.entity($0)?.type == t.type && controller.world.entity($0)?.isUnit == true })
+                        SoundEngine.shared?.play("click", at: nil)
+                    }
+                }
+            }
+        }
+    }
+
+    func queue(_ h: HUDState) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                ForEach(h.queue) { q in
+                    HStack(spacing: 4) {
+                        ZStack {
+                            Circle().stroke(Color.white.opacity(0.15), lineWidth: 3)
+                            Circle().trim(from: 0, to: CGFloat(q.progress)).stroke(q.isUpgrade ? Color.purple : accent, style: StrokeStyle(lineWidth: 3, lineCap: .round)).rotationEffect(.degrees(-90))
+                        }.frame(width: 16, height: 16)
+                        Text(q.title).font(.system(size: 9.5, weight: .semibold)).lineLimit(1)
+                        Image(systemName: "xmark").font(.system(size: 7, weight: .bold)).foregroundColor(.white.opacity(0.4))
+                    }
+                    .padding(.horizontal, 6).padding(.vertical, 4)
+                    .background(Chamfer(cut: 5).fill(Color.white.opacity(0.07)))
+                    .onTapGesture { if let b = controller.selection.first { controller.world.commandCancel(b, index: q.id); controller.refreshHUD(); SoundEngine.shared?.play("cancel", at: nil) } }
+                    .accessibilityElement(children: .combine).accessibilityIdentifier("queue_\(q.id)")
+                }
+            }
+        }
+    }
 }
 
 struct CommandCard: View {
     @ObservedObject var controller: GameController
     var columns: Int
+    let accent: Color
     @State private var info: CommandButton.ID? = nil
 
     var body: some View {
         let h = controller.hud
-        Panel(padding: 6) {
+        GlassPanel(accent: accent, padding: 6) {
             VStack(alignment: .leading, spacing: 4) {
-                if let t = h.menuTitle { Text(t).font(.system(size: 10, weight: .bold)).tracking(1).foregroundColor(.white.opacity(0.6)) }
+                if let t = h.menuTitle { Text(t.uppercased()).font(.system(size: 9, weight: .heavy)).tracking(1.5).foregroundColor(accent.opacity(0.9)) }
                 if let id = info, let b = h.buttons.first(where: { $0.id == id }) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(b.title).font(.system(size: 11, weight: .bold))
+                    HStack(spacing: 6) {
+                        Text(b.title).font(.system(size: 11, weight: .bold)).lineLimit(1)
                         if let c = b.cost { CostLine(cost: c) }
-                        if let r = b.reason { Text(r).font(.system(size: 9.5)).foregroundColor(.orange) }
                     }
+                    if let r = b.reason { Text(r).font(.system(size: 9.5)).foregroundColor(.orange).lineLimit(2) }
                 }
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(54), spacing: 4), count: columns), spacing: 4) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(56), spacing: 4), count: columns), spacing: 4) {
                         ForEach(h.buttons) { b in
-                            CommandButtonView(button: b, controller: controller)
+                            CommandButtonView(button: b, accent: accent)
                                 .onLongPressGesture(minimumDuration: 0.35) { info = b.id }
-                                .simultaneousGesture(TapGesture().onEnded { info = b.id; if b.enabled { b.action() } })
+                                .simultaneousGesture(TapGesture().onEnded {
+                                    info = b.id
+                                    if b.enabled { b.action(); SoundEngine.shared?.play("confirm", at: nil) } else { SoundEngine.shared?.play("denied", at: nil) }
+                                })
                         }
                     }
                 }
-                .frame(height: CGFloat(min(3, max(1, (h.buttons.count + columns - 1) / columns))) * 54)
+                .frame(height: CGFloat(min(3, max(1, (h.buttons.count + columns - 1) / columns))) * 64)
             }
         }
-        .frame(width: CGFloat(columns) * 58 + 12)
+        .frame(width: CGFloat(columns) * 60 + 12)
         .foregroundColor(.white)
     }
 }
@@ -299,33 +377,53 @@ struct CostLine: View {
     let cost: Cost
     var body: some View {
         HStack(spacing: 5) {
-            if cost.iron > 0 { HStack(spacing: 1) { ResourceIcon(kind: 0).frame(width: 8, height: 8); Text("\(cost.iron)") } }
-            if cost.wood > 0 { HStack(spacing: 1) { ResourceIcon(kind: 2).frame(width: 8, height: 8); Text("\(cost.wood)") } }
-            if cost.gold > 0 { HStack(spacing: 1) { ResourceIcon(kind: 1).frame(width: 8, height: 8); Text("\(cost.gold)") } }
+            if cost.iron > 0 { HStack(spacing: 1) { ResourceGlyph(kind: 0).frame(width: 9, height: 9); Text("\(cost.iron)") } }
+            if cost.wood > 0 { HStack(spacing: 1) { ResourceGlyph(kind: 2).frame(width: 9, height: 9); Text("\(cost.wood)") } }
+            if cost.gold > 0 { HStack(spacing: 1) { ResourceGlyph(kind: 1).frame(width: 9, height: 9); Text("\(cost.gold)") } }
         }.font(.system(size: 9, weight: .semibold, design: .monospaced))
     }
 }
 
 struct CommandButtonView: View {
     let button: CommandButton
-    let controller: GameController
+    let accent: Color
     var body: some View {
         VStack(spacing: 1) {
-            icon.frame(width: 30, height: 26)
-            Text(button.title).font(.system(size: 8, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.6)
-        }
-        .frame(width: 54, height: 50)
-        .background(RoundedRectangle(cornerRadius: 8).fill(button.highlighted ? Color.purple.opacity(0.35) : Color.white.opacity(button.enabled ? 0.09 : 0.03)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(button.enabled ? Color.white.opacity(0.25) : Color.white.opacity(0.06)))
-        .overlay(alignment: .topTrailing) {
-            if let b = button.badge { Text(b).font(.system(size: 8, weight: .bold)).padding(2).background(Capsule().fill(Theme.accent)).foregroundColor(.black) }
-        }
-        .overlay(alignment: .bottomLeading) {
-            if let k = button.hotkey, k.isLetter {
-                Text(String(k).uppercased()).font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(.white.opacity(0.4)).padding(3)
+            ZStack {
+                icon.frame(width: 34, height: 30)
+                if let p = button.progress {
+                    Circle().trim(from: 0, to: CGFloat(p)).stroke(accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90)).frame(width: 38, height: 38)
+                }
+            }
+            Text(button.title).font(.system(size: 7.5, weight: .bold)).lineLimit(1).minimumScaleFactor(0.6)
+            if let c = button.cost, !c.isZero {
+                HStack(spacing: 2) {
+                    if c.iron > 0 { Text("\(c.iron)").foregroundColor(Theme.iron) }
+                    if c.wood > 0 { Text("\(c.wood)").foregroundColor(Theme.wood) }
+                    if c.gold > 0 { Text("\(c.gold)").foregroundColor(Theme.gold) }
+                }.font(.system(size: 7, weight: .semibold, design: .monospaced)).lineLimit(1).minimumScaleFactor(0.7)
             }
         }
-        .opacity(button.enabled ? 1 : 0.45)
+        .frame(width: 56, height: 62)
+        .background(Chamfer(cut: 7).fill(LinearGradient(colors: button.highlighted ? [Color.purple.opacity(0.45), Color.purple.opacity(0.15)]
+                                                         : [Color.white.opacity(button.enabled ? 0.13 : 0.04), Color.white.opacity(button.enabled ? 0.04 : 0.02)], startPoint: .top, endPoint: .bottom)))
+        .overlay(Chamfer(cut: 7).stroke(button.enabled ? accent.opacity(0.45) : Color.white.opacity(0.06), lineWidth: 1))
+        .overlay(alignment: .topTrailing) {
+            if button.queued > 0 {
+                Text("\(button.queued)").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 4).padding(.vertical, 1).background(Capsule().fill(accent)).foregroundColor(.black).padding(2)
+            } else if let b = button.badge {
+                Text(b).font(.system(size: 8, weight: .bold)).padding(2).background(Capsule().fill(accent)).foregroundColor(.black).padding(2)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if !button.enabled && button.reason?.hasPrefix("Requires") == true {
+                Image(systemName: "lock.fill").font(.system(size: 8)).foregroundColor(.white.opacity(0.5)).padding(4)
+            } else if let k = button.hotkey, k.isLetter {
+                Text(String(k).uppercased()).font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(.white.opacity(0.35)).padding(4)
+            }
+        }
+        .opacity(button.enabled ? 1 : 0.5)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(button.title)
@@ -342,11 +440,28 @@ struct CommandButtonView: View {
         } else if s.hasPrefix("upgrade:") {
             let tier = Int(s.dropFirst(8)) ?? 1
             ZStack {
-                RoundedRectangle(cornerRadius: 4).stroke(Color.purple.opacity(0.9), lineWidth: 1.5)
-                Text(String(repeating: "▲", count: max(1, tier))).font(.system(size: 8)).foregroundColor(.purple)
-            }.frame(width: 24, height: 22)
+                Chamfer(cut: 5).fill(LinearGradient(colors: [Color.purple.opacity(0.5), Color.indigo.opacity(0.3)], startPoint: .top, endPoint: .bottom))
+                Chamfer(cut: 5).stroke(Color.purple.opacity(0.9), lineWidth: 1)
+                VStack(spacing: 0) {
+                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 13))
+                    Text(String(repeating: "I", count: max(1, tier))).font(.system(size: 7, weight: .heavy))
+                }.foregroundColor(.white)
+            }.frame(width: 28, height: 28)
         } else {
-            Image(systemName: s).font(.system(size: 18, weight: .semibold))
+            Image(systemName: s).font(.system(size: 19, weight: .semibold)).foregroundColor(accent)
         }
+    }
+}
+
+/// Minimap inside a framed glass bezel.
+struct MinimapFrame: View {
+    @ObservedObject var controller: GameController
+    let scene: GameScene
+    let accent: Color
+    var body: some View {
+        MinimapView(controller: controller, scene: scene)
+            .padding(3)
+            .background(Chamfer(cut: 9).fill(Color.black.opacity(0.8)))
+            .overlay(Chamfer(cut: 9).stroke(accent.opacity(0.55), lineWidth: 1.2))
     }
 }

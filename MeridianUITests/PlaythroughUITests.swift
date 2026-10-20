@@ -52,7 +52,7 @@ final class PlaythroughUITests: XCTestCase {
         shot("04_training")
 
         // Box-select workers around the HQ with touch-and-hold then drag.
-        point(-170, -190).press(forDuration: 0.6, thenDragTo: point(150, 80))
+        point(-145, -200).press(forDuration: 0.6, thenDragTo: point(60, 60))
         sleep(1)
         XCTAssertTrue(title.exists)
         XCTAssertTrue(title.label.contains("selected") || title.label == "Engineer", "Box select failed: \(title.label)")

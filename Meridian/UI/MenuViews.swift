@@ -34,66 +34,66 @@ struct MainMenuView: View {
     var loading: Bool
     var onStart: () -> Void
     @State private var showHelp = false
+    @State private var showSettings = false
+    @StateObject private var backdrop = MenuBackdrop()
     let data = GameData.shared
 
     var body: some View {
         GeometryReader { geo in
             let wide = geo.size.width > 700
             ZStack {
-                LinearGradient(colors: [Color(red: 0.03, green: 0.05, blue: 0.09), Color(red: 0.07, green: 0.1, blue: 0.16), Color(red: 0.02, green: 0.03, blue: 0.05)],
-                               startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+                Color(red: 0.02, green: 0.03, blue: 0.05).ignoresSafeArea()
+                if let s = backdrop.scene {
+                    SpriteHost(scene: s).ignoresSafeArea().allowsHitTesting(false)
+                        .opacity(0.9)
+                }
+                LinearGradient(colors: [Color.black.opacity(0.55), Color.black.opacity(0.15), Color.black.opacity(0.75), Color.black.opacity(0.92)],
+                               startPoint: .top, endPoint: .bottom).ignoresSafeArea().allowsHitTesting(false)
                 ScrollView {
-                    VStack(spacing: 18) {
-                        VStack(spacing: 4) {
-                            Text("MERIDIAN").font(.system(size: wide ? 56 : 42, weight: .black, design: .rounded))
-                                .foregroundStyle(LinearGradient(colors: [.white, Theme.accent], startPoint: .top, endPoint: .bottom))
-                                .tracking(6)
-                            Text("THREE FRONTS").font(.system(size: 13, weight: .semibold)).tracking(8).foregroundColor(.white.opacity(0.6))
-                        }.padding(.top, 24)
-
-                        sectionTitle("YOUR FACTION")
+                    VStack(spacing: 16) {
+                        Wordmark(wide: wide).padding(.top, wide ? 40 : 28)
+                        Spacer(minLength: wide ? 120 : 60)
+                        section("COMMAND")
                         factionGrid(selection: $settings.playerFaction, wide: wide)
-                        sectionTitle("OPPONENT")
+                        section("OPPOSING FORCE")
                         factionGrid(selection: $settings.aiFaction, wide: wide, compact: true)
-
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                sectionTitle("DIFFICULTY")
-                                Picker("Difficulty", selection: $settings.difficulty) {
-                                    ForEach(Difficulty.allCases, id: \.self) { Text($0.title).tag($0) }
-                                }.pickerStyle(.segmented)
+                        GlassPanel(accent: Theme.faction(settings.playerFaction), padding: 12) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                labeled("DIFFICULTY") {
+                                    Picker("Difficulty", selection: $settings.difficulty) { ForEach(Difficulty.allCases, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                                }
+                                labeled("BATTLEFIELD") {
+                                    Picker("Map", selection: $settings.layout) { ForEach(MapLayout.playable, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                                }
+                                HStack {
+                                    Text("AI DOCTRINE").font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+                                    Spacer()
+                                    Picker("Style", selection: $settings.strategy) { ForEach(AIStrategy.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }.pickerStyle(.menu)
+                                }
                             }
-                            VStack(alignment: .leading, spacing: 6) {
-                                sectionTitle("AI STYLE")
-                                Picker("Style", selection: $settings.strategy) {
-                                    ForEach(AIStrategy.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
-                                }.pickerStyle(.menu)
-                            }
-                        }.padding(.horizontal)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            sectionTitle("BATTLEFIELD")
-                            Picker("Map", selection: $settings.layout) {
-                                ForEach(MapLayout.playable, id: \.self) { Text($0.title).tag($0) }
-                            }.pickerStyle(.segmented)
-                        }.padding(.horizontal)
-
-                        Button(action: onStart) {
-                            HStack {
+                        }
+                        .padding(.horizontal)
+                        Button(action: { SoundEngine.shared?.play("built", at: nil, minGap: 0); onStart() }) {
+                            HStack(spacing: 10) {
                                 if loading { ProgressView().tint(.black) }
-                                Text(loading ? "DEPLOYING…" : "DEPLOY").font(.system(size: 20, weight: .heavy)).tracking(4)
+                                Text(loading ? "DEPLOYING…" : "DEPLOY").font(.system(size: 21, weight: .black)).tracking(6)
                             }
-                            .frame(maxWidth: 360).padding(.vertical, 14)
-                            .background(Capsule().fill(Theme.faction(settings.playerFaction)))
+                            .frame(maxWidth: 380).padding(.vertical, 15)
+                            .background(Chamfer(cut: 14).fill(LinearGradient(colors: [Theme.faction(settings.playerFaction), Theme.faction(settings.playerFaction).opacity(0.7)], startPoint: .top, endPoint: .bottom)))
+                            .overlay(Chamfer(cut: 14).stroke(Color.white.opacity(0.6), lineWidth: 1))
+                            .shadow(color: Theme.faction(settings.playerFaction).opacity(0.6), radius: 14)
                             .foregroundColor(.black)
                         }
                         .disabled(loading)
                         .buttonStyle(.plain)
-                        .padding(.top, 6)
-
-                        Button("How to play") { showHelp = true }.foregroundColor(Theme.accent)
-                            .buttonStyle(.plain)
-                        Spacer(minLength: 30)
+                        .accessibilityLabel("DEPLOY")
+                        .padding(.top, 4)
+                        HStack(spacing: 24) {
+                            Button { showHelp = true } label: { Label("How to play", systemImage: "questionmark.circle") }
+                            Button { showSettings = true } label: { Label("Audio", systemImage: "speaker.wave.2") }
+                        }
+                        .font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.accent).buttonStyle(.plain)
+                        Spacer(minLength: 40)
                     }
                     .frame(maxWidth: 900)
                     .frame(maxWidth: .infinity)
@@ -101,37 +101,64 @@ struct MainMenuView: View {
             }
         }
         .sheet(isPresented: $showHelp) { HelpView() }
+        .sheet(isPresented: $showSettings) { VStack(spacing: 16) { Text("Audio").font(.title3.bold()); AudioSettings() }.padding(30).presentationDetents([.medium]) }
+        .onAppear { backdrop.start() }
+        .onDisappear { backdrop.stop() }
     }
 
-    func sectionTitle(_ s: String) -> some View {
-        Text(s).font(.system(size: 11, weight: .bold)).tracking(3).foregroundColor(.white.opacity(0.55))
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal)
+    func section(_ s: String) -> some View {
+        HStack(spacing: 8) {
+            Rectangle().fill(Theme.faction(settings.playerFaction)).frame(width: 14, height: 2)
+            Text(s).font(.system(size: 11, weight: .heavy)).tracking(4).foregroundColor(.white.opacity(0.75))
+            Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+        }.padding(.horizontal)
+    }
+
+    func labeled<C: View>(_ t: String, @ViewBuilder _ c: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(t).font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+            c()
+        }
+    }
+
+    func showcase(_ f: Faction) -> [Int] {
+        let ids = ["humans": ["h_ranger", "h_bastion", "h_harrier"], "machines": ["m_arc", "m_bulwark", "m_vector"], "aliens": ["a_mantis", "a_colossus", "a_blightwing"]][f.rawValue]!
+        return ids.compactMap { data.unitIndex[$0] }
     }
 
     func factionGrid(selection: Binding<Faction>, wide: Bool, compact: Bool = false) -> some View {
-        let cols = wide ? 3 : (compact ? 3 : 1)
+        let cols = wide || compact ? 3 : 1
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: cols), spacing: 10) {
             ForEach(Faction.allCases, id: \.self) { f in
                 let fd = data.faction(f)
                 let on = selection.wrappedValue == f
-                Button { selection.wrappedValue = f } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Circle().fill(Theme.faction(f)).frame(width: 10, height: 10)
-                            Text(fd.name).font(.system(size: compact ? 13 : 17, weight: .bold))
-                            Spacer()
+                Button { selection.wrappedValue = f; SoundEngine.shared?.play("click", at: nil) } label: {
+                    HStack(alignment: .center, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(fd.name).font(.system(size: compact ? 13 : 18, weight: .heavy))
+                            Text(fd.tagline.uppercased()).font(.system(size: compact ? 8 : 10, weight: .heavy)).tracking(2).foregroundColor(Theme.faction(f))
+                            if !compact {
+                                Text(fd.description).font(.system(size: 12)).foregroundColor(.white.opacity(0.75)).fixedSize(horizontal: false, vertical: true)
+                                HStack(spacing: 6) {
+                                    Chip(text: "HP ×\(String(format: "%.2f", fd.hpMult))", color: Theme.faction(f))
+                                    Chip(text: "BUILD ×\(String(format: "%.2f", fd.buildTimeMult))", color: Theme.faction(f))
+                                }
+                            }
                         }
-                        Text(fd.tagline.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(2).foregroundColor(Theme.faction(f))
+                        Spacer(minLength: 0)
                         if !compact {
-                            Text(fd.description).font(.system(size: 12)).foregroundColor(.white.opacity(0.75)).fixedSize(horizontal: false, vertical: true)
-                            Text("Durability ×\(String(format: "%.2f", fd.hpMult)) · Build time ×\(String(format: "%.2f", fd.buildTimeMult))")
-                                .font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.5))
+                            HStack(spacing: -10) {
+                                ForEach(showcase(f), id: \.self) { u in
+                                    if let img = TextureBank.portrait(u, team: 0) { Image(decorative: img, scale: 2).resizable().scaledToFit().frame(width: 46, height: 46) }
+                                }
+                            }
                         }
                     }
-                    .padding(12)
+                    .padding(compact ? 10 : 14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(on ? Theme.faction(f).opacity(0.18) : Color.white.opacity(0.04)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(on ? Theme.faction(f) : Color.white.opacity(0.1), lineWidth: on ? 2 : 1))
+                    .background(Chamfer(cut: 12).fill(on ? Theme.faction(f).opacity(0.2) : Color.black.opacity(0.55)))
+                    .overlay(Chamfer(cut: 12).stroke(on ? Theme.faction(f) : Color.white.opacity(0.12), lineWidth: on ? 2 : 1))
+                    .shadow(color: on ? Theme.faction(f).opacity(0.45) : .clear, radius: 10)
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.white)
@@ -139,6 +166,54 @@ struct MainMenuView: View {
         }
         .padding(.horizontal)
     }
+}
+
+struct Wordmark: View {
+    let wide: Bool
+    @State private var glow = false
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Text("MERIDIAN").font(.system(size: wide ? 64 : 46, weight: .black, design: .rounded)).tracking(wide ? 12 : 8)
+                    .foregroundColor(Theme.accent.opacity(0.45)).blur(radius: glow ? 14 : 8)
+                Text("MERIDIAN").font(.system(size: wide ? 64 : 46, weight: .black, design: .rounded)).tracking(wide ? 12 : 8)
+                    .foregroundStyle(LinearGradient(colors: [.white, Color(red: 0.75, green: 0.92, blue: 1), Theme.accent], startPoint: .top, endPoint: .bottom))
+            }
+            HStack(spacing: 10) {
+                Rectangle().fill(Theme.faction(.humans)).frame(width: 26, height: 2)
+                Text("THREE FRONTS").font(.system(size: 12, weight: .heavy)).tracking(8).foregroundColor(.white.opacity(0.75))
+                Rectangle().fill(Theme.faction(.aliens)).frame(width: 26, height: 2)
+            }
+            Text("Hold the line. Take the meridian.").font(.system(size: 12, weight: .medium, design: .serif)).italic().foregroundColor(.white.opacity(0.55))
+        }
+        .onAppear { withAnimation(.easeInOut(duration: 2.2).repeatForever()) { glow = true } }
+    }
+}
+
+/// Live AI-vs-AI skirmish rendered silently behind the main menu.
+@MainActor
+final class MenuBackdrop: ObservableObject {
+    @Published var scene: GameScene? = nil
+    private var controller: GameController? = nil
+
+    func start() {
+        guard scene == nil, !ProcessInfo.processInfo.arguments.contains("-autostart") else { return }
+        var s = GameSettings()
+        let all = Faction.allCases
+        s.playerFaction = all[Int.random(in: 0..<3)]
+        s.aiFaction = all[Int.random(in: 0..<3)]
+        s.layout = MapLayout.playable.randomElement()!
+        s.seed = UInt64.random(in: 1...10_000)
+        let c = GameController(settings: s, spectate: true)
+        c.warp(seconds: 300)
+        let sc = GameScene(controller: c, size: CGSize(width: 800, height: 1200))
+        sc.silent = true
+        sc.backdrop = true
+        controller = c
+        scene = sc
+    }
+
+    func stop() { scene?.isPaused = true; scene = nil; controller = nil }
 }
 
 struct HelpView: View {
@@ -205,11 +280,35 @@ struct PauseView: View {
                     Picker("Speed", selection: $controller.speed) {
                         Text("0.75×").tag(0.75); Text("1×").tag(1.0); Text("1.5×").tag(1.5); Text("2×").tag(2.0)
                     }.pickerStyle(.segmented).frame(width: 260)
+                    AudioSettings()
                     Button("Resume", action: onResume).buttonStyle(.borderedProminent)
                     Button("Tech tree") { controller.showTech = true }.buttonStyle(.bordered)
                     Button("Surrender & quit", role: .destructive, action: onQuit).buttonStyle(.bordered)
                 }
             }
+        }
+    }
+}
+
+struct AudioSettings: View {
+    @State private var master: Float = SoundEngine.shared?.master ?? 0.8
+    @State private var sfx: Float = SoundEngine.shared?.sfxVolume ?? 0.8
+    @State private var music: Float = SoundEngine.shared?.musicVolume ?? 0.45
+    @AppStorage("fx.shake") private var shake = true
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            slider("speaker.wave.3.fill", "Master", $master) { SoundEngine.shared?.master = $0 }
+            slider("burst.fill", "Effects", $sfx) { SoundEngine.shared?.sfxVolume = $0 }
+            slider("music.note", "Music", $music) { SoundEngine.shared?.musicVolume = $0 }
+            Toggle("Screen shake", isOn: $shake).font(.system(size: 12, weight: .semibold))
+        }
+        .frame(width: 260)
+    }
+    func slider(_ sym: String, _ name: String, _ v: Binding<Float>, _ set: @escaping (Float) -> Void) -> some View {
+        HStack {
+            Image(systemName: sym).frame(width: 18).foregroundColor(.secondary)
+            Text(name).font(.system(size: 12, weight: .semibold)).frame(width: 52, alignment: .leading)
+            Slider(value: v, in: 0...1).onChange(of: v.wrappedValue) { _, n in set(n) }
         }
     }
 }
