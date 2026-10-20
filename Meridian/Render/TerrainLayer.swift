@@ -118,8 +118,11 @@ enum TerrainLayer {
         col = mix(col, rockC, rock);
 
         // Tiny wildflowers and pebbles (world-space so they stay put while zooming).
-        float speck = h21(floor(w * 5.0));
-        float flower = step(0.994, speck) * (1.0 - dirt) * (1.0 - rock) * (1.0 - water);
+        vec2 cell = floor(w * 5.0);
+        float speck = h21(cell);
+        vec2 fc = fract(w * 5.0) - 0.5 - (vec2(h21(cell + 3.1), h21(cell + 7.7)) - 0.5) * 0.5;
+        float petal = 1.0 - smoothstep(0.07, 0.11, length(fc * vec2(1.0, 1.6)));
+        float flower = step(0.985, speck) * petal * (1.0 - dirt) * (1.0 - rock) * (1.0 - water);
         vec3 flowerC = mix(vec3(1.0, 0.82, 0.35), vec3(0.75, 0.55, 1.0), step(0.9925, speck));
         col = mix(col, flowerC, flower * 0.85);
         col = mix(col, col * 0.7, step(0.975, h21(floor(w * 4.0) + 7.0)) * dirt * 0.6);

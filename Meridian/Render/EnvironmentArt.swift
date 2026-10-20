@@ -165,6 +165,15 @@ enum EnvironmentArt {
         }
     }
 
+    /// Team marker under every unit: a crisp ring with a soft inner wash (tinted per player at runtime).
+    static func teamRing() -> CGImage {
+        Pen.image(64, 32) { p in
+            p.fill(p.ellipsePath(32, 16, 28, 13), RGB(1, 1, 1, 0.22))
+            p.stroke(p.ellipsePath(32, 16, 28, 13), RGB(1, 1, 1, 0.95), 2.4)
+            p.stroke(p.ellipsePath(32, 16, 24.5, 11), RGB(1, 1, 1, 0.35), 1)
+        }
+    }
+
     static func cloud() -> CGImage {
         Pen.image(256, 128, scale: 1) { p in
             for k in 0..<14 {

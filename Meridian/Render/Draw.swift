@@ -104,6 +104,32 @@ final class Pen {
     }
 }
 
+extension Pen {
+    /// Post-process lighting for sprites: warm rim light on edges facing the upper-left sun and a cool
+    /// shade band on the lower-right, derived from the sprite's own silhouette.
+    static func lit(_ img: CGImage, scale: CGFloat = 2, offset: CGFloat = 1.6, light: RGB = RGB(1.0, 0.88, 0.62), shade: RGB = RGB(0.10, 0.08, 0.28)) -> CGImage {
+        let w = img.width, h = img.height
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        func layer(_ color: RGB, _ dx: CGFloat, _ dy: CGFloat) -> CGImage {
+            let c = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            let r = CGRect(x: 0, y: 0, width: w, height: h)
+            c.draw(img, in: r)
+            c.setBlendMode(.sourceIn); c.setFillColor(color.cg); c.fill(r)
+            c.setBlendMode(.destinationOut)
+            c.draw(img, in: r.offsetBy(dx: dx * scale, dy: dy * scale))
+            return c.makeImage()!
+        }
+        let rim = layer(light, offset, -offset)        // edges whose up-left neighbour is empty
+        let dark = layer(shade, -offset, offset)       // edges whose down-right neighbour is empty
+        let out = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let r = CGRect(x: 0, y: 0, width: w, height: h)
+        out.draw(img, in: r)
+        out.setAlpha(0.42); out.setBlendMode(.sourceAtop); out.draw(dark, in: r)
+        out.setAlpha(0.6); out.setBlendMode(.screen); out.draw(rim, in: r)
+        return out.makeImage()!
+    }
+}
+
 /// Deterministic hash noise for textures.
 @inline(__always) func hnoise(_ x: Int, _ y: Int, _ s: Int) -> CGFloat {
     var h = UInt32(truncatingIfNeeded: x &* 374761393 &+ y &* 668265263 &+ s &* 1442695041)

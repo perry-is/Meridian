@@ -10,6 +10,11 @@ final class EntityView {
     var facingSign: CGFloat = 1
     var lastHP: Double = 0
     var baseScale: CGFloat = 1
+    var frames: [SKTexture] = []
+    var teamRing: SKSpriteNode?
+    var lastFire: Double = -1
+    var bodyY: CGFloat = 0
+    var turn: CGFloat = 0
 
     init(body: SKSpriteNode, shadow: SKSpriteNode?) {
         self.body = body
@@ -40,7 +45,7 @@ final class GameScene: SKScene {
     var boxNode: SKShapeNode!
     var rallyFlag: SKSpriteNode!
     var lastUpdate: TimeInterval = 0
-    var zoom: CGFloat = 1.8
+    var zoom: CGFloat = 1.35
     var fogTimer = 0.0
     var fxBudget = 0
     var boxStart: CGPoint?
@@ -86,6 +91,7 @@ final class GameScene: SKScene {
         rallyFlag.zPosition = 5; rallyFlag.isHidden = true
         worldNode.addChild(rallyFlag)
         if ctl.stressMode { focus(Double(N) / 2, Double(N) / 2); zoom = 2.6 }
+        if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
         else if let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
         ctl.focusCamera = { [weak self] x, y in self?.focus(x, y) }
         ctl.cameraWorldRect = { [weak self] in self?.visibleWorldQuad() ?? [] }
@@ -231,20 +237,33 @@ final class GameScene: SKScene {
                 return EntityView(body: s, shadow: nil)
             }
             let d = world.udef(e)
-            let tex = bank.unit[owner][e.type]
-            let s = SKSpriteNode(texture: tex)
+            let frames = bank.unit[owner][e.type]
+            let s = SKSpriteNode(texture: frames[0])
             let sz = UnitArt.canvasSize(d)
             s.size = CGSize(width: sz, height: sz)
             let sh = SKSpriteNode(texture: bank.fx["shadow"], size: CGSize(width: sz * 0.8, height: sz * 0.4))
             if e.isAir {
                 s.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-                s.position = CGPoint(x: 0, y: 34)
-                sh.alpha = 0.6
+                s.position = CGPoint(x: 0, y: 38)
+                sh.alpha = 0.55
+                sh.position = CGPoint(x: 6, y: -2)
             } else {
                 s.anchorPoint = CGPoint(x: 0.5, y: 0.12)
-                sh.position = CGPoint(x: 0, y: 2)
+                sh.position = CGPoint(x: 3, y: 1)
             }
-            return EntityView(body: s, shadow: sh)
+            let v = EntityView(body: s, shadow: sh)
+            v.frames = frames
+            v.bodyY = s.position.y
+            // Team ring: the primary readability cue in big battles.
+            let ring = SKSpriteNode(texture: bank.fx["teamring"])
+            let rw = max(30, CGFloat(d.radius) * 120)
+            ring.size = CGSize(width: rw, height: rw / 2)
+            ring.color = TeamColor.sk(e.owner); ring.colorBlendFactor = 1
+            ring.alpha = e.isAir ? 0.45 : 0.75
+            ring.zPosition = -0.1
+            v.root.insertChild(ring, at: 0)
+            v.teamRing = ring
+            return v
         case .building:
             let d = world.bdef(e)
             let c = WorldArt.buildingCanvas(d)
@@ -284,22 +303,7 @@ final class GameScene: SKScene {
             let depth = Iso.depth(x, y)
             v.root.zPosition = (e.isAir ? 300 : 100) + depth * 0.4 + (e.isBuilding ? -0.2 : 0)
             if e.isUnit && !e.isMine {
-                // Facing: flip when heading screen-left.
-                let sx = cos(e.facing) + sin(e.facing)
-                if abs(sx) > 0.15 { v.facingSign = sx < 0 ? -1 : 1 }
-                v.body.xScale = v.facingSign * abs(v.body.xScale)
-                if e.isAir {
-                    v.body.position.y = 34 + CGFloat(sin(t * 2.4 + Double(e.id))) * 2
-                } else if e.moving {
-                    v.body.position.y = CGFloat(abs(sin(t * 11 + Double(e.id)))) * 1.4
-                } else { v.body.position.y = 0 }
-                // Cloaked own units shimmer; recoil flash on fire.
-                v.body.alpha = world.isCloaked(e) ? 0.45 : 1
-                if t - e.lastFireTime < 0.09 && world.weapon(e) != nil {
-                    v.body.colorBlendFactor = 0.35; v.body.color = .white
-                } else if t - e.lastHitTime < 0.08 {
-                    v.body.colorBlendFactor = 0.45; v.body.color = SKColor(red: 1, green: 0.3, blue: 0.2, alpha: 1)
-                } else { v.body.colorBlendFactor = 0 }
+                animateUnit(e, v, t)
             } else if e.isBuilding {
                 v.body.alpha = e.complete ? 1 : 0.45 + 0.4 * CGFloat(e.buildProgress)
                 if t - e.lastHitTime < 0.08 { v.body.colorBlendFactor = 0.3; v.body.color = SKColor(red: 1, green: 0.3, blue: 0.2, alpha: 1) }
@@ -330,7 +334,7 @@ final class GameScene: SKScene {
                 let bar = bar(bars); bars += 1
                 let w: CGFloat = e.isBuilding ? CGFloat(e.size) * 22 : 26
                 let top: CGFloat = e.isBuilding ? CGFloat(WorldArt.buildingCanvas(world.bdef(e)).h) * (1 - WorldArt.buildingCanvas(world.bdef(e)).anchorY) - 10 :
-                    (e.isAir ? 34 + v.body.size.height * 0.45 : v.body.size.height * 0.88)
+                    (e.isAir ? 38 + v.body.size.height * 0.45 : v.body.size.height * 0.9)
                 bar.0.position = CGPoint(x: v.root.position.x, y: v.root.position.y + top)
                 bar.0.size = CGSize(width: w + 2, height: 5)
                 let frac = CGFloat(e.isBuilding && !e.complete ? e.buildProgress : e.hp / max(1, e.maxHp))
@@ -354,6 +358,56 @@ final class GameScene: SKScene {
             rallyFlag.isHidden = false
             rallyFlag.position = Iso.scene(b.rallyX, b.rallyY)
         } else { rallyFlag.isHidden = true }
+    }
+
+    /// Per-faction motion language on top of the sprite frames.
+    func animateUnit(_ e: Entity, _ v: EntityView, _ t: Double) {
+        let sx = cos(e.facing) + sin(e.facing)
+        if abs(sx) > 0.15 { v.facingSign = sx < 0 ? -1 : 1 }
+        let fac = world.players[e.owner].faction
+        let seed = Double(e.id % 97)
+        let speed = world.speed(e)
+        // Frame cycling: walk cycle while moving, idle engines for aircraft.
+        if !v.frames.isEmpty {
+            let rate = e.isAir ? 10.0 : 3.2 * max(1.5, speed)
+            let fr = (e.moving || e.isAir) ? Int(t * rate + seed) % v.frames.count : 0
+            if v.body.texture !== v.frames[fr] { v.body.texture = v.frames[fr] }
+        }
+        var y = v.bodyY
+        var rot: CGFloat = 0
+        var sy: CGFloat = 1
+        if e.isAir {
+            y += CGFloat(sin(t * 2.2 + seed)) * 2.5
+            // Bank into turns: compare heading change.
+            let target = CGFloat(-sx) * 0.12 * (e.moving ? 1 : 0.2)
+            v.turn += (target - v.turn) * 0.1
+            rot = v.turn
+        } else if e.moving {
+            switch fac {
+            case .humans: y += CGFloat(abs(sin(t * 10 + seed))) * 1.3
+            case .machines: rot = CGFloat(sin(t * 7 + seed)) * 0.025; y += CGFloat(abs(sin(t * 7 + seed))) * 0.8
+            case .aliens: sy = 1 + CGFloat(sin(t * 12 + seed)) * 0.05; rot = CGFloat(sin(t * 6 + seed)) * 0.05
+            }
+        } else if fac == .aliens {
+            sy = 1 + CGFloat(sin(t * 2.5 + seed)) * 0.03     // breathing
+        } else if fac == .machines {
+            v.teamRing?.alpha = 0.6 + (e.linked ? 0.35 : 0) * CGFloat(0.6 + 0.4 * sin(t * 4 + seed))
+        }
+        // Recoil kick when firing.
+        let sinceFire = t - e.lastFireTime
+        var kick: CGFloat = 0
+        if sinceFire < 0.12 && world.weapon(e) != nil { kick = CGFloat(1 - sinceFire / 0.12) * 2.2 }
+        v.body.position = CGPoint(x: -v.facingSign * kick, y: y)
+        v.body.zRotation = rot * v.facingSign
+        v.body.xScale = v.facingSign
+        v.body.yScale = sy
+        // State tints: cloaked shimmer, hit flash, network link glow.
+        v.body.alpha = world.isCloaked(e) ? 0.4 + 0.1 * CGFloat(sin(t * 6)) : 1
+        if t - e.lastHitTime < 0.08 {
+            v.body.colorBlendFactor = 0.55; v.body.color = SKColor(red: 1, green: 0.25, blue: 0.15, alpha: 1)
+        } else if e.disruptedUntil > t {
+            v.body.colorBlendFactor = 0.35; v.body.color = SKColor(red: 0.4, green: 0.6, blue: 1, alpha: 1)
+        } else { v.body.colorBlendFactor = 0 }
     }
 
     func bar(_ i: Int) -> (SKSpriteNode, SKSpriteNode) {

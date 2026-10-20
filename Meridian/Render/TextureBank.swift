@@ -29,7 +29,7 @@ enum TeamColor {
 /// Generates every texture once at match start and packs them into a single atlas so SpriteKit can batch draws.
 final class TextureBank {
     let data: GameData
-    private(set) var unit: [[SKTexture]] = []       // [player][unitType]
+    private(set) var unit: [[[SKTexture]]] = []     // [player][unitType][frame]
     private(set) var building: [[SKTexture]] = []   // [player][buildingType]
     private(set) var resource: [[SKTexture]] = []   // [kind][variant]
     private(set) var cliffs: [SKTexture] = []
@@ -62,9 +62,11 @@ final class TextureBank {
                 let name = "u\(pi)_\(i)"
                 un.append(name)
                 guard u.faction == f else { continue }
-                let img = UnitArt.render(u, team: tc)
-                images[name] = .from(img)
-                if pi == 0 { unitIcons[i] = img }
+                for fr in 0..<UnitArt.frameCount {
+                    let img = UnitArt.render(u, team: tc, frame: fr)
+                    images[name + "_\(fr)"] = .from(img)
+                    if pi == 0 && fr == 0 { unitIcons[i] = img }
+                }
             }
             for (i, b) in data.buildings.enumerated() {
                 let name = "b\(pi)_\(i)"
@@ -89,17 +91,18 @@ final class TextureBank {
         let fxNames = ["glow", "ring", "shadow", "beam", "bolt", "orb", "shell", "spark", "smoke", "scorch", "pixel"]
         for n in fxNames { images["fx_" + n] = .from(WorldArt.effect(n)) }
         images["fx_vignette"] = .from(EnvironmentArt.vignette())
+        images["fx_teamring"] = .from(EnvironmentArt.teamRing())
         images["fx_cloud"] = .from(EnvironmentArt.cloud())
         images["site_platform"] = .from(WorldArt.sitePlatform())
         images["site_beacon"] = .from(WorldArt.siteBeacon())
 
         let atlas = SKTextureAtlas(dictionary: images)
-        unit = unitNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
+        unit = unitNames.map { $0.map { n in (0..<UnitArt.frameCount).map { images[n + "_\($0)"] != nil ? atlas.textureNamed(n + "_\($0)") : SKTexture() } } }
         building = buildingNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
         resource = ResourceKind.allCases.map { k in (0..<3).map { atlas.textureNamed("r\(k.rawValue)_\($0)") } }
         cliffs = (0..<6).map { atlas.textureNamed("cliff\($0)") }
         flora = (0..<5).map { k in (0..<2).map { atlas.textureNamed("flora\(k)_\($0)") } }
-        for n in fxNames + ["vignette", "cloud"] { fx[n] = atlas.textureNamed("fx_" + n) }
+        for n in fxNames + ["vignette", "cloud", "teamring"] { fx[n] = atlas.textureNamed("fx_" + n) }
         sitePlatform = atlas.textureNamed("site_platform")
         siteBeacon = atlas.textureNamed("site_beacon")
     }

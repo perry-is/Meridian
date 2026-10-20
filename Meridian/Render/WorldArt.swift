@@ -52,7 +52,7 @@ enum WorldArt {
 
     static func buildingCanvas(_ d: BuildingDef) -> (w: CGFloat, h: CGFloat, anchorY: CGFloat) {
         let n = CGFloat(d.size)
-        let extra: CGFloat = d.kind == .tower ? 96 : (d.kind == .hq ? 84 : 64)
+        let extra = BuildingArt.headroom(d.kind)
         let h = 32 * n + extra
         return (64 * n, h, 16 * n / h)
     }
@@ -62,13 +62,14 @@ enum WorldArt {
     static func building(_ d: BuildingDef, team tc: RGB) -> CGImage {
         let c = buildingCanvas(d)
         let n = CGFloat(d.size)
-        return Pen.image(c.w, c.h) { p in
+        let img = Pen.image(c.w, c.h) { p in
             switch d.faction {
-            case .humans: humanBuilding(p, d.kind, n, tc)
-            case .machines: machineBuilding(p, d.kind, n, tc)
-            case .aliens: alienBuilding(p, d.kind, n, tc)
+            case .humans: BuildingArt.human(p, d.kind, n, tc)
+            case .machines: BuildingArt.machine(p, d.kind, n, tc)
+            case .aliens: BuildingArt.alien(p, d.kind, n, tc)
             }
         }
+        return Pen.lit(img, offset: 2.2)
     }
 
     static func humanBuilding(_ p: Pen, _ k: BuildingKind, _ n: CGFloat, _ tc: RGB) {
