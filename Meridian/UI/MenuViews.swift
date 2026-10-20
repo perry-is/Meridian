@@ -272,20 +272,28 @@ struct PauseView: View {
     var onQuit: () -> Void
     var body: some View {
         ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-            Panel(padding: 22) {
+            Color.black.opacity(0.6).ignoresSafeArea()
+            GlassPanel(accent: Theme.faction(controller.hud.faction), padding: 22, cut: 16) {
                 VStack(spacing: 14) {
-                    Text("PAUSED").font(.system(size: 26, weight: .black)).tracking(5)
-                    Text("Speed").font(.caption).foregroundColor(.secondary)
-                    Picker("Speed", selection: $controller.speed) {
-                        Text("0.75×").tag(0.75); Text("1×").tag(1.0); Text("1.5×").tag(1.5); Text("2×").tag(2.0)
-                    }.pickerStyle(.segmented).frame(width: 260)
+                    Text("PAUSED").font(.system(size: 26, weight: .black)).tracking(8)
+                    Text(String(format: "%d:%02d  ·  %@", Int(controller.world.time) / 60, Int(controller.world.time) % 60, controller.world.map.name))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("GAME SPEED").font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+                        Picker("Speed", selection: $controller.speed) {
+                            Text("0.75×").tag(0.75); Text("1×").tag(1.0); Text("1.5×").tag(1.5); Text("2×").tag(2.0)
+                        }.pickerStyle(.segmented)
+                    }.frame(width: 260)
                     AudioSettings()
-                    Button("Resume", action: onResume).buttonStyle(.borderedProminent)
-                    Button("Tech tree") { controller.showTech = true }.buttonStyle(.bordered)
+                    HStack(spacing: 10) {
+                        Button("Tech tree") { controller.showTech = true }.buttonStyle(.bordered)
+                        Button("Resume", action: onResume).buttonStyle(.borderedProminent).tint(Theme.faction(controller.hud.faction)).foregroundColor(.black)
+                    }
                     Button("Surrender & quit", role: .destructive, action: onQuit).buttonStyle(.bordered)
                 }
+                .foregroundColor(.white)
             }
+            .frame(maxWidth: 340)
         }
     }
 }
@@ -318,37 +326,63 @@ struct GameOverView: View {
     let won: Bool
     let reason: String
     var onQuit: () -> Void
+    @State private var appear = false
     var body: some View {
+        let accent = won ? Theme.faction(controller.hud.faction) : Color(red: 1, green: 0.35, blue: 0.28)
         ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea()
-            Panel(padding: 24) {
+            Color.black.opacity(0.68).ignoresSafeArea()
+            GlassPanel(accent: accent, padding: 22, cut: 18) {
                 VStack(spacing: 12) {
-                    Text(won ? "VICTORY" : "DEFEAT").font(.system(size: 40, weight: .black)).tracking(6)
-                        .foregroundColor(won ? Theme.accent : Color(red: 1, green: 0.4, blue: 0.3))
-                    Text(reason).foregroundColor(.secondary)
-                    Text("Match time \(Int(controller.world.time) / 60):\(String(format: "%02d", Int(controller.world.time) % 60))").font(.caption)
-                    Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 6) {
-                        GridRow { Text(""); Text("You").bold(); Text("Enemy").bold() }
+                    Text(won ? "VICTORY" : "DEFEAT").font(.system(size: 46, weight: .black, design: .rounded)).tracking(10)
+                        .foregroundStyle(LinearGradient(colors: [.white, accent], startPoint: .top, endPoint: .bottom))
+                        .shadow(color: accent.opacity(0.7), radius: 12)
+                        .scaleEffect(appear ? 1 : 1.4).opacity(appear ? 1 : 0)
+                    Text(reason.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(3).foregroundColor(accent)
+                    Text(String(format: "Match time %d:%02d", Int(controller.world.time) / 60, Int(controller.world.time) % 60)).font(.system(size: 11, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                    VStack(spacing: 6) {
+                        HStack { Text("").frame(width: 110, alignment: .leading); Text("YOU").frame(maxWidth: .infinity); Text("ENEMY").frame(maxWidth: .infinity) }
+                            .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
                         row("Units produced") { $0.unitsProduced }
                         row("Units lost") { $0.unitsLost }
                         row("Kills") { $0.kills }
                         row("Buildings built") { $0.buildingsBuilt }
                         row("Iron gathered") { $0.gathered[0] }
-                        row("Gold gathered") { $0.gathered[1] }
                         row("Wood gathered") { $0.gathered[2] }
+                        row("Gold gathered") { $0.gathered[1] }
                         row("Peak army") { $0.peakUnits }
-                    }.font(.system(size: 13, design: .monospaced))
-                    Button("Main menu", action: onQuit).buttonStyle(.borderedProminent).padding(.top, 6)
+                    }
+                    Button(action: onQuit) {
+                        Text("RETURN TO COMMAND").font(.system(size: 14, weight: .black)).tracking(3)
+                            .padding(.horizontal, 22).padding(.vertical, 11)
+                            .background(Chamfer(cut: 9).fill(accent)).foregroundColor(.black)
+                    }.buttonStyle(.plain).padding(.top, 6)
                 }
+                .foregroundColor(.white)
             }
+            .frame(maxWidth: 380)
         }
+        .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { appear = true } }
     }
 
     func row(_ t: String, _ f: @escaping (PlayerStats) -> Int) -> some View {
-        GridRow {
-            Text(t).foregroundColor(.secondary)
-            Text("\(f(controller.world.players[0].stats))")
-            Text("\(f(controller.world.players[1].stats))")
+        let a = f(controller.world.players[0].stats), b = f(controller.world.players[1].stats)
+        let m = Double(max(1, max(a, b)))
+        return HStack(spacing: 8) {
+            Text(t).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).frame(width: 110, alignment: .leading)
+            bar(a, m, Theme.team(0))
+            bar(b, m, Theme.team(1))
         }
+    }
+
+    func bar(_ v: Int, _ m: Double, _ c: Color) -> some View {
+        HStack(spacing: 4) {
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(c.opacity(0.85)).frame(width: g.size.width * CGFloat(Double(v) / m))
+                }
+            }.frame(height: 5)
+            Text("\(v)").font(.system(size: 10, weight: .semibold, design: .monospaced)).frame(width: 40, alignment: .trailing)
+        }.frame(maxWidth: .infinity)
     }
 }

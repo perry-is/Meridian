@@ -144,6 +144,7 @@ struct TechTreeView: View {
                     }
                 }.padding()
             }
+            .background(Color(red: 0.04, green: 0.05, blue: 0.08).ignoresSafeArea())
             .navigationTitle("\(data.faction(p.faction).name) Tech")
             .toolbar { ToolbarItem { Button("Close") { dismiss() } } }
         }
@@ -175,6 +176,7 @@ struct TechCard: View {
             Spacer(minLength: 0)
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.05)))
+        .background(Chamfer(cut: 9).fill(LinearGradient(colors: [Color.white.opacity(ok ? 0.09 : 0.05), Color.white.opacity(0.02)], startPoint: .top, endPoint: .bottom)))
+        .overlay(Chamfer(cut: 9).stroke(ok ? Color.green.opacity(0.4) : Color.white.opacity(0.1), lineWidth: 1))
     }
 }

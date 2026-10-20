@@ -160,18 +160,27 @@ final class GameScene: SKScene {
         fogNode.position = CGPoint(x: w / 2, y: 0)
         fogNode.zPosition = 600
         let src = """
+        float fh(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
+        float fn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(mix(fh(i), fh(i + vec2(1.0, 0.0)), u.x), mix(fh(i + vec2(0.0, 1.0)), fh(i + vec2(1.0, 1.0)), u.x), u.y); }
         void main() {
             vec2 p = u_origin + v_tex_coord * u_size;
             float wx = (p.x / 32.0 - p.y / 16.0) * 0.5;
             float wy = (p.x / 32.0 + p.y / 16.0) * 0.5;
             vec2 uv = vec2(wx / u_n, wy / u_n);
-            float a = 1.0;
+            vec2 w = vec2(wx, wy);
+            float haze = fn(w * 0.12 + vec2(u_time * 0.03, u_time * 0.015)) * 0.6 + fn(w * 0.31 - vec2(u_time * 0.02, 0.0)) * 0.4;
+            float a = 0.97;
+            vec3 c = mix(vec3(0.015, 0.02, 0.04), vec3(0.06, 0.07, 0.12), haze);
             if (uv.x >= 0.0 && uv.y >= 0.0 && uv.x <= 1.0 && uv.y <= 1.0) {
                 vec4 f = texture2D(u_fog, uv);
-                a = mix(0.96, 0.5, f.g);
+                // Unexplored: drifting haze. Explored but unseen: cool translucent veil. Visible: clear.
+                float unexplored = 0.88 + 0.1 * haze;
+                a = mix(unexplored, 0.46, f.g);
+                c = mix(c, vec3(0.03, 0.05, 0.11), f.g);
                 a = mix(a, 0.0, f.r);
             }
-            gl_FragColor = vec4(0.015, 0.02, 0.035, 1.0) * a;
+            gl_FragColor = vec4(c * a, a);
         }
         """
         fogShader = SKShader(source: src)
