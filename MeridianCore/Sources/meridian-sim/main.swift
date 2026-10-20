@@ -31,6 +31,7 @@ func runMatch(_ f0: Faction, _ f1: Faction, layout: MapLayout, seed: UInt64, dif
               swap: Bool, limit: Double, verbose: Bool) -> MatchResult {
     let cfg = MatchConfig(factions: [f0, f1], layout: layout, seed: seed, swapStarts: swap)
     let m = Match(config: cfg, ai: [(0, diff[0], strat[0]), (1, diff[1], strat[1])])
+    m.world.tactics = TacticsFlags(disabling: opt("disable", "").split(separator: ",").map(String.init))
     m.timeLimit = limit
     m.world.collectEvents = false
     let t0 = Date()
@@ -95,6 +96,8 @@ case "tournament":
     let strats = AIStrategy.allCases
     for (i, a) in Faction.allCases.enumerated() {
         for b in Faction.allCases[(i + 1)...] {
+            let pair = opt("pair", "")
+            if !pair.isEmpty && !(pair.contains(a.rawValue) && pair.contains(b.rawValue)) { continue }
             for layout in MapLayout.playable {
                 for s in 0..<seeds {
                     for swap in [false, true] {
@@ -316,9 +319,12 @@ case "tactics":
     for sc in TacticalScenario.allCases where only.isEmpty || only.split(separator: ",").contains(Substring(sc.rawValue)) {
         let w = World(config: MatchConfig(factions: sc.factions, layout: .arena, seed: 21, mapSize: 112))
         w.collectEvents = false
+        w.tactics = TacticsFlags(disabling: opt("disable", "").split(separator: ",").map(String.init))
         let setup = sc.setup(w, formation: formation)
         let e = data.rules.economy
         let all = setup.groups.flatMap { $0.ids }
+        let slotOf = Dictionary(uniqueKeysWithValues: all.compactMap { id in w.entity(id).map { (id, ($0.formationDX, $0.formationDY)) } })
+        let movers = setup.groups.filter { !(sc == .airstrike && $0.owner == 1) }.flatMap { $0.ids }
         let start = Dictionary(uniqueKeysWithValues: all.compactMap { id in w.entity(id).map { (id, ($0.x, $0.y)) } })
         let initialValue = (0..<2).map { p in Double(w.units(of: p).reduce(0.0) { $0 + data.units[$1.type].cost.value(e) }) }
         let siegeIDs = all.filter { w.entity($0).map { data.units[$0.type].role == "siege" } ?? false }
@@ -330,22 +336,43 @@ case "tactics":
         var responseT: Double? = nil, arriveT: Double? = nil
         var contact = 0, contactAll = 0
         var simTimes: [Double] = []
+        var roleStats: [String: (Int, Int)] = [:]
+        var intrSum = 0.0
+        var linkedShare = (0, 0)
         var ticks = 0
+        // Arrived = settled at its own formation slot (or stopped by crowding right next to it).
+        func arrivedAt(_ u: Entity, _ goal: (Double, Double)) -> Bool {
+            let off = slotOf[u.id] ?? (0, 0)
+            let slot = (goal.0 + off.0, goal.1 + off.1)
+            let d2 = dist2(u.x, u.y, slot.0, slot.1)
+            return d2 < 1.5 * 1.5 || (u.order == .idle && d2 < 4 * 4 && dist2(u.x, u.y, goal.0, goal.1) < 12 * 12)
+        }
         while w.time < sc.timeLimit {
             let t0 = DispatchTime.now().uptimeNanoseconds
             w.step()
             simTimes.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
             ticks += 1
             if responseT == nil && ticks % 2 == 0 {
-                let moved = all.filter { id in guard let u = w.entity(id), let p0 = start[id] else { return true }; return dist2(u.x, u.y, p0.0, p0.1) > 0.09 }.count
-                if Double(moved) >= Double(all.count) * 0.9 { responseT = w.time }
+                let moved = movers.filter { id in guard let u = w.entity(id), let p0 = start[id] else { return true }; return dist2(u.x, u.y, p0.0, p0.1) > 0.09 }.count
+                if Double(moved) >= Double(movers.count) * 0.9 { responseT = w.time }
             }
             if ticks % 10 == 0 {
                 let s = w.tacticalSample()
                 let ground = max(1, w.entities.filter { $0.isUnit && $0.onMap && !$0.isAir && !$0.isMine }.count)
                 overlapSum += Double(s.deepOverlaps) / Double(ground); densSum += s.meanDensity; samples += 1
+                intrSum += Double(s.enemyIntrusions) / Double(ground)
                 peak = max(peak, s.maxDensity)
                 if s.inRange + s.outOfRange > 0 { upIn += s.inRange; upAll += s.inRange + s.outOfRange }
+                if flag("debug") {
+                    for u in w.entities where u.isUnit && u.onMap && !u.isMine && w.players[u.owner].faction == .machines { linkedShare.1 += 1; if u.linked { linkedShare.0 += 1 } }
+                    for u in w.entities where u.isUnit && u.onMap && !u.isMine {
+                        guard let wp = w.weapon(u), let t = w.entity(u.target), t.onMap else { continue }
+                        let role = data.units[u.type].role
+                        var r = roleStats[role] ?? (0, 0)
+                        r.1 += 1; if w.edgeDist(u, t) > wp.range { r.0 += 1 }
+                        roleStats[role] = r
+                    }
+                }
                 if sc == .kite {
                     for r in setup.groups[0].ids { guard let u = w.entity(r) else { continue }
                         contactAll += 1
@@ -368,7 +395,7 @@ case "tactics":
             }
             if sc.isMovementOnly {
                 var arrived = 0
-                for g in setup.groups { for id in g.ids { if let u = w.entity(id), dist2(u.x, u.y, g.goal.0, g.goal.1) < 6.5 * 6.5 { arrived += 1 } } }
+                for g in setup.groups { for id in g.ids { if let u = w.entity(id), arrivedAt(u, g.goal) { arrived += 1 } } }
                 if arriveT == nil && Double(arrived) >= Double(all.count) * 0.9 { arriveT = w.time }
                 if arrived == all.count { break }
             } else if !w.units(of: 0).contains(where: { !$0.isMine }) || !w.units(of: 1).contains(where: { !$0.isMine }) { break }
@@ -379,13 +406,31 @@ case "tactics":
             let rem = (0..<2).map { p in w.units(of: p).filter { !$0.isMine }.reduce(0.0) { $0 + data.units[$1.type].cost.value(e) * $1.hp / $1.maxHp } }
             result = "P0 \(Int(100 * rem[0] / max(1, initialValue[0])))% / P1 \(Int(100 * rem[1] / max(1, initialValue[1])))%"
         }
+        if flag("debug") && sc.isMovementOnly {
+            for g in setup.groups { for id in g.ids { if let u = w.entity(id), !arrivedAt(u, g.goal) {
+                let off = slotOf[u.id] ?? (0, 0)
+                let slot = (g.goal.0 + off.0, g.goal.1 + off.1)
+                print("  not arrived: \(data.units[u.type].name) at (\(fmt(u.x)),\(fmt(u.y))) slot (\(fmt(slot.0)),\(fmt(slot.1))) d=\(fmt(dist2(u.x, u.y, slot.0, slot.1).squareRoot())) order=\(u.order) stuck=\(u.stuckTimer) blockedSlot=\(w.nav.isBlocked(Int(slot.0), Int(slot.1)))")
+            } } }
+        }
+        if flag("debug") && !sc.isMovementOnly {
+            for p in 0..<2 {
+                let top = w.players[p].stats.damageByType.sorted { $0.value > $1.value }.map { "\(data.units[$0.key].name) \(Int($0.value))" }.joined(separator: ", ")
+                print("  P\(p) damage by type: \(top)")
+            }
+        }
+        if flag("debug") && linkedShare.1 > 0 { print("  machine units linked: \(100 * linkedShare.0 / linkedShare.1)%") }
+        if flag("debug") && !roleStats.isEmpty {
+            print("  out-of-range share by role: " + roleStats.sorted { $0.key < $1.key }.map { "\($0.key) \(Int(100 * Double($0.value.0) / Double(max(1, $0.value.1))))% (n=\($0.value.1))" }.joined(separator: ", "))
+        }
         var arrivedPct = "-"
         if sc.isMovementOnly {
             var arrived = 0
-            for g in setup.groups { for id in g.ids { if let u = w.entity(id), dist2(u.x, u.y, g.goal.0, g.goal.1) < 6.5 * 6.5 { arrived += 1 } } }
+            for g in setup.groups { for id in g.ids { if let u = w.entity(id), arrivedAt(u, g.goal) { arrived += 1 } } }
             arrivedPct = "\(100 * arrived / max(1, all.count))% (\(arriveT.map { fmt($0, 1) + "s" } ?? "—"))"
         }
         switch sc {
+        case .battle50, .battle100, .battle200, .skirmish20: special = "enemy intrusion \(fmt(100 * intrSum / Double(max(1, samples)), 1))%"
         case .kite: special = "ranger melee-contact \(fmt(100 * Double(contact) / Double(max(1, contactAll)), 0))%"
         case .siege: special = "siege alive \(siegeIDs.filter { w.entity($0) != nil }.count)/\(siegeIDs.count)"
         case .airstrike: special = "aircraft alive \(airIDs.filter { w.entity($0) != nil }.count)/\(airIDs.count)"

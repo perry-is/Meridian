@@ -5,6 +5,13 @@ extension World {
     // MARK: Per-unit order processing
 
     func updateOrders() {
+        // Group cohesion stats (mean remaining distance of travelling members).
+        var sums: [Int: (Double, Int)] = [:]
+        for e in entities where e.isUnit && e.onMap && e.groupID != 0 && (e.order == .move || e.order == .attackMove) && e.target < 0 {
+            let d = dist2(e.x, e.y, e.ox + e.formationDX, e.oy + e.formationDY).squareRoot()
+            let o = sums[e.groupID] ?? (0, 0); sums[e.groupID] = (o.0 + d, o.1 + 1)
+        }
+        groupRemaining = sums.mapValues { $0.0 / Double($0.1) }
         for e in entities where e.isUnit && e.onMap && !e.isMine {
             updateUnit(e)
         }
@@ -77,7 +84,9 @@ extension World {
         e.stuckTimer = 0
     }
 
-    /// Move into weapon range of the target, or stand and fight.
+    /// Move into weapon range of the target, or stand and fight — with role-aware positioning:
+    /// melee units fan out around their target, ranged units step back from melee while reloading,
+    /// and aircraft strafe instead of hovering in a stack.
     func engage(_ e: Entity, _ tg: Entity) {
         guard let w = weapon(e) else { return }
         let d = edgeDist(e, tg)
@@ -87,15 +96,57 @@ extension World {
                 let ax = e.x - tg.x, ay = e.y - tg.y
                 let l = max(0.01, (ax * ax + ay * ay).squareRoot())
                 step(e, ax / l, ay / l, speed(e) * dt)
+                return
+            }
+            if e.order == .hold { return }
+            if e.isAir {
+                if tactics.airStrafe && w.range >= 3 && (tg.isUnit || tg.isBuilding) {
+                    let ax = e.x - tg.x, ay = e.y - tg.y
+                    let l = max(0.01, (ax * ax + ay * ay).squareRoot())
+                    let side: Double = e.id % 2 == 0 ? 1 : -1
+                    step(e, -ay / l * side, ax / l * side, speed(e) * dt * 0.25)
+                }
+                return
+            }
+            if tactics.kite && w.range >= 4 && !traits[e.type].setup && e.cooldown > 0.12, let threat = meleeThreat(e) {
+                // Kite: give ground to an adjacent melee attacker between shots.
+                let ax = e.x - threat.x, ay = e.y - threat.y
+                let l = max(0.01, (ax * ax + ay * ay).squareRoot())
+                step(e, ax / l, ay / l, speed(e) * dt)
             }
             return
         }
         if e.order == .hold { return }
         if tg.isBuilding || tg.isResource {
             _ = moveToRect(e, tg, range: w.range * 0.9)
+        } else if tactics.surround && w.range <= 1.6 && !tg.isAir && !e.isAir {
+            // Melee: approach from a spread angle around the target rather than all from the same side.
+            let base = atan2(e.y - tg.y, e.x - tg.x)
+            let a = base + (tg.attackerCount >= 2 ? (Double(e.id % 5) - 2) * 0.3 : 0)
+            let r = tg.radius + e.radius + w.range * 0.55
+            let px = tg.x + cos(a) * r, py = tg.y + sin(a) * r
+            if dist2(e.x, e.y, tg.x, tg.y) < 4 || nav.isBlocked(Int(px), Int(py)) {
+                _ = moveTo(e, tg.x, tg.y, arrive: max(0.2, w.range * 0.85))
+            } else {
+                _ = moveTo(e, px, py, arrive: 0.2)
+            }
         } else {
             _ = moveTo(e, tg.x, tg.y, arrive: max(0.2, w.range * 0.85))
         }
+    }
+
+    /// Nearest visible enemy melee ground unit close enough to strike us soon.
+    func meleeThreat(_ e: Entity) -> Entity? {
+        var best: Entity? = nil
+        var bd = Double.infinity
+        forEachNear(e.x, e.y, 2.4) { o in
+            guard o.isUnit, !o.isAir, !o.isMine, o.onMap, isEnemy(e.owner, o.owner), o.target == e.id, let ow = weapon(o), ow.range <= 1.6 else { return }
+            if speed(o) > speed(e) * 1.1 { return }      // can't outrun it: keep shooting instead
+            let dd = dist2(e.x, e.y, o.x, o.y)
+            let reach = ow.range + o.radius + e.radius + 0.9
+            if dd < reach * reach && dd < bd && canSee(e.owner, o) { bd = dd; best = o }
+        }
+        return best
     }
 
     @discardableResult
@@ -122,20 +173,27 @@ extension World {
         let gx = e.ox + e.formationDX, gy = e.oy + e.formationDY
         let d2 = dist2(e.x, e.y, gx, gy)
         if d2 < 0.3 * 0.3 { return true }
-        // Crowd arrival: if we are close but haven't made progress for a while, stop.
-        if d2 < 9 {
-            if dist2(e.x, e.y, e.lastProgressX, e.lastProgressY) < 0.04 {
-                e.stuckTimer += dt
-                if e.stuckTimer > 0.8 { return true }
-            } else {
-                e.stuckTimer = 0; e.lastProgressX = e.x; e.lastProgressY = e.y
-            }
+        // Progress watchdog: crowd arrival near the goal, sidestep when wedged far from it.
+        if (tick + e.id) % 20 == 0 {
+            let moved = dist2(e.x, e.y, e.lastProgressX, e.lastProgressY)
+            if moved < 0.04 {
+                e.stuckTimer += 1
+                if d2 < 9 && e.stuckTimer >= 1 { return true }
+                if d2 >= 9 && e.stuckTimer >= 2 {
+                    e.sidestepUntil = time + 0.7
+                    e.sidestepSign = Int(e.stuckTimer) % 4 < 2 ? 1 : -1
+                    e.losTimer = 0
+                }
+            } else { e.stuckTimer = 0 }
+            e.lastProgressX = e.x; e.lastProgressY = e.y
         }
-        let offLen2 = e.formationDX * e.formationDX + e.formationDY * e.formationDY
-        if e.isAir || d2 < offLen2 + 16 && nav.lineClear(e.x, e.y, gx, gy) {
-            return moveDirect(e, gx, gy, arrive: 0.3)
+        if e.isAir { return moveDirect(e, gx, gy, arrive: 0.3) }
+        // Open ground: walk straight to our own slot (keeps the formation's shape on the march).
+        if d2 < 22 * 22 {
+            if e.losTimer <= 0 { e.losClear = nav.lineClear(e.x, e.y, gx, gy); e.losTimer = 8 } else { e.losTimer -= 1 }
+            if e.losClear { return moveDirect(e, gx, gy, arrive: 0.3) }
         }
-        // Path toward the group centre; the final approach uses the offset.
+        // Obstacles: share the group's flow field toward the formation centre.
         return moveTo(e, gx, gy, arrive: 0.3, pathGoalX: e.ox, pathGoalY: e.oy)
     }
 
@@ -200,8 +258,42 @@ extension World {
         return l - m <= arrive
     }
 
-    /// Translate with axis-separated sliding against blocked tiles.
-    func step(_ e: Entity, _ dx: Double, _ dy: Double, _ m: Double) {
+    /// Translate with axis-separated sliding against blocked tiles. Ground units smooth their heading
+    /// (no jitter), step around stationary friends in their path, and sidestep when wedged.
+    func step(_ e: Entity, _ dx0: Double, _ dy0: Double, _ m: Double) {
+        var dx = dx0, dy = dy0
+        if !e.isAir && (dx != 0 || dy != 0) {
+            if e.sidestepUntil > time {
+                let a = 1.2 * e.sidestepSign
+                (dx, dy) = (dx * cos(a) - dy * sin(a), dx * sin(a) + dy * cos(a))
+            } else if tactics.avoidance {
+                // Look ahead for a friendly unit that is holding its ground and slip past it.
+                var blocker: Entity? = nil
+                forEachNear(e.x + dx * 0.8, e.y + dy * 0.8, 0.9) { o in
+                    guard blocker == nil, o.id != e.id, o.isUnit, !o.isAir, !o.isMine, o.owner == e.owner, !o.moving else { return }
+                    let rx = o.x - e.x, ry = o.y - e.y
+                    let along = rx * dx + ry * dy
+                    if along <= 0 || along > 1.2 { return }
+                    let lateral = abs(rx * dy - ry * dx)
+                    if lateral < (o.radius + e.radius) * 0.9 { blocker = o }
+                }
+                if let b = blocker {
+                    let cross = (b.x - e.x) * dy - (b.y - e.y) * dx
+                    let a = cross > 0 ? 0.6 : -0.6
+                    (dx, dy) = (dx * cos(a) - dy * sin(a), dx * sin(a) + dy * cos(a))
+                }
+            }
+            // Heading smoothing.
+            if e.hx != 0 || e.hy != 0 {
+                let dot = dx * e.hx + dy * e.hy
+                if dot > -0.3 {
+                    dx = dx * 0.65 + e.hx * 0.35; dy = dy * 0.65 + e.hy * 0.35
+                    let l = (dx * dx + dy * dy).squareRoot()
+                    if l > 0.0001 { dx /= l; dy /= l }
+                }
+            }
+            e.hx = dx; e.hy = dy
+        }
         let nx = e.x + dx * m, ny = e.y + dy * m
         if dx != 0 || dy != 0 { e.facing = atan2(dy, dx) }
         let lim = Double(map.size) - 0.01
@@ -215,34 +307,44 @@ extension World {
 
     // MARK: Separation
 
+    /// Mass-aware separation: heavy units and units holding their ground (firing, holding) are hard to shove,
+    /// so movers flow around them; idle/fighting units keep a little personal space so lines stay readable.
+    @inline(__always) func pushMass(_ u: Entity) -> Double {
+        guard tactics.massSeparation else { return 1 }
+        // Heavy hulls shove light infantry more than the reverse (mild, so crowds still relax).
+        return u.radius >= 0.65 ? 1.6 : 1
+    }
+
     func separate() {
         for e in entities where e.isUnit && e.onMap && !e.isMine {
             var pushX = 0.0, pushY = 0.0
             let r = e.radius
-            forEachNear(e.x, e.y, 1.5) { o in
+            let me = pushMass(e)
+            forEachNear(e.x, e.y, 1.8) { o in
                 guard o.id != e.id, o.isUnit, !o.isMine, o.isAir == e.isAir else { return }
-                let minD = r + o.radius
+                let enemies = e.owner != o.owner
+                // Opposing lines keep a small gap at the point of contact so a front line reads clearly.
+                let pad = enemies ? (tactics.frontline ? 0.18 : 0.02) : ((!e.moving && !o.moving) ? 0.12 : 0.02)
+                let minD = r + o.radius + pad
                 let dx = e.x - o.x, dy = e.y - o.y
                 let d2 = dx * dx + dy * dy
                 if d2 >= minD * minD { return }
                 if d2 < 1e-6 {
-                    // Deterministic tie-break by id.
                     let a = Double(e.id % 16) * 0.39
                     pushX += cos(a) * 0.05; pushY += sin(a) * 0.05
                     return
                 }
                 let d = d2.squareRoot()
                 let overlap = minD - d
-                // Moving units yield less to idle ones so blobs flow around.
-                var share = 0.5
-                if e.moving && !o.moving { share = 0.25 } else if !e.moving && o.moving { share = 0.75 }
-                if e.owner != o.owner { share *= 0.6 }
+                let om = pushMass(o)
+                var share = om / (me + om)
+                if enemies && !tactics.frontline { share *= 0.6 }
                 pushX += dx / d * overlap * share
                 pushY += dy / d * overlap * share
             }
             if pushX != 0 || pushY != 0 {
                 let l = (pushX * pushX + pushY * pushY).squareRoot()
-                let maxPush = 0.12
+                let maxPush = 0.15
                 if l > maxPush { pushX *= maxPush / l; pushY *= maxPush / l }
                 if e.isAir {
                     e.x = clamp(e.x + pushX, 0.01, Double(map.size) - 0.01)

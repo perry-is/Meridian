@@ -62,7 +62,30 @@ public struct MatchConfig: Sendable {
     }
 }
 
+/// Tactical behaviour switches (all on by default). Used by the harness for A/B measurement.
+public struct TacticsFlags: Sendable {
+    public var kite = true, surround = true, cohesion = true, avoidance = true, massSeparation = true, targetSpread = false, airStrafe = true, formations = true, frontline = false
+    public init() {}
+    public init(disabling names: [String]) {
+        for n in names {
+            switch n {
+            case "kite": kite = false
+            case "surround": surround = false
+            case "cohesion": cohesion = false
+            case "avoidance": avoidance = false
+            case "mass": massSeparation = false
+            case "spread": targetSpread = false
+            case "strafe": airStrafe = false
+            case "formations": formations = false
+            case "frontline": frontline = false
+            default: break
+            }
+        }
+    }
+}
+
 public final class World {
+    public var tactics = TacticsFlags()
     public let data: GameData
     public internal(set) var map: MapData
     public let nav: NavGrid
@@ -87,6 +110,9 @@ public final class World {
     /// Tile -> building/resource id occupying it (-1 = none).
     public var occupant: [Int32]
     var nextID = 1
+    var nextGroupID = 0
+    /// Per-tick group cohesion stats: mean remaining distance to slot for travelling groups.
+    var groupRemaining: [Int: Double] = [:]
 
     // Spatial hash (rebuilt each tick)
     let cellSize = 4
@@ -236,6 +262,12 @@ public final class World {
         let d = udef(e)
         var s = d.speed * players[e.owner].mods.unit[e.type].speed * e.slowMult
         if e.inBloom { s *= 1 + data.rules.territory.alienSpeedBonus }
+        // Group cohesion: units ahead of their group's average progress match the slowest member's pace.
+        if tactics.cohesion && e.groupID != 0 && e.losClear && (e.order == .move || e.order == .attackMove) && e.target < 0, let mean = groupRemaining[e.groupID], mean > 3 {
+            let mine = dist2(e.x, e.y, e.ox + e.formationDX, e.oy + e.formationDY).squareRoot()
+            if mine < mean - 1.0 { s = min(s, e.groupSpeed * 0.9) }
+            else if mine < mean + 1.5 { s = min(s, max(e.groupSpeed * 1.15, s * 0.8)) }
+        }
         if e.mode == 1 && e.type == data.unitIndex["h_bastion"] { s = 0 }
         return s
     }

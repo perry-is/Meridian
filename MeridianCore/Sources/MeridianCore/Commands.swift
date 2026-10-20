@@ -15,36 +15,43 @@ extension World {
     public func commandMove(_ ids: [Int], x: Double, y: Double, attack: Bool, patrol: Bool = false, formation: Formation = .balanced) {
         let units = ids.compactMap { entity($0) }.filter { $0.isUnit && $0.onMap && !$0.isMine }
         guard !units.isEmpty else { return }
-        let cx = units.reduce(0) { $0 + $1.x } / Double(units.count)
-        let cy = units.reduce(0) { $0 + $1.y } / Double(units.count)
-        let spread = units.reduce(0.0) { max($0, dist2($1.x, $1.y, cx, cy)) }.squareRoot()
-        let cols = max(1, Int(Double(units.count).squareRoot().rounded(.up)))
-        // Sort for stable slot assignment.
-        let sorted = units.sorted { ($0.y - $0.x, $0.id) < ($1.y - $1.x, $1.id) }
-        let ux = x - cx, uy = y - cy
-        let ang = atan2(uy, ux)
-        for (k, u) in sorted.enumerated() {
-            var dx: Double, dy: Double
-            if spread < Double(cols) * 1.2 + 2 && units.count > 1 {
-                // Compact group: keep relative positions.
-                dx = u.x - cx; dy = u.y - cy
-            } else {
-                let row = k / cols, col = k % cols
-                let ox = (Double(col) - Double(cols - 1) / 2) * 0.95
-                let oy = (Double(row) - Double((units.count - 1) / cols) / 2) * 0.95
-                // Rotate so rows face the movement direction.
-                dx = ox * cos(ang + .pi / 2) + oy * cos(ang)
-                dy = ox * sin(ang + .pi / 2) + oy * sin(ang)
+        var slots: [Int: (Double, Double)] = [:]
+        if !tactics.formations {
+            // Legacy layout (pre-formation): keep relative positions, or a plain grid.
+            let cx = units.reduce(0) { $0 + $1.x } / Double(units.count), cy = units.reduce(0) { $0 + $1.y } / Double(units.count)
+            let cols = max(1, Int(Double(units.count).squareRoot().rounded(.up)))
+            let spread = units.reduce(0.0) { max($0, dist2($1.x, $1.y, cx, cy)) }.squareRoot()
+            let sorted = units.sorted { ($0.y - $0.x, $0.id) < ($1.y - $1.x, $1.id) }
+            let ang = atan2(y - cy, x - cx)
+            for (k, u) in sorted.enumerated() {
+                if spread < Double(cols) * 1.2 + 2 { slots[u.id] = (u.x - cx, u.y - cy); continue }
+                let ox = (Double(k % cols) - Double(cols - 1) / 2) * 0.95, oy = (Double(k / cols) - Double((units.count - 1) / cols) / 2) * 0.95
+                slots[u.id] = (ox * cos(ang + .pi / 2) + oy * cos(ang), ox * sin(ang + .pi / 2) + oy * sin(ang))
             }
-            if units.count == 1 { dx = 0; dy = 0 }
+        } else if units.count <= 3 {
+            // Tiny groups just keep their shape.
+            let cx = units.reduce(0) { $0 + $1.x } / Double(units.count), cy = units.reduce(0) { $0 + $1.y } / Double(units.count)
+            for u in units { slots[u.id] = units.count == 1 ? (0, 0) : (u.x - cx, u.y - cy) }
+        } else {
+            slots = formationSlots(units, goalX: x, goalY: y, formation: formation)
+        }
+        nextGroupID += 1
+        let group = nextGroupID
+        let groundSpeeds = units.filter { !$0.isAir }.map { udef($0).speed * players[$0.owner].mods.unit[$0.type].speed }
+        let groupSpeed = groundSpeeds.min() ?? units.map { udef($0).speed }.min() ?? 2
+        for u in units {
+            var (dx, dy) = slots[u.id] ?? (0, 0)
             if !u.isAir, nav.isBlocked(Int(x + dx), Int(y + dy)) { dx = 0; dy = 0 }
             u.order = patrol ? .patrol : (attack ? .attackMove : .move)
             if patrol { u.px2 = u.x; u.py2 = u.y }
             u.ox = x; u.oy = y
             u.formationDX = dx; u.formationDY = dy
+            u.groupID = units.count > 3 ? group : 0
+            u.groupSpeed = groupSpeed
             u.target = -1
             u.stuckTimer = 0
             u.fleeing = false
+            u.losTimer = 0
             u.lastProgressX = u.x; u.lastProgressY = u.y
             if traits[u.type].worker { u.gatherNode = -1 }
         }
@@ -73,9 +80,9 @@ extension World {
     }
 
     /// Contextual command (tap / right-click) at a world point, optionally on an entity.
-    public func commandSmart(_ ids: [Int], x: Double, y: Double, targetID: Int?, player: Int) {
+    public func commandSmart(_ ids: [Int], x: Double, y: Double, targetID: Int?, player: Int, formation: Formation = .balanced) {
         guard let tid = targetID, let t = entity(tid) else {
-            commandMove(ids, x: x, y: y, attack: false)
+            commandMove(ids, x: x, y: y, attack: false, formation: formation)
             for id in ids { if let b = entity(id), b.isBuilding, b.owner == player { setRally(b.id, x: x, y: y) } }
             return
         }
@@ -100,7 +107,7 @@ extension World {
                 rest.append(id)
             }
         }
-        if !rest.isEmpty { commandMove(rest, x: x, y: y, attack: false) }
+        if !rest.isEmpty { commandMove(rest, x: x, y: y, attack: false, formation: formation) }
     }
 
     public func commandGather(_ ids: [Int], node: Int) {

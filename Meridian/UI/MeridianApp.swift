@@ -75,6 +75,16 @@ struct RootView: View {
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
             if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
+            if let sc = arg("-scenario").flatMap({ TacticalScenario(rawValue: $0) }), controller == nil {
+                var st = settings
+                st.layout = .arena
+                st.playerFaction = sc.factions[0]; st.aiFaction = sc.factions[1]
+                let c = GameController(settings: st, spectate: true)
+                sc.setup(c.world, formation: arg("-formation").flatMap { Formation(rawValue: $0) } ?? .balanced)
+                c.battleMode = true
+                controller = c
+                return
+            }
             if let b = arg("-battle"), let n = Int(b), controller == nil {
                 settings.layout = .arena
                 if arg("-faction") == nil { settings.playerFaction = .humans }

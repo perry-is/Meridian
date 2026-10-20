@@ -96,6 +96,8 @@ public struct PlayerStats: Sendable {
     public var peakUnits = 0
     public var producedByType: [Int: Int] = [:]
     public var lostByType: [Int: Int] = [:]
+    /// Analytics: damage dealt per unit type (after armour).
+    public var damageByType: [Int: Double] = [:]
 }
 
 public final class Player {

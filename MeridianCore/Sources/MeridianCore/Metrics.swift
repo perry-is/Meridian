@@ -13,6 +13,8 @@ public struct TacticalSample: Sendable {
     public var inRange = 0
     /// Armed units that have a target but are outside weapon range (chasing / blocked).
     public var outOfRange = 0
+    /// Ground units intruding into an ENEMY ground unit (opposing lines interpenetrating).
+    public var enemyIntrusions = 0
 }
 
 public struct UnitTrack: Sendable {
@@ -32,13 +34,15 @@ extension World {
             guard !e.isAir else { continue }
             var near = 0
             var deep = false
+            var intr = false
             forEachNear(e.x, e.y, 1.5) { o in
                 guard o.id != e.id, o.isUnit, !o.isAir, !o.isMine, o.onMap else { return }
                 let d = dist2(e.x, e.y, o.x, o.y).squareRoot()
                 if d <= 1.5 { near += 1 }
-                if d < (e.radius + o.radius) * 0.85 { deep = true }
+                if d < (e.radius + o.radius) * 0.85 { deep = true; if o.owner != e.owner { intr = true } }
             }
             if deep { s.deepOverlaps += 1 }
+            if intr { s.enemyIntrusions += 1 }
             densitySum += near
             s.maxDensity = max(s.maxDensity, near)
         }

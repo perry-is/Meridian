@@ -85,19 +85,30 @@ final class BattleCamera {
         scene.clampCamera()
 
         guard autoZoom else { return }
-        // Frame units engaged near the focus.
+        // Frame the engaged units of BOTH sides (recently fired or hit), falling back to everyone near the focus.
         var minX = CGFloat.infinity, maxX = -CGFloat.infinity, minY = CGFloat.infinity, maxY = -CGFloat.infinity
         var n = 0
-        for e in world.entities where e.isUnit && e.onMap && !e.isMine && dist2(e.x, e.y, target.0, target.1) < 8 * 8 {
-            let p = Iso.scene(e.x, e.y)
-            minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y + (e.isAir ? 40 : 0))
-            n += 1
+        var sides = Set<Int>()
+        for pass in 0..<2 where n < 3 || sides.count < 2 {
+            minX = .infinity; maxX = -.infinity; minY = .infinity; maxY = -.infinity; n = 0; sides.removeAll()
+            for e in world.entities where e.isUnit && e.onMap && !e.isMine && dist2(e.x, e.y, target.0, target.1) < 14 * 14 {
+                let engaged = now - e.lastAttackTime < 2.5 || now - e.lastDamagedTime < 2.5
+                if pass == 0 && !engaged { continue }
+                if pass == 1 && dist2(e.x, e.y, target.0, target.1) > 8 * 8 { continue }
+                let p = Iso.scene(e.x, e.y)
+                minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y + (e.isAir ? 40 : 0))
+                n += 1; sides.insert(e.owner)
+            }
         }
         guard n > 0, scene.size.width > 0 else { return }
-        let need = max((maxX - minX + 160) / scene.size.width, (maxY - minY + 220) / (scene.size.height * 0.6))
-        // Readability cap: on a narrow phone screen stay close enough that infantry remain legible.
-        let cap: CGFloat = scene.size.width < 520 ? 1.45 : 2.0
-        let desired = min(cap, max(0.85, need))
+        // Nudge the centre toward the middle of the engagement box (both sides in frame).
+        let boxCenter = CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2)
+        scene.cam.position.x += (boxCenter.x - scene.cam.position.x) * CGFloat(min(1, dt * 1.2))
+        scene.cam.position.y += (boxCenter.y - scene.cam.position.y) * CGFloat(min(1, dt * 1.2))
+        let need = max((maxX - minX + 140) / scene.size.width, (maxY - minY + 200) / (scene.size.height * 0.62))
+        // Readability: small skirmishes zoom in; large battles stop where infantry are still legible.
+        let cap: CGFloat = scene.size.width < 520 ? 1.6 : 2.1
+        let desired = min(cap, max(0.75, need))
         let zk: CGFloat = 1.6
         let za = (desired - scene.zoom) * zk * zk - 2 * zk * zoomVelocity
         zoomVelocity += za * CGFloat(dt)

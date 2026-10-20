@@ -40,6 +40,18 @@ public final class Entity {
     public var py2: Double = 0
     public var formationDX: Double = 0
     public var formationDY: Double = 0
+    /// Group cohesion: units issued the same move share a group id and speed cap.
+    public var groupID: Int = 0
+    public var groupSpeed: Double = 0
+    /// Smoothed heading (anti-jitter) and cached line-of-travel test.
+    public var hx: Double = 0
+    public var hy: Double = 0
+    public var losTimer: Int = 0
+    public var losClear = false
+    public var sidestepUntil: Double = 0
+    public var sidestepSign: Double = 1
+    /// How many enemies currently target this unit (spreads target selection).
+    public var attackerCount: Int = 0
 
     // Combat
     public var target: Int = -1

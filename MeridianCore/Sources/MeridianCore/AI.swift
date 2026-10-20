@@ -34,6 +34,8 @@ public final class AIController {
     public private(set) var lastPlan = ""
     var armyCount = 0
     var raided = false
+    var assembling = false
+    var assembleSince = 0.0
 
     public init(player: Int, difficulty: Difficulty, strategy: AIStrategy = .balanced, seed: UInt64 = 1) {
         self.player = player
@@ -525,20 +527,20 @@ public final class AIController {
         if let t = threat, threatCount >= 2 || !attacking {
             let defenders = army.filter { dist2($0.x, $0.y, t.x, t.y) < 40 * 40 || !attacking }
             let idle = defenders.filter { $0.order != .attackMove || dist2($0.ox, $0.oy, t.x, t.y) > 25 }
-            if !idle.isEmpty { w.commandMove(idle.map { $0.id }, x: t.x, y: t.y, attack: true) }
+            if !idle.isEmpty { w.commandMove(idle.map { $0.id }, x: t.x, y: t.y, attack: true, formation: .defensive) }
             lastPlan = "Defending"
             if threatCount >= 4 { attacking = false }
             return
         }
 
         // 1b. Hard AI defends its territory: respond to owned sites being contested or decapped.
-        if difficulty == .hard && !attacking {
+        if difficulty != .easy && !attacking {
             for s in w.sites where s.owner == player && (s.contested || s.control < 0.95) {
                 let responders = army.filter { dist2($0.x, $0.y, s.x, s.y) < 45 * 45 && ($0.order == .idle || $0.order == .hold) }
-                if responders.count >= 3 { w.commandMove(responders.map { $0.id }, x: s.x, y: s.y, attack: true); lastPlan = "Holding territory"; return }
+                if responders.count >= 3 { w.commandMove(responders.map { $0.id }, x: s.x, y: s.y, attack: true, formation: .defensive); lastPlan = "Holding territory"; return }
             }
         }
-        // 2. Attack timing.
+        // 2. Attack timing (assemble at the staging point first, then advance in formation).
         let growth = 1 + w.time / 900          // thresholds grow so late attacks are bigger
         let threshold = attackThreshold * growth
         let capped = p.unitCount >= w.data.rules.combat.unitCap - 10
@@ -548,14 +550,47 @@ public final class AIController {
             attacking = true
             attackStartValue = value
             attackTarget = chooseAttackTarget(w)
+            if difficulty != .easy {
+                assembling = true
+                assembleSince = w.time
+                let st = stagingPoint(w)
+                w.commandMove(ids, x: st.0, y: st.1, attack: true, formation: doctrine(w, p))
+                lastPlan = "Assembling"
+                return
+            }
             lastPlan = "Attacking"
+        }
+        if attacking && assembling {
+            let st = stagingPoint(w)
+            let near = army.filter { dist2($0.x, $0.y, st.0, st.1) < 10 * 10 }.count
+            if Double(near) < Double(army.count) * 0.7 && w.time - assembleSince < 25 { return }
+            assembling = false
+            guard let t = attackTarget else { attacking = false; return }
+            // Main body advances in doctrine formation; fast raiders swing around a flank.
+            let fast = army.filter { w.udef($0).role == "fast" }
+            let main = army.filter { w.udef($0).role != "fast" }.map { $0.id }
+            w.commandMove(main, x: t.0, y: t.1, attack: true, formation: doctrine(w, p))
+            if !fast.isEmpty {
+                let dx = t.0 - st.0, dy = t.1 - st.1
+                let l = max(1, (dx * dx + dy * dy).squareRoot())
+                let side: Double = rng.chance(0.5) ? 1 : -1
+                let fx = t.0 - dx / l * 4 + (-dy / l) * 9 * side, fy = t.1 - dy / l * 4 + (dx / l) * 9 * side
+                w.commandMove(fast.map { $0.id }, x: clamp(fx, 2, Double(w.map.size) - 2), y: clamp(fy, 2, Double(w.map.size) - 2), attack: true, formation: .assault)
+            }
+            lastPlan = "Attacking"
+            return
         }
         if attacking {
             if value < attackStartValue * 0.5 && !capped {
                 attacking = false
+                assembling = false
                 lastAttackEnd = w.time
-                let st = stagingPoint(w)
-                w.commandMove(ids, x: st.0, y: st.1, attack: false)
+                // Brood fall back into Bloom (owned site or base) to regenerate; others to the staging point.
+                var st = stagingPoint(w)
+                if p.faction == .aliens, let s = w.sites.filter({ $0.owner == player && $0.control >= 1 }).min(by: { dist2($0.x, $0.y, army[0].x, army[0].y) < dist2($1.x, $1.y, army[0].x, army[0].y) }) {
+                    st = (s.x, s.y)
+                }
+                w.commandMove(ids, x: st.0, y: st.1, attack: false, formation: .defensive)
                 lastPlan = "Retreating"
                 return
             }
@@ -563,7 +598,7 @@ public final class AIController {
             if let t = attackTarget, !targetStillValid(w, t) { attackTarget = chooseAttackTarget(w) }
             guard let t = attackTarget else { attacking = false; return }
             let laggards = army.filter { ($0.order == .idle && $0.target < 0) || ($0.order == .attackMove && dist2($0.ox, $0.oy, t.0, t.1) > 9) || $0.order == .move }
-            if !laggards.isEmpty { w.commandMove(laggards.map { $0.id }, x: t.0, y: t.1, attack: true) }
+            if !laggards.isEmpty { w.commandMove(laggards.map { $0.id }, x: t.0, y: t.1, attack: true, formation: doctrine(w, p)) }
             return
         }
 
@@ -578,7 +613,8 @@ public final class AIController {
         for (i, s) in candidates.prefix(maxSquads) where siteSquads[i] == nil {
             let ours = dist2(s.x, s.y, bx, by) < dist2(s.x, s.y, ex0, ey0)
             let squadSize = s.owner >= 0 ? 8 : (ours ? 2 : (difficulty == .hard ? 4 : 5))
-            let free = army.filter { !assigned.contains($0.id) && w.traits[$0.type].canCapture && ($0.order == .idle || $0.order == .hold) }
+            let fragile: Set<String> = ["siege", "support", "scout", "transport"]
+            let free = army.filter { !assigned.contains($0.id) && w.traits[$0.type].canCapture && !fragile.contains(w.udef($0).role) && ($0.order == .idle || $0.order == .hold) }
             guard free.count >= squadSize else { break }
             let squad = free.sorted { dist2($0.x, $0.y, s.x, s.y) < dist2($1.x, $1.y, s.x, s.y) }.prefix(squadSize).map { $0.id }
             w.commandMove(squad, x: s.x, y: s.y, attack: true)
@@ -614,6 +650,27 @@ public final class AIController {
                 if e.hp < bestHP { bestHP = e.hp; best = e }
             }
             if let b = best, b.id != u.target { u.target = b.id }
+        }
+    }
+
+    /// Faction doctrine for group orders. Concord adapts to what it has seen; Lattice holds lines; Brood assaults.
+    func doctrine(_ w: World, _ p: Player) -> Formation {
+        if strategy == .aggressive && p.faction != .humans { return .assault }
+        var melee = 0, siege = 0, total = 0
+        for (k, v) in enemySeen where v > 0 {
+            let u = w.data.units[k]
+            guard u.role != "worker" else { continue }
+            total += v
+            if let wp = u.weapon, wp.range <= 1.6, u.domain == .ground { melee += v }
+            if u.role == "siege" { siege += v }
+        }
+        switch p.faction {
+        case .humans:
+            if total > 0 && Double(melee) / Double(total) > 0.4 { return .defensive }
+            if total > 0 && Double(siege) / Double(total) > 0.15 { return .assault }
+            return .balanced
+        case .machines: return strategy == .tech ? .defensive : .balanced
+        case .aliens: return .assault
         }
     }
 

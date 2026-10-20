@@ -107,3 +107,67 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(m.world.players.allSatisfy { $0.stats.unitsProduced > 10 })
     }
 }
+
+final class TacticsTests: XCTestCase {
+    let data = GameData.shared
+
+    func arena(_ f: [Faction] = [.humans, .machines]) -> World {
+        let w = World(config: MatchConfig(factions: f, layout: .arena, seed: 3, mapSize: 64))
+        w.sandbox = true; w.clearAll(); w.unlockAll(0); w.unlockAll(1)
+        return w
+    }
+
+    /// Balanced formation: siege behind heavies/assault relative to the direction of travel.
+    func testFormationRanksByRole() {
+        let w = arena()
+        var ids: [Int] = []
+        for (k, id) in ["h_mortar", "h_mortar", "h_bastion", "h_breacher", "h_ranger", "h_ranger", "h_lancer", "h_medic"].enumerated() {
+            ids.append(w.spawnUnit(data.unitIndex[id]!, owner: 0, x: 10 + Double(k % 3), y: 30 + Double(k / 3)).id)
+        }
+        w.commandMove(ids, x: 50, y: 30, attack: false, formation: .balanced)
+        // Forward axis is +x: compare slot forward offsets.
+        func fwd(_ name: String) -> Double { ids.compactMap { w.entity($0) }.filter { data.units[$0.type].id == name }.map { $0.formationDX }.reduce(0, +) / 2 }
+        let mortar = ids.compactMap { w.entity($0) }.filter { data.units[$0.type].id == "h_mortar" }.map { $0.formationDX }.max()!
+        let bastion = ids.compactMap { w.entity($0) }.first { data.units[$0.type].id == "h_bastion" }!.formationDX
+        let ranger = ids.compactMap { w.entity($0) }.filter { data.units[$0.type].id == "h_ranger" }.map { $0.formationDX }.max()!
+        XCTAssertGreaterThan(bastion, ranger, "front rank should lead the rifle line")
+        XCTAssertGreaterThan(ranger, mortar, "artillery should trail the rifle line")
+        _ = fwd
+    }
+
+    func testFormationsDeterministicAndDistinct() {
+        func slots(_ f: Formation) -> [Double] {
+            let w = arena()
+            var ids: [Int] = []
+            for k in 0..<24 { ids.append(w.spawnUnit(TacticalScenario.rosterUnits(.humans, 24, data: data)[k], owner: 0, x: 10 + Double(k % 6), y: 25 + Double(k / 6)).id) }
+            w.commandMove(ids, x: 45, y: 30, attack: true, formation: f)
+            return ids.compactMap { w.entity($0) }.flatMap { [$0.formationDX, $0.formationDY] }
+        }
+        XCTAssertEqual(slots(.balanced), slots(.balanced))
+        XCTAssertNotEqual(slots(.balanced), slots(.assault))
+        XCTAssertNotEqual(slots(.balanced), slots(.defensive))
+    }
+
+    /// Movement scenarios complete: everyone reaches the far side of a gapped wall.
+    func testGroupNavigatesWall() {
+        let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .arena, seed: 21, mapSize: 112))
+        let setup = TacticalScenario.wall.setup(w)
+        let g = setup.groups[0]
+        for _ in 0..<(20 * 45) { w.step() }
+        let past = g.ids.compactMap { w.entity($0) }.filter { $0.x > Double(w.map.size) / 2 + 2 }.count
+        XCTAssertEqual(past, g.ids.count, "all units should get through the gaps")
+    }
+
+    /// Ranged units give ground to slower melee attackers that target them.
+    func testRangedKitesSlowMelee() {
+        let w = arena([.humans, .machines])
+        let r = w.spawnUnit(data.unitIndex["h_ranger"]!, owner: 0, x: 30, y: 30)
+        let m = w.spawnUnit(data.unitIndex["m_shockframe"]!, owner: 1, x: 34, y: 30)
+        w.commandHold([m.id]); m.order = .idle
+        w.commandMove([m.id], x: 20, y: 30, attack: true)
+        w.commandMove([r.id], x: 40, y: 30, attack: true)
+        let x0 = r.x
+        for _ in 0..<(20 * 4) { w.step() }
+        XCTAssertLessThan(r.x, x0 + 1, "ranger should not walk into the shockframe")
+    }
+}

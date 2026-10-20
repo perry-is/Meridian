@@ -17,6 +17,9 @@ extension World {
     }
 
     func updateCombat() {
+        // Who is being targeted (spreads target choice instead of everyone piling on one unit).
+        for e in entities where e.isUnit { e.attackerCount = 0 }
+        for e in entities where e.isUnit && e.onMap && e.target >= 0 { entity(e.target)?.attackerCount += 1 }
         for e in entities where e.alive && e.onMap && e.kind != .resource {
             if e.cooldown > 0 { e.cooldown -= dt }
             if e.abilityCooldown > 0 { e.abilityCooldown -= dt }
@@ -77,6 +80,7 @@ extension World {
             else if o.isMine { score += 3 }
             else if weapon(o) == nil { score += traits[o.type].worker ? 5 : 3 }
             if let b = w.bonus { for tag in tags(o) { if let m = b[tag], m > 1 { score -= 2 * (m - 1) } } }
+            if o.isUnit && tactics.targetSpread { score += Double(max(0, o.attackerCount - 2)) * (w.range <= 1.6 ? 0.45 : 0.12) }
             if score < bestScore || (score == bestScore && o.id < (best?.id ?? .max)) { bestScore = score; best = o }
         }
         return best
@@ -225,6 +229,7 @@ extension World {
         dmg = max(floor, dmg - a)
         if t.linked && t.isUnit { dmg *= 1 - data.rules.combat.networkDamageReduction - players[t.owner].mods.linkBonus }
         t.hp -= dmg
+        if let src = entity(sourceID), src.isUnit, !src.isMine { players[src.owner].stats.damageByType[src.type, default: 0] += min(dmg, t.hp + dmg) }
         t.lastDamagedTime = time
         t.lastHitTime = time
         // Idle units that cannot see their attacker move toward it (anti-outrange behaviour).

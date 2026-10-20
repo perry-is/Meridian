@@ -117,7 +117,10 @@ public enum TacticalScenario: String, CaseIterable, Sendable {
             let b = spawnBlock(0, tb, cx: mid + 20, cy: mid, facingRight: false)
             out.groups = [(0, a, (mid + 20, mid), false), (0, b, (mid - 20, mid), false)]
         }
-        for g in out.groups { w.commandMove(g.ids, x: g.goal.0, y: g.goal.1, attack: g.attack, formation: formation) }
+        for g in out.groups {
+            if self == .airstrike && g.owner == 1 { w.commandHold(g.ids); continue }   // a defended position holds
+            w.commandMove(g.ids, x: g.goal.0, y: g.goal.1, attack: g.attack, formation: formation)
+        }
         return out
     }
 }

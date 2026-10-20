@@ -113,6 +113,8 @@ final class GameController: ObservableObject {
     @Published var gameOver: (won: Bool, reason: String)? = nil
     @Published var showTech = false
     @Published var minimapVersion = 0
+    /// Formation used for the player's group orders (cycled from the command card).
+    var formation: Formation = .balanced
 
     var spectating = false
     var selection: [Int] = []
@@ -397,7 +399,7 @@ final class GameController: ObservableObject {
         case .attackMove, .patrol:
             let ids = myUnitSelection()
             if let t = pick(x, y, radius: r), world.isEnemyPublic(me, t.owner) { world.commandAttack(ids, target: t.id) }
-            else { world.commandMove(ids, x: x, y: y, attack: true, patrol: mode == .patrol) }
+            else { world.commandMove(ids, x: x, y: y, attack: true, patrol: mode == .patrol, formation: formation) }
             mode = .normal
             return
         case .unload:
@@ -436,7 +438,7 @@ final class GameController: ObservableObject {
             for e in selectedEntities { world.setRally(e.id, x: x, y: y) }
             toast("Rally point set"); return
         }
-        world.commandSmart(selection, x: x, y: y, targetID: target?.id, player: me)
+        world.commandSmart(selection, x: x, y: y, targetID: target?.id, player: me, formation: formation)
         commandPing = (x, y, target.map { world.isEnemyPublic(me, $0.owner) } ?? false, world.time)
     }
     var commandPing: (Double, Double, Bool, Double)? = nil
@@ -712,6 +714,16 @@ final class GameController: ObservableObject {
         b.append(CommandButton(id: "hold", title: "Hold", symbol: "hand.raised.fill", hotkey: "h") { [weak self] in
             guard let self = self else { return }; self.world.commandHold(self.selection) })
         b.append(CommandButton(id: "patrol", title: "Patrol", symbol: "arrow.triangle.2.circlepath", hotkey: "p") { [weak self] in self?.mode = .patrol })
+        if units.filter({ !world.traits[$0.type].worker }).count >= 4 {
+            let sym: String = { switch formation { case .balanced: return "square.grid.3x2.fill"; case .assault: return "arrowtriangle.up.fill"; case .defensive: return "shield.lefthalf.filled" } }()
+            b.append(CommandButton(id: "formation", title: formation.title, symbol: sym, hotkey: "f") { [weak self] in
+                guard let self = self else { return }
+                let all = Formation.allCases
+                self.formation = all[(all.firstIndex(of: self.formation)! + 1) % all.count]
+                self.toast("Formation: \(self.formation.title)")
+                self.refreshHUD()
+            })
+        }
         if !workers.isEmpty {
             b.append(CommandButton(id: "build", title: "Build", symbol: "hammer.fill", hotkey: "b") { [weak self] in self?.buildMenu = true })
         }
