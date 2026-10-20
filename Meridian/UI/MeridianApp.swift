@@ -30,6 +30,7 @@ struct RootView: View {
     @State private var settings = GameSettings()
     @State private var controller: GameController? = nil
     @State private var loading = false
+    @State private var fixedSeed = false
 
     var body: some View {
         ZStack {
@@ -41,7 +42,7 @@ struct RootView: View {
                     loading = true
                     // Give the menu a frame to show the loading state before generating textures.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        settings.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000
+                        if !fixedSeed { settings.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000 }
                         controller = GameController(settings: settings)
                         loading = false
                     }
@@ -56,6 +57,7 @@ struct RootView: View {
             if let f = arg("-faction"), let v = Faction(rawValue: f) { settings.playerFaction = v }
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
+            if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
             if a.contains("-autostart") && controller == nil {
                 let c = GameController(settings: settings, spectate: a.contains("-spectate"))
                 if let w = arg("-warp"), let secs = Double(w) { c.warp(seconds: secs) }

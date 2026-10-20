@@ -12,12 +12,18 @@
 
 /* Begin PBXFileReference section */
 		AA0000000000000000000002 /* Meridian.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Meridian.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000042 /* MeridianUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MeridianUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA0000000000000000000003 /* Meridian */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Meridian;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000043 /* MeridianUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MeridianUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -38,6 +44,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000003 /* Meridian */,
+				AA0000000000000000000043 /* MeridianUITests */,
 				AA0000000000000000000006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +53,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000002 /* Meridian.app */,
+				AA0000000000000000000042 /* MeridianUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,7 +84,44 @@
 			productReference = AA0000000000000000000002 /* Meridian.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA0000000000000000000044 /* MeridianUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000050 /* Build configuration list for PBXNativeTarget "MeridianUITests" */;
+			buildPhases = (
+				AA0000000000000000000045 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000000000000000000046 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AA0000000000000000000043 /* MeridianUITests */,
+			);
+			name = MeridianUITests;
+			productName = MeridianUITests;
+			productReference = AA0000000000000000000042 /* MeridianUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		AA0000000000000000000047 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000007;
+			remoteInfo = Meridian;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AA0000000000000000000046 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000007 /* Meridian */;
+			targetProxy = AA0000000000000000000047 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		AA000000000000000000000A /* Project object */ = {
@@ -109,6 +154,7 @@
 			projectRoot = "";
 			targets = (
 				AA0000000000000000000007 /* Meridian */,
+				AA0000000000000000000044 /* MeridianUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -125,6 +171,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000045 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -229,6 +282,36 @@
 			};
 			name = Release;
 		};
+		AA0000000000000000000051 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.meridian.rts.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Meridian;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000052 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.meridian.rts.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Meridian;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -246,6 +329,15 @@
 			buildConfigurations = (
 				AA0000000000000000000031 /* Debug */,
 				AA0000000000000000000032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000050 /* Build configuration list for PBXNativeTarget "MeridianUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000051 /* Debug */,
+				AA0000000000000000000052 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

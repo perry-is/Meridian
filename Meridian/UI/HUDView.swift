@@ -186,7 +186,7 @@ struct PlacementBar: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Placing \(title)").font(.system(size: 13, weight: .bold))
-                    Text(h.placementReason ?? "Drag to adjust, then confirm").font(.system(size: 11))
+                    Text(h.placementReason ?? "Drag to adjust, then confirm").font(.system(size: 11)).accessibilityIdentifier("placementReason")
                         .foregroundColor(h.placementValid ? Color.green : Color.orange)
                 }
                 Spacer()
@@ -194,6 +194,7 @@ struct PlacementBar: View {
                     .buttonStyle(.bordered)
                 Button { controller.confirmPlacement() } label: { Image(systemName: "checkmark").font(.system(size: 16, weight: .bold)).frame(width: 52, height: 36) }
                     .buttonStyle(.borderedProminent).tint(.green).disabled(!h.placementValid)
+                    .accessibilityLabel("Confirm placement").accessibilityIdentifier("confirmPlacement")
             }
         }
     }
@@ -214,7 +215,7 @@ struct SelectionPanel: View {
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(h.selectionTitle).font(.system(size: 15, weight: .bold))
+                        Text(h.selectionTitle).font(.system(size: 15, weight: .bold)).accessibilityIdentifier("selectionTitle")
                         Text(h.selectionSubtitle).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).lineLimit(1)
                         Spacer(minLength: 0)
                     }
@@ -241,6 +242,7 @@ struct SelectionPanel: View {
                                     .padding(4)
                                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.07)))
                                     .onTapGesture { if let b = controller.selection.first { controller.world.commandCancel(b, index: q.id); controller.refreshHUD() } }
+                                    .accessibilityElement(children: .combine).accessibilityIdentifier("queue_\(q.id)")
                                 }
                             }
                         }
@@ -323,7 +325,10 @@ struct CommandButtonView: View {
         }
         .opacity(button.enabled ? 1 : 0.45)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(button.title)
+        .accessibilityIdentifier("cmd_" + button.id)
+        .accessibilityAddTraits(.isButton)
     }
 
     @ViewBuilder var icon: some View {
