@@ -116,7 +116,7 @@ final class TextureBank {
         images["fx_rubble"] = .from(EffectsArt.rubble())
         images["fx_shockwave"] = .from(EffectsArt.shockwave())
         images["fx_selectring"] = .from(EffectsArt.selectRing())
-        for k in ["heavy", "siege", "air", "marker", "field"] { images["fx_ring_" + k] = .from(EffectsArt.classRing(k)) }
+        for k in ["heavy", "siege", "air", "marker", "field", "support", "worker"] { images["fx_ring_" + k] = .from(EffectsArt.classRing(k)) }
         images["fx_cloud"] = .from(EnvironmentArt.cloud())
         images["fx_cone"] = .from(EffectsArt.cone())
         images["fx_dish"] = .from(EffectsArt.radarDish())
@@ -138,7 +138,7 @@ final class TextureBank {
         lightning = (0..<3).map { atlas.textureNamed("ln\($0)") }
         splats = (0..<3).map { atlas.textureNamed("splat\($0)") }
         shards = (0..<2).map { atlas.textureNamed("shard\($0)") }
-        for n in fxNames + ["vignette", "cloud", "teamring", "slash", "rubble", "shockwave", "selectring", "ring_heavy", "ring_siege", "ring_air", "ring_marker", "ring_field", "cone", "crater", "track", "bird0", "bird1", "dish", "flag"] { fx[n] = atlas.textureNamed("fx_" + n) }
+        for n in fxNames + ["vignette", "cloud", "teamring", "slash", "rubble", "shockwave", "selectring", "ring_heavy", "ring_siege", "ring_air", "ring_marker", "ring_field", "cone", "crater", "track", "bird0", "bird1", "dish", "flag", "ring_support", "ring_worker"] { fx[n] = atlas.textureNamed("fx_" + n) }
         sitePlatform = atlas.textureNamed("site_platform")
         siteBeacon = atlas.textureNamed("site_beacon")
     }

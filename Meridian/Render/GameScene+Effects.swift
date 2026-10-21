@@ -126,6 +126,15 @@ extension GameScene {
         var y = v.bodyY
         var rot: CGFloat = 0
         var sy: CGFloat = 1
+        var sxMul: CGFloat = 1
+        if v.hover { y += 2 + CGFloat(sin(t * 3 + seed)) * 2; v.shadow?.setScale(0.9 - CGFloat(sin(t * 3 + seed)) * 0.06) }
+        // Idle infantry glance around now and then.
+        if !e.moving && e.target < 0 && !e.isAir && !v.vehicle && !v.heavy {
+            let cyc = (t + seed * 0.71).truncatingRemainder(dividingBy: 6 + Double(e.id % 5))
+            if cyc < 1.1 { sxMul = -1 }
+        }
+        // Workers swing their tools at the face.
+        if e.order == .gather && !e.moving && e.carryAmount < 99 { rot += CGFloat(sin(t * 8 + seed)) * 0.09 }
         if e.isAir {
             y += CGFloat(sin(t * 2.2 + seed)) * 2.5
             let target = CGFloat(-sx) * 0.14 * (e.moving ? 1 : 0.2)
@@ -157,8 +166,38 @@ extension GameScene {
         if v.turnT > 0 { v.turnT -= 1.0 / 60; xMag = max(0.2, abs(CGFloat(cos((0.14 - v.turnT) / 0.14 * .pi)))) }
         v.body.position = CGPoint(x: -v.facingSign * kick + joltX, y: y)
         v.body.zRotation = rot * v.facingSign
-        v.body.xScale = v.facingSign * xMag
+        v.body.xScale = v.facingSign * xMag * sxMul
         v.body.yScale = sy
+        // Arrival: Lattice units materialise from a hologram, Brood units unfold from the egg.
+        if let b0 = born[e.id] {
+            let k = CGFloat(min(1, (t - b0) / 0.7))
+            switch fac {
+            case .machines:
+                v.body.color = SKColor(red: 0.4, green: 0.95, blue: 1, alpha: 1); v.body.colorBlendFactor = 0.85 * (1 - k)
+                v.body.alpha = 0.25 + 0.75 * k + (k < 1 ? 0.15 * CGFloat(sin(t * 40)) : 0)
+            case .aliens:
+                v.body.yScale = sy * (0.45 + 0.55 * k); v.body.xScale *= 1.25 - 0.25 * k
+            case .humans: break
+            }
+            if k >= 1 { born.removeValue(forKey: e.id) }
+        }
+        // Energy weapons visibly charge before they fire.
+        if let w = world.weapon(e), e.target >= 0, GameScene.family(w.style) == .energy, quality >= 1, zoom < 2.4 {
+            let cd = e.cooldown
+            if cd > 0 && cd < 0.35 {
+                if v.charge == nil {
+                    let c = SKSpriteNode(texture: bank.fx["glow"]); c.blendMode = .add; c.colorBlendFactor = 1
+                    c.color = GameScene.styleColor(w.style); c.zPosition = 0.4
+                    v.root.addChild(c); v.charge = c
+                }
+                let k = CGFloat(1 - cd / 0.35)
+                let sz = (8 + CGFloat(min(30, w.damage)) * 0.5) * k
+                v.charge!.isHidden = false
+                v.charge!.size = CGSize(width: sz, height: sz)
+                v.charge!.alpha = 0.4 + 0.6 * k
+                v.charge!.position = CGPoint(x: v.body.position.x + v.facingSign * v.body.size.width * 0.3, y: v.body.position.y + (e.isAir ? 0 : v.body.size.height * 0.45))
+            } else { v.charge?.isHidden = true }
+        } else { v.charge?.isHidden = true }
         v.body.alpha = world.isCloaked(e) ? 0.4 + 0.1 * CGFloat(sin(t * 6)) : 1
         let hpFrac = e.hp / max(1, e.maxHp)
         if t - e.lastHitTime < 0.08 {
@@ -262,6 +301,53 @@ extension GameScene {
             v.idleMark!.isHidden = false
             v.idleMark!.position = CGPoint(x: 0, y: v.body.size.height * 0.95 + 4 + CGFloat(sin(t * 4 + seed)) * 2)
         } else { v.idleMark?.isHidden = true }
+    }
+
+    /// A new unit leaves its building: faction-specific arrival, plus a flash at the producing structure.
+    func unitArrives(_ e: Entity) {
+        born[e.id] = world.time
+        let fac = world.players[max(0, e.owner)].faction
+        var best: Entity? = nil, bd = 49.0
+        for b in world.buildings(of: e.owner) where b.complete {
+            let d = dist2(b.x, b.y, e.x, e.y)
+            if d < bd { bd = d; best = b }
+        }
+        let p = Iso.scene(e.x, e.y)
+        guard onScreen(p) else { return }
+        if let b = best, let bv = views[b.id] {
+            let col = fac == .humans ? SKColor(red: 1, green: 0.8, blue: 0.45, alpha: 1) : (fac == .machines ? SKColor(red: 0.4, green: 0.95, blue: 1, alpha: 1) : SKColor(red: 0.6, green: 1, blue: 0.4, alpha: 1))
+            puff("glow", at: CGPoint(x: bv.root.position.x, y: bv.root.position.y + 10), size: CGSize(width: CGFloat(b.size) * 40, height: CGFloat(b.size) * 22), color: col, alpha: 0.7, z: 452, life: 0.45, grow: 1.4)
+        }
+        switch fac {
+        case .humans:
+            puff("smoke", at: CGPoint(x: p.x, y: p.y + 4), size: CGSize(width: 26, height: 14), color: SKColor(red: 0.6, green: 0.55, blue: 0.46, alpha: 1), alpha: 0.5, blend: .alpha, z: 95, life: 0.7, rise: 6, grow: 1.6)
+        case .machines:
+            for k in 0..<3 {
+                guard let s = fx() else { break }
+                s.texture = bank.fx["shockwave"]; s.size = CGSize(width: 34, height: 17); s.color = SKColor(red: 0.4, green: 0.95, blue: 1, alpha: 1)
+                s.position = p; s.zPosition = 452; s.alpha = 0.8
+                s.run(.sequence([.wait(forDuration: Double(k) * 0.12), .group([.moveBy(x: 0, y: 34, duration: 0.5), .fadeOut(withDuration: 0.5)])]))
+                s.run(recycle(s, after: 0.9))
+            }
+        case .aliens:
+            splash(CGPoint(x: p.x, y: p.y + 6), radius: 0.6, color: SKColor(red: 0.6, green: 0.95, blue: 0.4, alpha: 1))
+        }
+    }
+
+    /// Research complete: a column of light from the owner's research buildings (or HQ).
+    func researchFlash(_ owner: Int) {
+        let labs = world.buildings(of: owner).filter { $0.complete && world.bdef($0).kind == .research }
+        for b in (labs.isEmpty ? Array(world.buildings(of: owner).prefix(1)) : labs) {
+            guard let v = views[b.id], !v.root.isHidden, onScreen(v.root.position) else { continue }
+            let p = v.root.position
+            if let s = fx() {
+                s.texture = bank.fx["beam"]; s.anchorPoint = CGPoint(x: 0, y: 0.5); s.size = CGSize(width: 300, height: 26); s.zRotation = .pi / 2
+                s.position = p; s.color = SKColor(red: 0.8, green: 0.6, blue: 1, alpha: 1); s.zPosition = 470; s.alpha = 0
+                s.run(.sequence([.fadeAlpha(to: 0.9, duration: 0.12), .wait(forDuration: 0.3), .group([.fadeOut(withDuration: 0.9), .scaleY(to: 0.1, duration: 0.9)])]))
+                s.run(recycle(s, after: 1.4))
+            }
+            puff("shockwave", at: p, size: CGSize(width: CGFloat(b.size) * 50, height: CGFloat(b.size) * 25), color: SKColor(red: 0.8, green: 0.6, blue: 1, alpha: 1), z: 6, life: 0.8, grow: 2)
+        }
     }
 
     /// Small pooled floating text (deliveries).
@@ -486,6 +572,9 @@ extension GameScene {
                 if let e = world.entity(id), e.owner == ctl.me { sfx?.play("built", at: nil) }
             case .produced(let id):
                 if let e = world.entity(id), e.owner == ctl.me, world.time - lastProducedSound > 1.5 { lastProducedSound = world.time; sfx?.play("ready", at: nil) }
+                if let e = world.entity(id), visibleToMe(e.x, e.y) { unitArrives(e) }
+            case .researched(let owner, _):
+                if owner == ctl.me || ctl.spectating { researchFlash(owner) }
             case .captured(let site, let owner):
                 sfx?.play(owner == ctl.me ? "capture" : "alert", at: nil)
                 capturePillar(site, owner)

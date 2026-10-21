@@ -36,6 +36,8 @@ final class EntityView {
     var parts: [String: SKSpriteNode] = [:]
     var partT = 0.0
     var phase = 0.0
+    var charge: SKSpriteNode?
+    var hover = false
     var trackY = 0.0
     var navLights: [SKSpriteNode] = []
     var headlight: SKSpriteNode?
@@ -114,6 +116,7 @@ final class GameScene: SKScene {
     var labelPool: [SKLabelNode] = []
     var scarPools: [String: ScarPool] = [:]
     var wrecks: [SKNode] = []
+    var born: [Int: Double] = [:]
 
     init(controller: GameController, size: CGSize) {
         ctl = controller
@@ -354,9 +357,11 @@ final class GameScene: SKScene {
             v.frames = frames
             v.bodyY = s.position.y
             // Team ring: the primary readability cue in big battles. Shape encodes class.
-            let cls = e.isAir ? "ring_air" : (d.role == "siege" ? "ring_siege" : (d.tags.contains("massive") ? "ring_heavy" : "teamring"))
+            let cls = e.isAir ? "ring_air" : (d.role == "siege" ? "ring_siege" : (d.tags.contains("massive") ? "ring_heavy" :
+                (d.role == "support" ? "ring_support" : (d.role == "worker" ? "ring_worker" : "teamring"))))
             let ring = SKSpriteNode(texture: bank.fx[cls])
             let rw = max(30, CGFloat(d.radius) * 120)
+            v.hover = d.tags.contains("hover")
             v.heavy = d.tags.contains("massive") || d.role == "siege"
             v.vehicle = !e.isAir && d.tags.contains("mech") && (d.tags.contains("armored") || d.role == "fast")
             let t = world.traits[e.type]
@@ -467,6 +472,21 @@ final class GameScene: SKScene {
                 bar.1.color = e.isBuilding && !e.complete ? SKColor(red: 0.4, green: 0.8, blue: 1, alpha: 1) :
                     (e.owner == ctl.me ? (frac > 0.5 ? SKColor(red: 0.3, green: 0.95, blue: 0.4, alpha: 1) : (frac > 0.25 ? .yellow : .red)) : TeamColor.sk(e.owner))
                 bar.0.isHidden = false; bar.1.isHidden = false
+            }
+        }
+        // Production progress under the player's working buildings.
+        if zoom < 2.2 {
+            for e in world.entities where e.isBuilding && e.alive && e.complete && e.owner == ctl.me {
+                guard let q = e.queue.first, let v = views[e.id], !v.root.isHidden, onScreen(v.root.position) else { continue }
+                let b = bar(bars); bars += 1
+                let w = CGFloat(e.size) * 18
+                b.0.position = CGPoint(x: v.root.position.x, y: v.root.position.y - CGFloat(e.size) * 6)
+                b.0.size = CGSize(width: w + 2, height: 5)
+                let frac = CGFloat(1 - q.remaining / max(0.01, q.total))
+                b.1.size = CGSize(width: max(0.5, w * frac), height: 3)
+                b.1.position = CGPoint(x: b.0.position.x - w / 2, y: b.0.position.y)
+                b.1.color = q.isUpgrade ? SKColor(red: 0.75, green: 0.55, blue: 1, alpha: 1) : SKColor(red: 1, green: 0.75, blue: 0.3, alpha: 1)
+                b.0.isHidden = false; b.1.isHidden = false
             }
         }
         for i in bars..<barPool.count { barPool[i].0.isHidden = true; barPool[i].1.isHidden = true }

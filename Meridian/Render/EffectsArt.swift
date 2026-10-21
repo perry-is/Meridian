@@ -135,6 +135,25 @@ enum EffectsArt {
                     let pp = CGMutablePath(); pp.move(to: CGPoint(x: pts[0].0, y: pts[0].1)); for q in pts.dropFirst() { pp.addLine(to: CGPoint(x: q.0, y: q.1)) }
                     p.stroke(pp, RGB(1, 1, 1, 0.95), 2.2)
                 }
+            case "support":
+                // Support: ring with four plus-ticks.
+                p.fill(p.ellipsePath(32, 16, 24, 11), RGB(1, 1, 1, 0.16))
+                p.stroke(p.ellipsePath(32, 16, 24, 11), RGB(1, 1, 1, 0.9), 2)
+                for (x, y) in [(8.0, 16.0), (56.0, 16.0), (32.0, 4.5), (32.0, 27.5)] as [(CGFloat, CGFloat)] {
+                    p.line((x - 3.2, y), (x + 3.2, y), RGB(1, 1, 1, 1), 2); p.line((x, y - 3.2), (x, y + 3.2), RGB(1, 1, 1, 1), 2)
+                }
+            case "worker":
+                // Workers: a slim, dashed ring that reads quieter than combat units'.
+                for k in 0..<10 where k % 2 == 0 {
+                    let a0 = CGFloat(k) / 10 * .pi * 2, a1 = CGFloat(k + 1) / 10 * .pi * 2
+                    let pp = CGMutablePath()
+                    for st in 0...6 {
+                        let a = a0 + (a1 - a0) * CGFloat(st) / 6
+                        let q = CGPoint(x: 32 + cos(a) * 22, y: 16 + sin(a) * 10)
+                        if st == 0 { pp.move(to: q) } else { pp.addLine(to: q) }
+                    }
+                    p.stroke(pp, RGB(1, 1, 1, 0.9), 1.8)
+                }
             case "marker":
                 p.fill(p.ellipsePath(32, 16, 29, 13.5), RGB(1, 1, 1, 0.18))
                 p.stroke(p.ellipsePath(32, 16, 29, 13.5), RGB(1, 1, 1, 0.9), 2)
