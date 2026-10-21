@@ -324,12 +324,14 @@ struct AudioSettings: View {
     @State private var music: Float = SoundEngine.shared?.musicVolume ?? 0.45
     @AppStorage("fx.shake") private var shake = true
     @AppStorage("input.dragSelects") private var dragSelects = true
+    @AppStorage("fx.daynight") private var dayNight = true
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             slider("speaker.wave.3.fill", "Master", $master) { SoundEngine.shared?.master = $0 }
             slider("burst.fill", "Effects", $sfx) { SoundEngine.shared?.sfxVolume = $0 }
             slider("music.note", "Music", $music) { SoundEngine.shared?.musicVolume = $0 }
             Toggle("Screen shake", isOn: $shake).font(.system(size: 12, weight: .semibold))
+            Toggle("Day/night cycle (cosmetic)", isOn: $dayNight).font(.system(size: 12, weight: .semibold))
             Toggle("Drag to select (hold, then drag to pan)", isOn: $dragSelects).font(.system(size: 12, weight: .semibold))
         }
         .frame(width: 260)

@@ -159,4 +159,55 @@ enum EffectsArt {
             p.stroke(p.ellipsePath(40, 20, 31, 14.5), RGB(1, 1, 1, 0.35), 1.2)
         }
     }
+
+    // MARK: Living battlefield (Mission 5)
+
+    /// Headlight beam pointing right, soft at the edges.
+    static func cone() -> CGImage {
+        Pen.image(96, 48) { p in
+            for k in 0..<10 {
+                let t = CGFloat(k) / 10
+                let spread = 6 + 18 * (1 - t)
+                p.fill(p.poly([(4, 24 - 2), (96 - t * 30, 24 - spread), (96 - t * 30, 24 + spread), (4, 24 + 2)]), RGB(1, 1, 1, 0.07))
+            }
+            p.glow(8, 24, 6, RGB(1, 1, 1, 0.8))
+        }
+    }
+
+    /// Artillery crater: dark bowl, thrown-up rim.
+    static func crater() -> CGImage {
+        Pen.image(96, 48) { p in
+            p.fill(p.ellipsePath(48, 24, 44, 21), RGB(0.05, 0.04, 0.04, 0.35))
+            p.stroke(p.ellipsePath(48, 25, 30, 14), RGB(0.55, 0.45, 0.35, 0.55), 5)
+            p.fill(p.ellipsePath(48, 24, 26, 12), RGB(0.06, 0.05, 0.05, 0.75))
+            p.fill(p.ellipsePath(46, 23, 15, 7), RGB(0.02, 0.02, 0.02, 0.6))
+            for k in 0..<9 {
+                let a = CGFloat(k) / 9 * .pi * 2 + hnoise(k, 1, 4)
+                let r0: CGFloat = 30, r1 = 36 + hnoise(k, 2, 4) * 8
+                p.line((48 + cos(a) * r0, 24 + sin(a) * r0 * 0.47), (48 + cos(a) * r1, 24 + sin(a) * r1 * 0.47), RGB(0.08, 0.06, 0.05, 0.6), 2.5)
+            }
+        }
+    }
+
+    /// A short stretch of tread marks (two parallel bands), running left to right.
+    static func track() -> CGImage {
+        Pen.image(32, 16) { p in
+            for y in [CGFloat(4), 12] {
+                for k in 0..<6 { p.fill(p.roundRectPath(CGFloat(k) * 5 + 1, y - 2, 3.4, 4, 1), RGB(0, 0, 0, 0.55)) }
+            }
+        }
+    }
+
+    /// Distant flyer silhouette, wings up / down.
+    static func bird(_ frame: Int) -> CGImage {
+        Pen.image(24, 14) { p in
+            let up: CGFloat = frame == 0 ? 1 : -0.6
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: 1, y: 7 + 5 * up))
+            path.addQuadCurve(to: CGPoint(x: 12, y: 7), control: CGPoint(x: 7, y: 7 + 2 * up))
+            path.addQuadCurve(to: CGPoint(x: 23, y: 7 + 5 * up), control: CGPoint(x: 17, y: 7 + 2 * up))
+            p.stroke(path, RGB(0.05, 0.05, 0.08, 0.95), 2)
+            p.dot(12, 7, 1.6, RGB(0.05, 0.05, 0.08, 1))
+        }
+    }
 }

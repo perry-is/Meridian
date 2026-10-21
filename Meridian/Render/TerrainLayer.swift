@@ -105,17 +105,36 @@ enum TerrainLayer {
         float rock = smoothstep(0.25, 0.60, t.b + (n3 - 0.5) * 0.25);
         float water = smoothstep(0.38, 0.62, t.a + (n2 - 0.5) * 0.18);
 
-        vec3 grassC = mix(vec3(0.20, 0.36, 0.19), vec3(0.42, 0.52, 0.22), n1);
-        grassC = mix(grassC, vec3(0.50, 0.50, 0.24), smoothstep(0.6, 0.85, n2) * 0.35);  // dry golden patches
+        vec3 grassC = mix(u_grassA, u_grassB, n1);
+        grassC = mix(grassC, u_dry, smoothstep(0.6, 0.85, n2) * 0.35);  // dry patches
         grassC *= 0.86 + 0.26 * n4;
-        vec3 mossC = mix(vec3(0.09, 0.27, 0.28), vec3(0.18, 0.40, 0.35), n1) * (0.88 + 0.22 * n4);
-        vec3 dirtC = mix(vec3(0.40, 0.29, 0.20), vec3(0.62, 0.47, 0.30), n2 * 0.6 + n1 * 0.4) * (0.9 + 0.18 * n4);
-        vec3 rockC = mix(vec3(0.26, 0.23, 0.27), vec3(0.44, 0.39, 0.40), n3) * (0.85 + 0.2 * n4);
+        // Wind: soft gust bands sweep across open grass; fine blades shimmer along the wind.
+        vec2 wd = normalize(u_wind + vec2(0.0001, 0.0));
+        float gust = vnoise(w * 0.22 - u_wind * u_time * 0.35);
+        float blades = vnoise(vec2(dot(w, wd) * 6.0 - u_time * 2.2, dot(w, vec2(-wd.y, wd.x)) * 1.2));
+        float sway = (smoothstep(0.5, 0.82, gust) * (0.75 + 0.5 * blades) - 0.12) * 0.11 * u_gust;
+        vec3 mossC = mix(u_mossA, u_mossB, n1) * (0.88 + 0.22 * n4);
+        vec3 dirtC = mix(u_dirtA, u_dirtB, n2 * 0.6 + n1 * 0.4) * (0.9 + 0.18 * n4);
+        if (u_cracks > 0.0) {
+            // Dried, cracked earth: cell edges of a jittered grid.
+            vec2 cp = w * 1.7; vec2 ci = floor(cp); vec2 cf = fract(cp);
+            float d1 = 8.0; float d2 = 8.0;
+            for (int j = -1; j <= 1; j++) { for (int i = -1; i <= 1; i++) {
+                vec2 g = vec2(float(i), float(j));
+                vec2 o = vec2(h21(ci + g), h21(ci + g + 17.0));
+                float dd = length(g + o - cf);
+                d2 = min(d2, max(d1, dd)); d1 = min(d1, dd);
+            } }
+            float crack = 1.0 - smoothstep(0.02, 0.07, d2 - d1);
+            dirtC *= 1.0 - crack * 0.26 * u_cracks * (0.6 + 0.4 * n2);
+        }
+        vec3 rockC = mix(u_rockA, u_rockB, n3) * (0.85 + 0.2 * n4);
 
         vec3 col = grassC;
         col = mix(col, mossC, moss);
         col = mix(col, dirtC, dirt);
         col = mix(col, rockC, rock);
+        col *= 1.0 + sway * (1.0 - dirt) * (1.0 - rock);
 
         // Tiny wildflowers and pebbles (world-space so they stay put while zooming).
         vec2 cell = floor(w * 5.0);
@@ -123,13 +142,16 @@ enum TerrainLayer {
         vec2 fc = fract(w * 5.0) - 0.5 - (vec2(h21(cell + 3.1), h21(cell + 7.7)) - 0.5) * 0.5;
         float petal = 1.0 - smoothstep(0.07, 0.11, length(fc * vec2(1.0, 1.6)));
         float flower = step(0.985, speck) * petal * (1.0 - dirt) * (1.0 - rock) * (1.0 - water);
-        vec3 flowerC = mix(vec3(1.0, 0.82, 0.35), vec3(0.75, 0.55, 1.0), step(0.9925, speck));
+        vec3 flowerC = mix(u_flowerA, u_flowerB, step(0.9925, speck));
         col = mix(col, flowerC, flower * 0.85);
         col = mix(col, col * 0.7, step(0.975, h21(floor(w * 4.0) + 7.0)) * dirt * 0.6);
 
         // Resource ground: rusty ore stain, gold glints, dark forest floor.
         col = mix(col, vec3(0.30, 0.22, 0.20), e.g * 0.55);
-        col = mix(col, vec3(1.0, 0.85, 0.4), e.b * step(0.93, vnoise(w * 9.0 + u_time * 0.4)) * 0.8);
+        vec3 emis = vec3(0.0);   // self-lit terms, boosted at night so they glow through the dark
+        float glint = e.b * step(0.93, vnoise(w * 9.0 + u_time * 0.4));
+        col = mix(col, vec3(1.0, 0.85, 0.4), glint * 0.8);
+        emis += vec3(1.0, 0.75, 0.3) * (glint * 0.6 + e.b * 0.12);
         col *= 1.0 - e.a * 0.28;
 
         // Fake relief lighting from the elevation field (light from the upper left of the screen).
@@ -142,8 +164,13 @@ enum TerrainLayer {
         // Water: depth gradient, moving ripples, glinting highlights, foam on the shoreline.
         if (water > 0.0) {
             float depth = smoothstep(0.5, 1.0, t.a);
-            vec3 wc = mix(vec3(0.13, 0.42, 0.48), vec3(0.04, 0.16, 0.30), depth);
-            float rip = vnoise(w * 2.2 + vec2(u_time * 0.35, u_time * 0.2)) * vnoise(w * 3.1 - vec2(u_time * 0.25, 0.0));
+            vec3 wc = mix(u_waterS, u_waterD, depth);
+            vec2 fl = u_flow * u_time;
+            float rip = vnoise(w * 2.2 - fl) * vnoise(w * 3.1 - fl * 1.4 + vec2(u_time * 0.1, 0.0));
+            // Luminous mineral pools: slow internal light and bright rims.
+            vec3 pool = u_waterGlow * vec3(0.10, 0.35, 0.40) * (0.5 + 0.5 * sin(u_time * 0.8 + n1 * 6.0)) * (1.0 - depth * 0.5);
+            wc += pool;
+            emis += pool * water * 1.6;
             wc += vec3(0.25, 0.35, 0.4) * smoothstep(0.35, 0.6, rip) * 0.35;
             wc += vec3(1.0, 0.9, 0.7) * step(0.985, vnoise(w * 7.0 + u_time * 0.8)) * 0.6;
             float foam = smoothstep(0.42, 0.5, t.a) * (1.0 - smoothstep(0.5, 0.62, t.a + (n3 - 0.5) * 0.1));
@@ -156,13 +183,14 @@ enum TerrainLayer {
         }
 
         // Warm dusk grade: lift reds slightly, cool the darks.
-        col = col * vec3(1.06, 1.0, 0.94) + vec3(0.0, 0.01, 0.03) * (1.0 - col);
-        vec3 abyss = mix(vec3(0.10, 0.12, 0.16), vec3(0.02, 0.03, 0.05), outside);
+        col = col * u_grade + u_lift * (1.0 - col);
+        col += emis * u_night * 0.7;
+        vec3 abyss = mix(u_abyss, vec3(0.02, 0.03, 0.05), outside);
         gl_FragColor = vec4(mix(col, abyss, isOut), 1.0);
     }
     """
 
-    static func groundNode(_ world: World) -> SKSpriteNode {
+    static func groundNode(_ world: World, biome b: Biome) -> SKSpriteNode {
         let n = CGFloat(world.map.size)
         let pad: CGFloat = 1600
         let w = n * 64 + pad * 2, h = n * 32 + pad * 2
@@ -178,6 +206,17 @@ enum TerrainLayer {
             SKUniform(name: "u_terrain", texture: tt),
             SKUniform(name: "u_extra", texture: te),
         ]
+        func v3(_ n: String, _ v: SIMD3<Float>) { sh.addUniform(SKUniform(name: n, vectorFloat3: vector_float3(v.x, v.y, v.z))) }
+        func v2(_ n: String, _ v: SIMD2<Float>) { sh.addUniform(SKUniform(name: n, vectorFloat2: vector_float2(v.x, v.y))) }
+        v3("u_grassA", b.grassA); v3("u_grassB", b.grassB); v3("u_dry", b.dry)
+        v3("u_mossA", b.mossA); v3("u_mossB", b.mossB); v3("u_dirtA", b.dirtA); v3("u_dirtB", b.dirtB)
+        v3("u_rockA", b.rockA); v3("u_rockB", b.rockB); v3("u_waterS", b.waterS); v3("u_waterD", b.waterD)
+        v3("u_flowerA", b.flowerA); v3("u_flowerB", b.flowerB); v3("u_grade", b.grade); v3("u_lift", b.lift); v3("u_abyss", b.abyss)
+        v2("u_flow", b.flow); v2("u_wind", b.wind)
+        sh.addUniform(SKUniform(name: "u_waterGlow", float: b.waterGlow))
+        sh.addUniform(SKUniform(name: "u_gust", float: b.gust))
+        sh.addUniform(SKUniform(name: "u_cracks", float: b.cracks))
+        sh.addUniform(SKUniform(name: "u_night", float: 0))
         node.shader = sh
         return node
     }
@@ -185,7 +224,7 @@ enum TerrainLayer {
     // MARK: Rock formations and flora
 
     /// Depth-sorted cliffs on rock tiles plus scattered flora. Interior rock tiles get taller spires.
-    static func populate(_ world: World, bank: TextureBank, into parent: SKNode) {
+    static func populate(_ world: World, bank: TextureBank, biome: Biome, into parent: SKNode) {
         let m = world.map, n = m.size
         func isRock(_ x: Int, _ y: Int) -> Bool { m.inBounds(x, y) && m.terrainAt(x, y) == .rock }
         for y in 0..<n {
@@ -205,6 +244,7 @@ enum TerrainLayer {
                     s.setScale(sc)
                     s.xScale *= hnoise(x, y, 11) > 0.5 ? -1 : 1
                     s.zPosition = 100 + Iso.depth(Double(x) + 0.5, Double(y) + 0.5) * 0.4
+                    s.color = biome.cliffTint; s.colorBlendFactor = biome.cliffTintAmount
                     parent.addChild(s)
                     continue
                 }
@@ -226,7 +266,7 @@ enum TerrainLayer {
                 // Decor stays quieter than combatants: smaller and slightly desaturated toward the ground.
                 s.setScale((kind == 4 ? 0.5 : 0.6) + hnoise(x, y, 16) * 0.3)
                 s.alpha = kind == 4 ? 0.8 : 0.85
-                s.color = SKColor(red: 0.2, green: 0.25, blue: 0.2, alpha: 1); s.colorBlendFactor = kind >= 3 ? 0.15 : 0.25
+                s.color = biome.floraTint; s.colorBlendFactor = kind >= 3 ? 0.15 : 0.25
                 s.zPosition = kind == 4 ? 100 + Iso.depth(Double(x) + jx, Double(y) + jy) * 0.4 : 6
                 if kind == 3 || kind == 4 {
                     s.run(.repeatForever(.sequence([.fadeAlpha(to: 0.55, duration: 1.5 + Double(r) * 2), .fadeAlpha(to: 0.85, duration: 1.5)])))
@@ -245,14 +285,14 @@ enum TerrainLayer {
         return v
     }
 
-    static func clouds(_ world: World, bank: TextureBank, into parent: SKNode) {
+    static func clouds(_ world: World, bank: TextureBank, biome: Biome, into parent: SKNode) {
         let n = Double(world.map.size)
         var r = RNG(seed: 99)
         for k in 0..<7 {
             let c = SKSpriteNode(texture: bank.fx["cloud"])
             c.size = CGSize(width: 1400 + r.range(0, 900), height: 700 + r.range(0, 400))
             c.blendMode = .multiplyAlpha
-            c.alpha = 0.32
+            c.alpha = biome.cloudAlpha
             c.zPosition = 580
             let start = Iso.scene(r.range(-20, n), r.range(0, n))
             c.position = start
@@ -265,7 +305,7 @@ enum TerrainLayer {
         }
     }
 
-    static func motes(bank: TextureBank) -> SKEmitterNode {
+    static func motes(bank: TextureBank, biome: Biome) -> SKEmitterNode {
         let e = SKEmitterNode()
         e.particleTexture = bank.fx["glow"]
         e.particleBirthRate = 6
@@ -280,11 +320,50 @@ enum TerrainLayer {
         e.particleAlphaSequence = SKKeyframeSequence(keyframeValues: [0.0, 0.55, 0.0] as [NSNumber], times: [0, 0.5, 1])
         e.particleScale = 0.18
         e.particleScaleRange = 0.12
-        e.particleColor = SKColor(red: 1, green: 0.85, blue: 0.55, alpha: 1)
+        e.particleColor = biome.moteColor
         e.particleColorBlendFactor = 1
         e.particleBlendMode = .add
         e.zPosition = 890
+        switch biome.ambient {
+        case .pollen: break
+        case .mist:
+            // Slow, fat spores drifting up from the wetlands.
+            e.particleBirthRate = 5; e.particleSpeed = 8; e.particleScale = 0.14; e.particleScaleRange = 0.08
+            e.particleAlphaSequence = SKKeyframeSequence(keyframeValues: [0.0, 0.7, 0.2, 0.7, 0.0] as [NSNumber], times: [0, 0.25, 0.5, 0.75, 1])
+        case .dust:
+            // Grit carried sideways on the plateau wind.
+            e.particleTexture = bank.fx["smoke"]; e.particleBlendMode = .alpha
+            e.particleBirthRate = 14; e.particleLifetime = 5; e.particleSpeed = 120; e.particleSpeedRange = 50
+            e.emissionAngle = -0.25; e.emissionAngleRange = 0.25
+            e.particleScale = 0.12; e.particleScaleRange = 0.1
+            e.particleAlphaSequence = SKKeyframeSequence(keyframeValues: [0.0, 0.32, 0.0] as [NSNumber], times: [0, 0.5, 1])
+        }
         e.advanceSimulationTime(10)
         return e
     }
+
+    /// Slow banks of low mist over the delta's water (world space, beneath units' heads).
+    static func mistBanks(_ world: World, bank: TextureBank, into parent: SKNode) {
+        let m = world.map
+        var r = RNG(seed: 7)
+        var placed = 0
+        for _ in 0..<400 where placed < 16 {
+            let x = r.int(m.size), y = r.int(m.size)
+            guard m.terrainAt(x, y) == .water else { continue }
+            let c = SKSpriteNode(texture: bank.fx["cloud"])
+            c.size = CGSize(width: 420 + r.range(0, 260), height: 120 + r.range(0, 60))
+            c.color = SKColor(red: 0.85, green: 0.95, blue: 1, alpha: 1); c.colorBlendFactor = 1
+            c.blendMode = .screen
+            c.alpha = 0
+            c.position = Iso.scene(Double(x), Double(y))
+            c.zPosition = 160
+            let a = 0.22 + r.range(0, 0.12)
+            let p = 16 + r.range(0, 10)
+            c.run(.repeatForever(.sequence([.group([.fadeAlpha(to: CGFloat(a), duration: p), .moveBy(x: 90, y: 30, duration: p)]),
+                                            .group([.fadeAlpha(to: 0.04, duration: p), .moveBy(x: -90, y: -30, duration: p)])])))
+            parent.addChild(c)
+            placed += 1
+        }
+    }
+
 }

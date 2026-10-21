@@ -26,6 +26,9 @@ final class EntityView {
     var field: SKSpriteNode?
     var heavy = false
     var vehicle = false
+    var pool: SKSpriteNode?
+    var navLights: [SKSpriteNode] = []
+    var headlight: SKSpriteNode?
 
     init(body: SKSpriteNode, shadow: SKSpriteNode?) {
         self.body = body
@@ -92,10 +95,17 @@ final class GameScene: SKScene {
     var backdrop = false
     var backdropStatic = false
     let N: Int
+    let biome: Biome
+    var skyOverlay: SKSpriteNode?
+    var fireflies: SKEmitterNode?
+    var groundShader: SKShader?
+    var night: CGFloat = 0
+    var siteGlows: [SKSpriteNode] = []
 
     init(controller: GameController, size: CGSize) {
         ctl = controller
         N = controller.world.map.size
+        biome = Biome.of(controller.world.config.layout)
         bank = TextureBank.make(data: controller.data, factions: controller.world.players.map { $0.faction })
         super.init(size: size)
         scaleMode = .resizeFill
@@ -113,6 +123,7 @@ final class GameScene: SKScene {
         worldNode.addChild(barLayer); barLayer.zPosition = 500
         worldNode.addChild(fxLayer); fxLayer.zPosition = 0
         buildTerrain()
+        buildSky()
         buildSites()
         buildFog()
         ghost = SKSpriteNode()
@@ -142,13 +153,16 @@ final class GameScene: SKScene {
     // MARK: Static layers
 
     func buildTerrain() {
-        worldNode.addChild(TerrainLayer.groundNode(world))
-        TerrainLayer.populate(world, bank: bank, into: worldNode)
-        TerrainLayer.clouds(world, bank: bank, into: worldNode)
+        let ground = TerrainLayer.groundNode(world, biome: biome)
+        groundShader = ground.shader
+        worldNode.addChild(ground)
+        TerrainLayer.populate(world, bank: bank, biome: biome, into: worldNode)
+        TerrainLayer.clouds(world, bank: bank, biome: biome, into: worldNode)
+        if biome.ambient == .mist { TerrainLayer.mistBanks(world, bank: bank, into: worldNode) }
         let v = TerrainLayer.vignette(size: size, bank: bank)
         vignette = v
         cam.addChild(v)
-        cam.addChild(TerrainLayer.motes(bank: bank))
+        cam.addChild(TerrainLayer.motes(bank: bank, biome: biome))
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -181,6 +195,10 @@ final class GameScene: SKScene {
                 pips.append(p)
             }
             siteViews.append((plat, b, pips))
+            let g = SKSpriteNode(texture: bank.fx["glow"], size: CGSize(width: 300, height: 150))
+            g.blendMode = .add; g.colorBlendFactor = 1; g.position = plat.position; g.zPosition = Sky.lightZ; g.alpha = 0
+            worldNode.addChild(g)
+            siteGlows.append(g)
         }
     }
 
@@ -252,6 +270,7 @@ final class GameScene: SKScene {
         if !silent { sfx?.listener = cam.position; sfx?.hearing = max(500, size.width * zoom * 0.7) }
         shakeEnabled = UserDefaults.standard.object(forKey: "fx.shake") as? Bool ?? true
         updateQuality(dt)
+        updateSky()
         fxBudget = fxBudgetForQuality
         consumeEvents()
         syncEntities()
@@ -349,7 +368,10 @@ final class GameScene: SKScene {
             let v = e.id % 3
             let s = SKSpriteNode(texture: bank.resource[k.rawValue][v])
             s.anchorPoint = CGPoint(x: 0.5, y: k == .wood ? 0.08 : (k == .iron ? 0.22 : 0.16))
-            if k == .wood { s.setScale(0.8 + CGFloat(e.id % 5) * 0.06); s.xScale *= e.id % 2 == 0 ? 1 : -1 }
+            if k == .wood {
+                s.setScale(0.8 + CGFloat(e.id % 5) * 0.06); s.xScale *= e.id % 2 == 0 ? 1 : -1
+                s.color = biome.treeTint; s.colorBlendFactor = biome.treeTintAmount * CGFloat(0.6 + 0.4 * hnoise(e.id, 3, 5))
+            }
             return EntityView(body: s, shadow: nil)
         }
     }
@@ -384,6 +406,7 @@ final class GameScene: SKScene {
                 let k = ResourceKind(rawValue: e.type)!
                 let full = Double(k == .iron ? world.data.rules.economy.ironNodeAmount : (k == .gold ? world.data.rules.economy.goldNodeAmount : world.data.rules.economy.treeAmount))
                 if k != .wood { v.body.setScale(CGFloat(0.65 + 0.35 * min(1, Double(e.amount) / full))) }
+                if k == .gold { lightPool(v, width: 130, color: SKColor(red: 1, green: 0.78, blue: 0.3, alpha: 1), strength: 0.75) }
             }
             // Selection ring.
             let isSel = selected.contains(e.id)
@@ -461,6 +484,8 @@ final class GameScene: SKScene {
                 pip.alpha = s.contested ? (world.tick % 10 < 5 ? 1 : 0.4) : 1
             }
             v.platform.alpha = ctl.selectedSite == i ? 1 : 0.85
+            siteGlows[i].color = col
+            siteGlows[i].alpha = night * (s.owner >= 0 ? 0.32 : 0.12)
             // Owned beacons breathe with their owner's light.
             if s.owner >= 0 {
                 let pulse = CGFloat(0.5 + 0.5 * sin(world.time * 2.2 + Double(i)))

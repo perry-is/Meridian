@@ -1,0 +1,7 @@
+BANK generated in 0.27s
+IOSurfaceClientSetSurfaceNotify failed e00002c7
+PERF t=2s units=100 nodes=1015 frame=21.08ms fps=47.4 p95=16.67ms | sim=0.44ms (max 4.7) sceneUpdate=4.04ms | proj=0 q=2 size=440x956
+PERF t=4s units=100 nodes=1097 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.45ms (max 3.0) sceneUpdate=0.55ms | proj=4 q=2 size=440x956
+PERF t=6s units=95 nodes=1220 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.38ms (max 2.7) sceneUpdate=0.45ms | proj=7 q=2 size=440x956
+PERF t=8s units=80 nodes=1278 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.45ms (max 5.0) sceneUpdate=0.46ms | proj=5 q=2 size=440x956
+dev.meridian.rts: 37643

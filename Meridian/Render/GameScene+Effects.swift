@@ -179,6 +179,7 @@ extension GameScene {
                 ring.alpha = (e.isAir ? 0.55 : 0.78) + (far ? 0.17 : 0) + (fac == .machines && e.linked ? 0.15 * CGFloat(sin(t * 4 + seed)) : 0)
             }
         }
+        unitLights(e, v, fac, t, seed)
         // Ambient motion effects (budgeted, skipped when zoomed far out).
         v.dustT -= 1.0 / 60
         guard detail, v.dustT <= 0, onScreen(v.root.position) else { return }
@@ -201,6 +202,61 @@ extension GameScene {
                      color: SKColor(red: 0.62, green: 0.54, blue: 0.42, alpha: 1), alpha: 0.45, blend: .alpha, z: 95, life: 0.8, rise: 6, grow: 2.0)
             }
         }
+    }
+
+    /// Night lighting on units: aircraft navigation lights, vehicle headlights, Brood bioluminescence.
+    func unitLights(_ e: Entity, _ v: EntityView, _ fac: Faction, _ t: Double, _ seed: Double) {
+        let on = night > 0.15 && quality >= 1 && zoom < 2.6
+        if !on {
+            if v.headlight?.isHidden == false { v.headlight?.isHidden = true }
+            for l in v.navLights where !l.isHidden { l.isHidden = true }
+            return
+        }
+        func dot(_ c: SKColor, _ sz: CGFloat) -> SKSpriteNode {
+            let l = SKSpriteNode(texture: bank.fx["glow"], size: CGSize(width: sz, height: sz))
+            l.blendMode = .add; l.colorBlendFactor = 1; l.color = c
+            v.root.addChild(l); v.navLights.append(l)
+            return l
+        }
+        let w = v.body.size.width
+        if e.isAir {
+            if v.navLights.isEmpty {
+                _ = dot(SKColor(red: 1, green: 0.25, blue: 0.2, alpha: 1), 9)
+                _ = dot(SKColor(red: 0.3, green: 1, blue: 0.5, alpha: 1), 9)
+                _ = dot(.white, 7)
+            }
+            let span = w * 0.34
+            v.navLights[0].position = CGPoint(x: v.body.position.x - span, y: v.body.position.y)
+            v.navLights[1].position = CGPoint(x: v.body.position.x + span, y: v.body.position.y)
+            v.navLights[2].position = CGPoint(x: v.body.position.x, y: v.body.position.y - 6)
+            let blink = (t * 1.3 + seed * 0.37).truncatingRemainder(dividingBy: 1) < 0.12
+            v.navLights[0].alpha = night; v.navLights[1].alpha = night
+            v.navLights[2].alpha = blink ? night : 0
+        } else if fac == .aliens {
+            if v.navLights.isEmpty { _ = dot(SKColor(red: 0.55, green: 1, blue: 0.4, alpha: 1), max(14, w * 0.55)) }
+            v.navLights[0].position = CGPoint(x: v.body.position.x, y: v.body.position.y + v.body.size.height * 0.32)
+            v.navLights[0].alpha = night * (0.25 + 0.18 * CGFloat(sin(t * 2.2 + seed)))
+        } else if v.vehicle || v.heavy {
+            if v.headlight == nil {
+                let h = SKSpriteNode(texture: bank.fx["cone"])
+                h.anchorPoint = CGPoint(x: 0.04, y: 0.5); h.blendMode = .add; h.colorBlendFactor = 1
+                h.color = fac == .humans ? SKColor(red: 1, green: 0.92, blue: 0.7, alpha: 1) : SKColor(red: 0.6, green: 0.95, blue: 1, alpha: 1)
+                h.size = CGSize(width: 64 + w * 0.3, height: 30)
+                v.root.addChild(h); v.headlight = h
+            }
+            let h = v.headlight!
+            let dx = cos(e.facing), dy = sin(e.facing)
+            let ang = atan2(16 * (dy - dx), 32 * (dx + dy))
+            h.zRotation = CGFloat(ang)
+            h.position = CGPoint(x: CGFloat(cos(ang)) * w * 0.26, y: 7 + CGFloat(sin(ang)) * w * 0.13)
+            h.alpha = night * 0.42
+        } else {
+            v.headlight?.isHidden = true
+            return
+        }
+        v.headlight?.isHidden = false
+        for l in v.navLights { l.isHidden = false; liftLight(l, in: v, by: 1) }
+        if let h = v.headlight { liftLight(h, in: v) }
     }
 
     // MARK: Projectiles & artillery telegraphs
@@ -766,9 +822,17 @@ extension GameScene {
         for (k, l) in v.lights.enumerated() {
             switch fac {
             case .humans: l.alpha = (Int(t * 1.5 + seed) + k) % 2 == 0 ? 0.95 : 0.15
-            case .machines: l.alpha = 0.55 + 0.4 * CGFloat(sin(t * (busy ? 6 : 2.5) + seed)); l.setScale(1 + 0.25 * CGFloat(sin(t * 3 + seed)))
+            case .machines: l.alpha = 0.55 + 0.4 * CGFloat(sin(t * (busy ? 6 : 2.5) + seed))
             case .aliens: l.alpha = 0.5 + 0.45 * CGFloat(sin(t * (busy ? 5 : 2) + seed + Double(k)))
             }
+            // After dusk the lamps burn brighter and draw above the night.
+            let pulse: CGFloat = fac == .machines ? 1 + 0.25 * CGFloat(sin(t * 3 + seed)) : 1
+            l.setScale(pulse * (1 + night * 0.7))
+            if night > 0.05 { liftLight(l, in: v, by: 1) } else { l.zPosition = 0.3 }
+        }
+        if e.complete {
+            let warm = fac == .humans ? SKColor(red: 1, green: 0.74, blue: 0.42, alpha: 1) : (fac == .machines ? SKColor(red: 0.42, green: 0.88, blue: 1, alpha: 1) : SKColor(red: 0.58, green: 1, blue: 0.45, alpha: 1))
+            lightPool(v, width: CGFloat(e.size) * 96, color: warm, strength: busy ? 0.6 : 0.46)
         }
         // Construction: Concord scaffold grey-out, Lattice hologram, Brood growth.
         if !e.complete {
