@@ -27,6 +27,11 @@ final class EntityView {
     var heavy = false
     var vehicle = false
     var pool: SKSpriteNode?
+    var lastCarry = 0
+    var cargo: SKSpriteNode?
+    var idleMark: SKSpriteNode?
+    var idleSince = -1.0
+    var shake: CGFloat = 0
     var navLights: [SKSpriteNode] = []
     var headlight: SKSpriteNode?
 
@@ -101,6 +106,7 @@ final class GameScene: SKScene {
     var groundShader: SKShader?
     var night: CGFloat = 0
     var siteGlows: [SKSpriteNode] = []
+    var labelPool: [SKLabelNode] = []
 
     init(controller: GameController, size: CGSize) {
         ctl = controller
@@ -143,7 +149,7 @@ final class GameScene: SKScene {
         if ctl.battleMode { focus(Double(N) / 2, Double(N) / 2); zoom = 1.5 }
         if ProcessInfo.processInfo.arguments.contains("-nozoom") { battleCam.autoZoom = false }
         if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
-        else if let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
+        if !ctl.stressMode && !ctl.battleMode, let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
         ctl.focusCamera = { [weak self] x, y in self?.focus(x, y) }
         ctl.cameraWorldRect = { [weak self] in self?.visibleWorldQuad() ?? [] }
         applyZoom()
@@ -371,6 +377,9 @@ final class GameScene: SKScene {
             if k == .wood {
                 s.setScale(0.8 + CGFloat(e.id % 5) * 0.06); s.xScale *= e.id % 2 == 0 ? 1 : -1
                 s.color = biome.treeTint; s.colorBlendFactor = biome.treeTintAmount * CGFloat(0.6 + 0.4 * hnoise(e.id, 3, 5))
+                let along = Float(e.x * Double(biome.wind.x) + e.y * Double(biome.wind.y))
+                Sway.apply(s, speed: 0.9 + Float(hnoise(e.id, 1, 9)) * 0.3, phase: -along * 0.3, amplitude: 0.022 * biome.gust,
+                           tint: biome.treeTint, tintAmount: s.colorBlendFactor)
             }
             return EntityView(body: s, shadow: nil)
         }
@@ -407,6 +416,12 @@ final class GameScene: SKScene {
                 let full = Double(k == .iron ? world.data.rules.economy.ironNodeAmount : (k == .gold ? world.data.rules.economy.goldNodeAmount : world.data.rules.economy.treeAmount))
                 if k != .wood { v.body.setScale(CGFloat(0.65 + 0.35 * min(1, Double(e.amount) / full))) }
                 if k == .gold { lightPool(v, width: 130, color: SKColor(red: 1, green: 0.78, blue: 0.3, alpha: 1), strength: 0.75) }
+                if v.shake > 0 {
+                    // Struck by a worker: a quick shiver.
+                    v.shake = max(0, v.shake - 0.06)
+                    v.body.zRotation = (k == .wood ? 0.05 : 0.0) * v.shake * CGFloat(sin(t * 55))
+                    v.body.position.x = v.shake * 1.5 * CGFloat(sin(t * 61))
+                }
             }
             // Selection ring.
             let isSel = selected.contains(e.id)

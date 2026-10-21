@@ -268,6 +268,12 @@ enum TerrainLayer {
                 s.alpha = kind == 4 ? 0.8 : 0.85
                 s.color = biome.floraTint; s.colorBlendFactor = kind >= 3 ? 0.15 : 0.25
                 s.zPosition = kind == 4 ? 100 + Iso.depth(Double(x) + jx, Double(y) + jy) * 0.4 : 6
+                if kind <= 2 {
+                    // Gusts travel downwind: the phase follows position along the wind direction.
+                    let along = Float(Double(x) * Double(biome.wind.x) + Double(y) * Double(biome.wind.y))
+                    Sway.apply(s, speed: 1.6 + Float(hnoise(x, y, 17)) * 0.6, phase: -along * 0.35 + Float(r) * 2,
+                               amplitude: 0.05 * biome.gust * (kind == 2 ? 1.4 : 1), tint: biome.floraTint, tintAmount: s.colorBlendFactor)
+                }
                 if kind == 3 || kind == 4 {
                     s.run(.repeatForever(.sequence([.fadeAlpha(to: 0.55, duration: 1.5 + Double(r) * 2), .fadeAlpha(to: 0.85, duration: 1.5)])))
                 }

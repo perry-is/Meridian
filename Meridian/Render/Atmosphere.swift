@@ -111,3 +111,41 @@ extension GameScene {
         liftLight(p, in: v, by: -0.5)
     }
 }
+
+/// Wind sway for decor sprites (grass, reeds, trees), done in the fragment shader so thousands of sprites
+/// animate with no per-frame CPU work. Works on atlas textures: `a_rect` is the sprite's sub-rectangle.
+enum Sway {
+    static let shader: SKShader = {
+        let s = SKShader(source: """
+        void main() {
+            vec4 r = a_rect;
+            float ly = clamp((v_tex_coord.y - r.y) / r.w, 0.0, 1.0);
+            float bend = sin(u_time * a_sway.x + a_sway.y) * a_sway.z * ly * ly;
+            vec2 uv = v_tex_coord - vec2(bend * r.z, 0.0);
+            float inside = step(r.x, uv.x) * step(uv.x, r.x + r.z);
+            vec4 c = texture2D(u_texture, uv) * inside;
+            c.rgb = mix(c.rgb, a_tint.rgb * c.a, a_tint.a);
+            gl_FragColor = c * v_color_mix.a;
+        }
+        """)
+        s.attributes = [SKAttribute(name: "a_rect", type: .vectorFloat4), SKAttribute(name: "a_sway", type: .vectorFloat3),
+                        SKAttribute(name: "a_tint", type: .vectorFloat4)]
+        return s
+    }()
+
+    /// speed (rad/s), phase, amplitude (fraction of sprite width at the top).
+    static func apply(_ s: SKSpriteNode, speed: Float, phase: Float, amplitude: Float, tint: SKColor = .white, tintAmount: CGFloat = 0) {
+        guard let t = s.texture else { return }
+        let r = t.textureRect()
+        var cr: CGFloat = 1, cg: CGFloat = 1, cb: CGFloat = 1, ca: CGFloat = 1
+        #if os(iOS)
+        tint.getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
+        #else
+        (tint.usingColorSpace(.sRGB) ?? tint).getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
+        #endif
+        s.shader = shader
+        s.setValue(SKAttributeValue(vectorFloat4: vector_float4(Float(r.minX), Float(r.minY), Float(r.width), Float(r.height))), forAttribute: "a_rect")
+        s.setValue(SKAttributeValue(vectorFloat3: vector_float3(speed, phase, amplitude)), forAttribute: "a_sway")
+        s.setValue(SKAttributeValue(vectorFloat4: vector_float4(Float(cr), Float(cg), Float(cb), Float(tintAmount))), forAttribute: "a_tint")
+    }
+}

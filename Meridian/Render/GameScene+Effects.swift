@@ -180,6 +180,7 @@ extension GameScene {
             }
         }
         unitLights(e, v, fac, t, seed)
+        if world.traits[e.type].worker { workerLife(e, v, t, seed) }
         // Ambient motion effects (budgeted, skipped when zoomed far out).
         v.dustT -= 1.0 / 60
         guard detail, v.dustT <= 0, onScreen(v.root.position) else { return }
@@ -202,6 +203,85 @@ extension GameScene {
                      color: SKColor(red: 0.62, green: 0.54, blue: 0.42, alpha: 1), alpha: 0.45, blend: .alpha, z: 95, life: 0.8, rise: 6, grow: 2.0)
             }
         }
+    }
+
+    static func resourceColor(_ k: ResourceKind) -> SKColor {
+        switch k {
+        case .iron: return SKColor(red: 0.72, green: 0.8, blue: 0.9, alpha: 1)
+        case .gold: return SKColor(red: 1, green: 0.8, blue: 0.3, alpha: 1)
+        case .wood: return SKColor(red: 0.72, green: 0.5, blue: 0.3, alpha: 1)
+        }
+    }
+
+    /// Economy readability: chips fly while harvesting, workers visibly carry their load, deliveries pop
+    /// a "+N", and idle workers wear a small amber marker so they are easy to spot.
+    func workerLife(_ e: Entity, _ v: EntityView, _ t: Double, _ seed: Double) {
+        let mine = e.owner == ctl.me || ctl.spectating
+        // Harvest tick: cargo grew.
+        if e.carryAmount > v.lastCarry, let node = world.entity(e.gatherNode), let nv = views[node.id], onScreen(v.root.position) {
+            nv.shake = 1
+            let p = nv.root.position
+            let col = GameScene.resourceColor(e.carryKind)
+            if detail {
+                for k in 0..<2 {
+                    puff(e.carryKind == .wood ? "pixel" : "spark", at: CGPoint(x: p.x + CGFloat(k * 8 - 4), y: p.y + 14), size: CGSize(width: 4, height: 4),
+                         color: col, blend: .alpha, z: 456, life: 0.45, rise: 14, drift: CGFloat(k * 2 - 1) * 12)
+                }
+            }
+        }
+        // Delivery: cargo emptied.
+        if e.carryAmount == 0 && v.lastCarry > 0 && mine && e.owner == ctl.me && zoom < 2.2 && onScreen(v.root.position) {
+            floatLabel("+\(v.lastCarry)", at: CGPoint(x: v.root.position.x, y: v.root.position.y + v.body.size.height + 4), color: GameScene.resourceColor(e.carryKind))
+        }
+        v.lastCarry = e.carryAmount
+        // Carried load.
+        if e.carryAmount > 0 {
+            if v.cargo == nil {
+                let c = SKSpriteNode(texture: bank.shards[0], size: CGSize(width: 9, height: 9))
+                c.colorBlendFactor = 0.85; c.zPosition = 0.2
+                v.root.addChild(c); v.cargo = c
+            }
+            v.cargo!.isHidden = false
+            v.cargo!.color = GameScene.resourceColor(e.carryKind)
+            v.cargo!.position = CGPoint(x: v.body.position.x - v.facingSign * v.body.size.width * 0.22, y: v.body.position.y + v.body.size.height * 0.42)
+        } else { v.cargo?.isHidden = true }
+        // Idle marker (own workers only, after a moment of idleness).
+        let idle = e.owner == ctl.me && e.order == .idle && !e.moving
+        if idle { if v.idleSince < 0 { v.idleSince = t } } else { v.idleSince = -1 }
+        if idle && t - v.idleSince > 1.5 {
+            if v.idleMark == nil {
+                let m = SKSpriteNode(texture: bank.fx["pixel"], size: CGSize(width: 6, height: 6))
+                m.color = SKColor(red: 1, green: 0.72, blue: 0.2, alpha: 1); m.colorBlendFactor = 1
+                m.zRotation = .pi / 4; m.zPosition = 0.3
+                let g = SKSpriteNode(texture: bank.fx["glow"], size: CGSize(width: 18, height: 18))
+                g.color = m.color; g.colorBlendFactor = 1; g.blendMode = .add; g.alpha = 0.6; g.zPosition = -0.01
+                m.addChild(g)
+                v.root.addChild(m); v.idleMark = m
+            }
+            v.idleMark!.isHidden = false
+            v.idleMark!.position = CGPoint(x: 0, y: v.body.size.height * 0.95 + 4 + CGFloat(sin(t * 4 + seed)) * 2)
+        } else { v.idleMark?.isHidden = true }
+    }
+
+    /// Small pooled floating text (deliveries).
+    func floatLabel(_ text: String, at p: CGPoint, color: SKColor) {
+        let l: SKLabelNode
+        if let free = labelPool.first(where: { $0.parent == nil }) { l = free } else {
+            guard labelPool.count < 16 else { return }
+            l = SKLabelNode(fontNamed: "Menlo-Bold")
+            l.fontSize = 13; l.verticalAlignmentMode = .center
+            let sh = SKLabelNode(fontNamed: "Menlo-Bold")
+            sh.fontSize = 13; sh.verticalAlignmentMode = .center; sh.fontColor = SKColor(white: 0, alpha: 0.75)
+            sh.position = CGPoint(x: 1, y: -1); sh.zPosition = -0.01; sh.name = "shadow"
+            l.addChild(sh)
+            labelPool.append(l)
+        }
+        l.removeAllActions()
+        (l.childNode(withName: "shadow") as? SKLabelNode)?.text = text
+        l.text = text; l.fontColor = color; l.alpha = 1; l.position = p; l.zPosition = 480
+        l.setScale(min(1.6, max(1, zoom * 0.9)))
+        worldNode.addChild(l)
+        l.run(.sequence([.group([.moveBy(x: 0, y: 22, duration: 0.9), .sequence([.wait(forDuration: 0.45), .fadeOut(withDuration: 0.45)])]), .removeFromParent()]))
     }
 
     /// Night lighting on units: aircraft navigation lights, vehicle headlights, Brood bioluminescence.
@@ -692,7 +772,30 @@ extension GameScene {
         v.lights.forEach { $0.removeFromParent() }
         v.fire?.removeFromParent()
         if e.isResource {
-            root.run(.sequence([.group([.fadeOut(withDuration: 0.6), .scale(to: 0.6, duration: 0.6)]), .removeFromParent()]))
+            if e.type == ResourceKind.wood.rawValue {
+                // The last tree in a stand topples, kicking up leaves and dust.
+                let dir: CGFloat = hnoise(e.id, 2, 2) > 0.5 ? 1 : -1
+                v.body.anchorPoint = CGPoint(x: 0.5, y: 0.08)
+                v.body.shader = nil
+                let fall = SKAction.rotate(byAngle: -1.45 * dir, duration: 0.75); fall.timingMode = .easeIn
+                v.body.run(.sequence([fall,
+                                    .run { [weak self] in
+                                        guard let self = self else { return }
+                                        let q = CGPoint(x: p.x + dir * 40, y: p.y + 4)
+                                        self.puff("smoke", at: q, size: CGSize(width: 40, height: 20), color: SKColor(red: 0.55, green: 0.47, blue: 0.36, alpha: 1), alpha: 0.6, blend: .alpha, z: 95, life: 0.9, rise: 6, grow: 1.8)
+                                        for k in 0..<5 {
+                                            self.puff("pixel", at: CGPoint(x: q.x + CGFloat(k * 9 - 18), y: q.y + 10), size: CGSize(width: 4, height: 3),
+                                                      color: SKColor(red: 0.45, green: 0.6, blue: 0.25, alpha: 1), blend: .alpha, z: 456, life: 1.1, rise: CGFloat(10 + k * 3), drift: CGFloat(k * 6 - 12))
+                                        }
+                                        self.addTrauma(0.04, at: q)
+                                    },
+                                    .wait(forDuration: 1.2), .fadeOut(withDuration: 0.8)]))
+                root.run(.sequence([.wait(forDuration: 2.8), .removeFromParent()]))
+            } else {
+                // A depleted deposit crumbles into dust.
+                puff("smoke", at: CGPoint(x: p.x, y: p.y + 6), size: CGSize(width: 50, height: 26), color: SKColor(white: 0.5, alpha: 1), alpha: 0.55, blend: .alpha, z: 95, life: 1.0, rise: 8, grow: 1.6)
+                root.run(.sequence([.group([.fadeOut(withDuration: 0.7), .scaleY(to: 0.3, duration: 0.7)]), .removeFromParent()]))
+            }
             return
         }
         if e.isBuilding {
