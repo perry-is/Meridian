@@ -22,6 +22,8 @@ From the command line:
 xcodebuild -project Meridian.xcodeproj -scheme Meridian -configuration Release -destination 'platform=iOS Simulator,name=RTS Duo' -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build
 ```
 
+Tactical scenarios (headless metrics): `MeridianCore/.build/release/meridian-sim tactics [--only wall,corridor] [--disable kite,cohesion] [--debug]`. Run them in the app with `-scenario skirmish20|battle50|battle100|battle200|kite|wall|siege|corridor|airstrike`.
+
 Observer modes: **Watch AI Match** and **Battle Lab 50/100/200** on the main menu, or `-battle <N>` (staged combined-arms battle, follow camera, spectator HUD). `tools/battle_capture.sh <dir> <N> [udid] [video-seconds]` captures a battle.
 
 Development launch arguments: `-quality 0|1|2` (force effect tier), `-nozoom` (disable battle auto-zoom), `-autostart`, `-spectate` (AI plays both sides), `-warp <seconds>` (fast-forward), `-stress <units per side>` (renderer stress test, prints `PERF` lines), `-faction/-enemy humans|machines|aliens`, `-map crossroads|riverbend|highlands`, `-seed <n>`, `-zoom <scale>`, `-perf nosound,nofog,nohud` (performance isolation). `tools/capture.sh <dir>` captures the standard screenshot set, `tools/shot.sh` takes one quick capture, and `swift tools/compare.swift before after out` builds side-by-side comparisons. On macOS, `--art-sheet <file.png>` renders every unit and building to one image.

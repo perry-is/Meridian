@@ -135,6 +135,28 @@ Staged battle, all units fighting (moving, pathing, projectiles, deaths). Averag
 - The headless simulation stress test (`meridian-sim stress`) is unchanged.
 - The Duo's inner display couldn't be selected in the simulator, so the iPad mini stands in for the unfolded size.
 
+## Mission 4: tactical movement (v0.4)
+
+Full report with methodology and every number: `docs/tactics/REPORT.md`.
+
+- **Formations:** role-based ranks in three shapes (balanced, assault, defensive), selected from a Formation button in the command card (hotkey F).
+- **Movement:** group cohesion, heading smoothing, friend avoidance, stuck recovery, melee fan-out, ranged kiting, aircraft strafing.
+- **Tactical AI:** it gathers before attacking and uses a per-faction formation doctrine, flanks with fast units, retreats into Bloom (Brood) and defends sites.
+- **Spectator camera:** frames the engaged units of both sides.
+- **Tactical test harness:** `meridian-sim tactics`, nine deterministic scenarios with overlap, density, stuck time, weapon uptime, arrival, response and survival metrics. Behaviours can be switched off one at a time (`--disable`) for A/B attribution.
+- **Measured against the baseline** (same harness, same seeds):
+  - overlap fell at 50v50 (2.6% → 0.6%), 100v100 (13% → 5.3%) and 200v200 (28% → 13.8%),
+  - stuck time at 200v200 fell from 108 to 46 unit·s,
+  - Ranger melee contact fell from 41% to 25%,
+  - wall and corridor completion are unchanged at 100%, with t90 within 1 s.
+- **Cost:** simulation at 200v200 rose from 0.87 to 1.55 ms per tick (headless) and 1.79 ms in-app. The renderer still holds 60 fps in the simulator.
+- **Tests:** core 13/13 (4 new tactics tests). Counter duels: 21 of 24 unchanged; 3 changed, listed in the report.
+- **Balance regressions, reported and not compensated:**
+  - Machines vs Aliens shifted about 10 points toward Aliens (48-game samples: 18–30 → 13–35).
+  - Colossus vs Ranger flipped because Rangers now kite slower melee.
+  - Tournament overall: Humans 56%, Machines 38%, Aliens 56% (baseline 54/52/44).
+- **App support:** `-scenario <name>` runs any tactical scenario in the app with the battle camera.
+
 ## How to build, play and test
 
 See `README.md`.

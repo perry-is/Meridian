@@ -1,0 +1,15 @@
+BANK generated in 0.29s
+BANK generated in 0.28s
+IOSurfaceClientSetSurfaceNotify failed e00002c7
+PERF t=2s units=100 nodes=958 frame=21.03ms fps=47.6 p95=16.67ms | sim=0.19ms (max 4.2) sceneUpdate=3.86ms | proj=0 q=2 size=440x956
+PERF t=4s units=99 nodes=1065 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.35ms (max 2.5) sceneUpdate=0.42ms | proj=4 q=2 size=440x956
+PERF t=6s units=93 nodes=1199 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.38ms (max 2.8) sceneUpdate=0.48ms | proj=7 q=2 size=440x956
+PERF t=8s units=82 nodes=1213 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.38ms (max 2.5) sceneUpdate=0.52ms | proj=3 q=2 size=440x956
+PERF t=10s units=68 nodes=1227 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.37ms (max 2.4) sceneUpdate=0.45ms | proj=8 q=2 size=440x956
+PERF t=12s units=57 nodes=1082 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.28ms (max 2.3) sceneUpdate=0.33ms | proj=4 q=2 size=440x956
+PERF t=14s units=49 nodes=1063 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.24ms (max 2.3) sceneUpdate=0.35ms | proj=5 q=2 size=440x956
+PERF t=16s units=42 nodes=1027 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.20ms (max 2.1) sceneUpdate=0.28ms | proj=0 q=2 size=440x956
+PERF t=18s units=35 nodes=1133 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.20ms (max 1.7) sceneUpdate=0.31ms | proj=1 q=2 size=440x956
+PERF t=20s units=33 nodes=1008 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.20ms (max 2.6) sceneUpdate=0.23ms | proj=0 q=2 size=440x956
+PERF t=22s units=33 nodes=907 frame=16.67ms fps=60.0 p95=16.67ms | sim=0.20ms (max 3.0) sceneUpdate=0.20ms | proj=0 q=2 size=440x956
+dev.meridian.rts: 43199
