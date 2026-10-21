@@ -32,6 +32,8 @@ final class EntityView {
     var idleMark: SKSpriteNode?
     var idleSince = -1.0
     var shake: CGFloat = 0
+    var trackX = 0.0
+    var trackY = 0.0
     var navLights: [SKSpriteNode] = []
     var headlight: SKSpriteNode?
 
@@ -107,6 +109,8 @@ final class GameScene: SKScene {
     var night: CGFloat = 0
     var siteGlows: [SKSpriteNode] = []
     var labelPool: [SKLabelNode] = []
+    var scarPools: [String: ScarPool] = [:]
+    var wrecks: [SKNode] = []
 
     init(controller: GameController, size: CGSize) {
         ctl = controller

@@ -180,6 +180,7 @@ extension GameScene {
             }
         }
         unitLights(e, v, fac, t, seed)
+        layTracks(e, v)
         if world.traits[e.type].worker { workerLife(e, v, t, seed) }
         // Ambient motion effects (budgeted, skipped when zoomed far out).
         v.dustT -= 1.0 / 60
@@ -456,6 +457,10 @@ extension GameScene {
                 if ctl.spectating { battleCam.record(x, y, weight: power * (1 + r), time: world.time) }
                 guard visibleToMe(x, y) else { continue }
                 impact(x, y, radius: r, style: style, air: air, power: power, surface: surface)
+                if !air && r >= 0.9 && surface != "structure" {
+                    let c = CGFloat(min(2.2, r))
+                    scar("crater", at: Iso.scene(x, y), size: CGSize(width: 50 * c, height: 25 * c), color: biomeEarth, alpha: 0.85)
+                }
             case .death(let x, let y, let big, _, let air, let building):
                 if ctl.spectating { battleCam.record(x, y, weight: big ? 140 : 50, time: world.time) }
                 guard visibleToMe(x, y) else { continue }
@@ -750,13 +755,12 @@ extension GameScene {
         addTrauma(min(0.55, CGFloat(power) / 220), at: base)
     }
 
+    /// Ground marks now persist (see GameScene+Scars): scorch from blasts, residue from Brood and Lattice losses.
     func decal(_ p: CGPoint, radius: Double, color: SKColor, splat: Bool) {
-        guard quality >= 1 || radius > 1.5, let s = fx() else { return }
-        s.texture = splat ? bank.splats[Int(p.x) & 1] : bank.fx["scorch"]; s.blendMode = .alpha
+        guard quality >= 1 || radius > 1.5 else { return }
         let r = CGFloat(radius)
-        s.size = CGSize(width: 54 * r, height: 27 * r); s.color = color; s.colorBlendFactor = 1
-        s.alpha = splat ? 0.55 : 0.75; s.position = p; s.zPosition = 4
-        s.run(.sequence([.wait(forDuration: 7), .fadeOut(withDuration: 3)])); s.run(recycle(s, after: 10.1))
+        scar(splat ? "residue" : "scorch", at: p, size: CGSize(width: 54 * r, height: 27 * r), color: color, alpha: splat ? 0.55 : 0.7,
+             rotation: CGFloat(hnoise(Int(p.x), Int(p.y), 3) - 0.5) * 0.4, texture: splat ? bank.splats[Int(p.x) & 1] : bank.fx["scorch"])
     }
 
     // MARK: Deaths and wrecks
@@ -809,7 +813,14 @@ extension GameScene {
             rubble.size = CGSize(width: CGFloat(e.size) * 58, height: CGFloat(e.size) * 29)
             rubble.position = p; rubble.zPosition = 5
             worldNode.addChild(rubble)
-            rubble.run(.sequence([.wait(forDuration: 35), .fadeOut(withDuration: 4), .removeFromParent()]))
+            rubble.run(.sequence([.wait(forDuration: 110), .fadeOut(withDuration: 10), .removeFromParent()]))
+            scar("scorch", at: p, size: CGSize(width: CGFloat(e.size) * 80, height: CGFloat(e.size) * 40), color: SKColor(white: 0.03, alpha: 1), alpha: 0.8)
+            // Smouldering ruins for a while.
+            rubble.run(.repeat(.sequence([.run { [weak self] in
+                guard let self = self, self.onScreen(p) else { return }
+                self.puff("smoke", at: CGPoint(x: p.x + CGFloat.random(in: -20...20), y: p.y + 8), size: CGSize(width: 22, height: 22), color: SKColor(white: 0.18, alpha: 1),
+                          alpha: 0.5, blend: .alpha, z: 458, life: 2.2, rise: 50, grow: 2.6, drift: 14)
+            }, .wait(forDuration: 0.6)]), count: 40))
             root.run(.sequence([.wait(forDuration: 1.5), .removeFromParent()]))
             return
         }
@@ -848,7 +859,16 @@ extension GameScene {
                 run(.sequence([.wait(forDuration: 0.35), .run { [weak self] in self?.explosion(e.x + 0.3, e.y + 0.2, radius: 1.0, air: false, power: 60) }]))
             }
             if fac == .aliens { decal(p, radius: 1.2, color: SKColor(red: 0.45, green: 0.85, blue: 0.25, alpha: 1), splat: true) }
-            root.run(.sequence([.wait(forDuration: 4.0), .fadeOut(withDuration: 1.5), .removeFromParent()]))
+            else { decal(p, radius: 1.1, color: SKColor(white: 0.04, alpha: 1), splat: false) }
+            // The hulk stays on the field for a while (capped; oldest wrecks clear first). Flames die down first.
+            glow.run(.sequence([.wait(forDuration: 5), .fadeOut(withDuration: 2), .removeFromParent()]))
+            root.zPosition -= 0.05
+            root.run(.sequence([.wait(forDuration: 4.0), .colorize(withColorBlendFactor: 0.75, duration: 0)]))
+            body.run(.sequence([.wait(forDuration: 6), .fadeAlpha(to: 0.82, duration: 2)]))
+            root.run(.sequence([.wait(forDuration: 28), .fadeOut(withDuration: 4), .removeFromParent()]))
+            wrecks.removeAll { $0.parent == nil }
+            wrecks.append(root)
+            if wrecks.count > 36 { let old = wrecks.removeFirst(); old.removeAllActions(); old.run(.sequence([.fadeOut(withDuration: 1), .removeFromParent()])) }
             return
         }
         switch fac {
