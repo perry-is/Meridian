@@ -288,7 +288,7 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         let dt = lastUpdate == 0 ? 1.0 / 60 : currentTime - lastUpdate
         lastUpdate = currentTime
-        if ctl.stressMode || ctl.battleMode { perfLog(dt) }
+        if ctl.stressMode || ctl.battleMode || GameScene.flags.contains("log") { perfLog(dt) }
         if ctl.spectating && !backdropStatic { battleCam.update(self, dt: min(dt, 0.05)) }
         fogNode?.isHidden = ctl.spectating
         let tSim0 = CACurrentMediaTime()

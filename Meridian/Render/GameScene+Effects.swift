@@ -305,6 +305,7 @@ extension GameScene {
 
     /// A new unit leaves its building: faction-specific arrival, plus a flash at the producing structure.
     func unitArrives(_ e: Entity) {
+        if born.count > 300 { born.removeAll() }
         born[e.id] = world.time
         let fac = world.players[max(0, e.owner)].faction
         var best: Entity? = nil, bd = 49.0
@@ -864,6 +865,11 @@ extension GameScene {
         v.shadow?.run(.fadeOut(withDuration: 0.4))
         v.lights.forEach { $0.removeFromParent() }
         v.fire?.removeFromParent()
+        // Night lights, cargo, markers and working parts go out with their owner.
+        v.navLights.forEach { $0.removeFromParent() }
+        v.parts.values.forEach { $0.removeFromParent() }
+        for n in [v.headlight, v.cargo, v.idleMark, v.charge, v.pool] { n?.removeFromParent() }
+        born.removeValue(forKey: e.id)
         if e.isResource {
             if e.type == ResourceKind.wood.rawValue {
                 // The last tree in a stand topples, kicking up leaves and dust.
