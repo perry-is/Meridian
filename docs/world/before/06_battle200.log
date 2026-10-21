@@ -1,9 +1,0 @@
-BANK generated in 0.27s
-BANK generated in 0.27s
-IOSurfaceClientSetSurfaceNotify failed e00002c7
-PERF t=2s units=400 nodes=1606 frame=21.46ms fps=46.6 p95=16.67ms | sim=1.96ms (max 19.9) sceneUpdate=4.21ms | proj=0 q=2 size=440x956
-PERF t=4s units=394 nodes=2016 frame=17.50ms fps=57.1 p95=16.67ms | sim=1.87ms (max 10.3) sceneUpdate=0.64ms | proj=12 q=2 size=440x956
-PERF t=6s units=368 nodes=2349 frame=16.67ms fps=60.0 p95=16.67ms | sim=1.93ms (max 10.9) sceneUpdate=0.70ms | proj=21 q=2 size=440x956
-PERF t=8s units=315 nodes=2479 frame=16.67ms fps=60.0 p95=16.67ms | sim=1.76ms (max 8.7) sceneUpdate=0.74ms | proj=19 q=2 size=440x956
-PERF t=10s units=248 nodes=2512 frame=16.67ms fps=60.0 p95=16.67ms | sim=1.42ms (max 7.9) sceneUpdate=0.70ms | proj=18 q=2 size=440x956
-dev.meridian.rts: 37713

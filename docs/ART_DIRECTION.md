@@ -47,3 +47,17 @@ Synthesized at launch (`Game/SoundEngine.swift`):
 - a 32-second generative ambient score.
 
 Effects are panned and attenuated relative to the camera and throttled globally. The pause menu and main menu have Master, Effects and Music volume sliders plus a screen-shake toggle.
+
+## The living world (Mission 5)
+
+- **One planet, three places.** Each map's `Biome` (in `Render/Biome.swift`) sets:
+  - palette, water style, wind direction, grade, ambient particles and decor tints.
+- **Motion with purpose:**
+  - buildings animate faster when working and settle when idle;
+  - decor sways with the map's wind;
+  - flags stream downwind.
+- **Light tells the story at night.**
+  - The time-of-day overlay darkens the world.
+  - Lamps, pools, searchlights, headlights and bioluminescence draw above it.
+  - Combat effects and health bars are never dimmed.
+- **Evidence, not clutter.** Battle marks persist for minutes, but every kind is capped and recycled.

@@ -181,6 +181,7 @@ extension GameScene {
                !threatNear(x, y, 4) {
                 let s = SKSpriteNode(texture: bank.fx["critter0"])
                 s.color = critterTint; s.colorBlendFactor = 0.85
+                s.setScale(0.72)
                 s.position = p; s.zPosition = 100 + Iso.depth(x, y) * 0.4
                 s.alpha = 0; s.run(.fadeIn(withDuration: 0.4))
                 worldNode.addChild(s)
@@ -194,7 +195,7 @@ extension GameScene {
                 let a = Double.random(in: 0...(2 * .pi))
                 let to = Iso.scene(c.x + cos(a) * 3, c.y + sin(a) * 3)
                 c.node.removeAllActions()
-                c.node.xScale = to.x < c.node.position.x ? -1 : 1
+                c.node.xScale = to.x < c.node.position.x ? -0.72 : 0.72
                 c.node.run(.repeatForever(.animate(with: [bank.fx["critter0"]!, bank.fx["critter1"]!], timePerFrame: 0.06)))
                 c.node.run(.sequence([.group([.move(to: to, duration: 0.6), .sequence([.wait(forDuration: 0.3), .fadeOut(withDuration: 0.3)])]), .removeFromParent()]))
             } else if now > c.nextHop {
@@ -204,7 +205,7 @@ extension GameScene {
                 guard world.map.inBounds(Int(nx), Int(ny)), !world.nav.isBlocked(Int(nx), Int(ny)) else { continue }
                 c.x = nx; c.y = ny
                 let to = Iso.scene(nx, ny)
-                c.node.xScale = to.x < c.node.position.x ? -1 : 1
+                c.node.xScale = to.x < c.node.position.x ? -0.72 : 0.72
                 let hop = SKAction.sequence([.setTexture(bank.fx["critter1"]!), .group([.move(to: to, duration: 0.22), .sequence([.moveBy(x: 0, y: 4, duration: 0.11), .moveBy(x: 0, y: -4, duration: 0.11)])]), .setTexture(bank.fx["critter0"]!)])
                 c.node.run(hop)
                 c.node.zPosition = 100 + Iso.depth(nx, ny) * 0.4

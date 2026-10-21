@@ -1,7 +1,7 @@
 # Meridian: Three Fronts — Project Status
 
 Original isometric 2.5D sci-fi RTS for iPhone (primary target: **iPhone Duo**, cover + inner screens), also runs on iPad and macOS for desktop testing.
-Last updated: 2026-10-20 (Mission 2 visual overhaul).
+Last updated: 2026-10-20 (Mission 5: the living battlefield; see `docs/world/REPORT.md`).
 
 ## Architecture
 
@@ -160,3 +160,17 @@ Full report with methodology and every number: `docs/tactics/REPORT.md`.
 ## How to build, play and test
 
 See `README.md`.
+
+## Mission 5: the living battlefield (tag `v0.5-world`)
+
+Renderer-only; the simulation, stats, AI and controls are unchanged. Full write-up with before/after images, video and performance numbers: `docs/world/REPORT.md`.
+
+- **Per-map biomes:** Amber Meadows, Verdant Delta (flowing river, mist banks) and Rust Plateau (cracked earth, luminous pools, dust devils).
+- **Wind:** gusts across the grass; a shader sways grass, reeds and trees.
+- **Cosmetic day/night cycle** (Settings toggle): lit buildings, light pools, searchlights, headlights, aircraft nav lights, fireflies, shooting stars.
+- **Working buildings** for all three factions.
+- **Visible economy:** harvest chips, carried loads, "+N" deliveries, idle-worker markers, toppling trees.
+- **Production and arrival feedback;** research-complete light columns.
+- **Persistent pooled battle scars:** craters, scorch, residue, tread marks, lingering wrecks, smouldering ruins.
+- **Unit personality:** weapon charge-up, hover bob, idle glances; support and worker role rings.
+- **Ambient wildlife:** flocks with shadows, fish, critters that flee troops, sky-rays.
