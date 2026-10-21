@@ -247,9 +247,10 @@ struct HelpView: View {
                     ])
                     group("Touch controls", [
                         "Tap a unit or building to select it. Double-tap a unit to select all of that type.",
-                        "Touch and hold, then drag, to box-select.",
+                        "Drag one finger to box-select. Touch and hold for a moment, then drag, to move the camera freely.",
+                        "Two fingers always pan; pinch to zoom. (Pause menu: switch off \"Drag to select\" for drag-to-pan.)",
                         "With units selected, tap the ground to move, tap an enemy to attack, tap a resource with workers to gather.",
-                        "Drag with one or two fingers to pan; pinch to zoom. Tap the minimap to jump.",
+                        "Tap or drag the minimap to jump the camera.",
                         "Attack-Move: tap the button, then the destination; units fight everything on the way.",
                         "Build: select workers → Build → choose a structure → drag the ghost → Confirm.",
                         "Tap a site's platform to inspect it; owned sites can be configured as Extractor, Watchpost or Bulwark.",
@@ -322,12 +323,14 @@ struct AudioSettings: View {
     @State private var sfx: Float = SoundEngine.shared?.sfxVolume ?? 0.8
     @State private var music: Float = SoundEngine.shared?.musicVolume ?? 0.45
     @AppStorage("fx.shake") private var shake = true
+    @AppStorage("input.dragSelects") private var dragSelects = true
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             slider("speaker.wave.3.fill", "Master", $master) { SoundEngine.shared?.master = $0 }
             slider("burst.fill", "Effects", $sfx) { SoundEngine.shared?.sfxVolume = $0 }
             slider("music.note", "Music", $music) { SoundEngine.shared?.musicVolume = $0 }
             Toggle("Screen shake", isOn: $shake).font(.system(size: 12, weight: .semibold))
+            Toggle("Drag to select (hold, then drag to pan)", isOn: $dragSelects).font(.system(size: 12, weight: .semibold))
         }
         .frame(width: 260)
     }

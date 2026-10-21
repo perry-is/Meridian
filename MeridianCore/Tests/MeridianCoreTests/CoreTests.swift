@@ -35,6 +35,23 @@ final class CoreTests: XCTestCase {
         }
     }
 
+    /// Every playable start has all three resources within reach of the HQ.
+    func testStartsHaveNearbyResources() {
+        for layout in MapLayout.playable {
+            for seed in [1, 42, 99999] as [UInt64] {
+                let w = World(config: MatchConfig(factions: [.humans, .aliens], layout: layout, seed: seed))
+                for p in 0..<2 {
+                    let hq = w.buildings(of: p)[0]
+                    var c = [0, 0, 0]
+                    for e in w.entities where e.isResource && e.alive && dist2(e.x, e.y, hq.x, hq.y) < 13 * 13 { c[e.type] += 1 }
+                    XCTAssertGreaterThanOrEqual(c[0], 6, "\(layout) seed \(seed) P\(p) iron")
+                    XCTAssertGreaterThanOrEqual(c[1], 2, "\(layout) seed \(seed) P\(p) gold")
+                    XCTAssertGreaterThanOrEqual(c[2], 10, "\(layout) seed \(seed) P\(p) wood")
+                }
+            }
+        }
+    }
+
     func testDeterminism() {
         func run() -> UInt64 {
             let m = Match(config: MatchConfig(factions: [.humans, .aliens], layout: .riverbend, seed: 42),

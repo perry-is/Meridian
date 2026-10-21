@@ -253,7 +253,7 @@ struct SelectionPanel: View {
             if h.selectionTitle.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "hand.tap.fill").foregroundColor(accent.opacity(0.8))
-                    Text(controller.mode == .normal ? "Tap a unit or building · Hold & drag to box-select" : (h.menuTitle ?? ""))
+                    Text(controller.mode == .normal ? "Drag to select · Hold, then drag to pan" : (h.menuTitle ?? ""))
                         .font(.system(size: 12)).foregroundColor(.white.opacity(0.6))
                     Spacer()
                 }

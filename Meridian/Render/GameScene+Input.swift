@@ -60,19 +60,30 @@ extension GameScene {
 
 #if os(iOS)
 extension GameScene: UIGestureRecognizerDelegate {
+    /// Hold time (seconds) before a still finger switches from box-select to free camera movement.
+    static let holdToPanDelay: TimeInterval = 0.4
+
+    /// "Drag to select" (default): one-finger drag box-selects; touch-and-hold then drag pans the camera.
+    /// Classic: one-finger drag pans; touch-and-hold then drag box-selects. Two fingers always pan.
+    var dragSelects: Bool { UserDefaults.standard.object(forKey: "input.dragSelects") as? Bool ?? true }
+
     func setupTouch(_ view: SKView) {
         let tap = UITapGestureRecognizer(target: self, action: #selector(onTap(_:)))
         let dbl = UITapGestureRecognizer(target: self, action: #selector(onDoubleTap(_:)))
         dbl.numberOfTapsRequired = 2
         tap.require(toFail: dbl)
         let long = UILongPressGestureRecognizer(target: self, action: #selector(onLong(_:)))
-        long.minimumPressDuration = 0.28
-        long.allowableMovement = 12
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(onPan(_:)))
-        pan.maximumNumberOfTouches = 2
-        pan.require(toFail: long)
+        long.minimumPressDuration = GameScene.holdToPanDelay
+        long.allowableMovement = 10
+        let drag = UIPanGestureRecognizer(target: self, action: #selector(onDrag(_:)))
+        drag.minimumNumberOfTouches = 1
+        drag.maximumNumberOfTouches = 1
+        drag.require(toFail: long)
+        let twoFinger = UIPanGestureRecognizer(target: self, action: #selector(onTwoFingerPan(_:)))
+        twoFinger.minimumNumberOfTouches = 2
+        twoFinger.maximumNumberOfTouches = 2
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(onPinch(_:)))
-        for g in [tap, dbl, long, pan, pinch] as [UIGestureRecognizer] { g.delegate = self; view.addGestureRecognizer(g) }
+        for g in [tap, dbl, long, drag, twoFinger, pinch] as [UIGestureRecognizer] { g.delegate = self; view.addGestureRecognizer(g) }
         dbl.delaysTouchesEnded = false
     }
 
@@ -83,34 +94,43 @@ extension GameScene: UIGestureRecognizerDelegate {
     @objc func onTap(_ g: UITapGestureRecognizer) { handleTap(g.location(in: view)) }
     @objc func onDoubleTap(_ g: UITapGestureRecognizer) { handleDoubleTap(g.location(in: view)) }
 
-    @objc func onLong(_ g: UILongPressGestureRecognizer) {
-        let p = g.location(in: view)
-        switch g.state {
-        case .began:
-            boxStart = p
-            if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y) }
-            else { updateBox(p, p) }
-            #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
-        case .changed:
-            if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y) }
-            else if let s = boxStart { updateBox(s, p) }
-        case .ended:
-            if !placing, let s = boxStart { finishBox(s, p) }
-            boxStart = nil
-        default:
-            boxNode.isHidden = true; boxStart = nil
+    // Box selection, shared by both control schemes.
+    func boxGesture(_ state: UIGestureRecognizer.State, _ p: CGPoint) {
+        switch state {
+        case .began: boxStart = p; updateBox(p, p)
+        case .changed: if let s = boxStart { updateBox(s, p) }
+        case .ended: if let s = boxStart { finishBox(s, p) }; boxStart = nil
+        default: boxNode.isHidden = true; boxStart = nil
         }
     }
 
-    @objc func onPan(_ g: UIPanGestureRecognizer) {
-        if placing && g.numberOfTouches == 1 {
-            // One-finger drag moves the building ghost while placing.
-            let (x, y) = worldPoint(fromView: g.location(in: view))
-            ctl.moveGhost(worldX: x, y: y)
-            return
+    // Camera drag, shared by both control schemes.
+    func panGesture(_ state: UIGestureRecognizer.State, _ p: CGPoint) {
+        switch state {
+        case .began: lastPanPoint = p
+        case .changed:
+            if let l = lastPanPoint { pan(by: CGPoint(x: p.x - l.x, y: p.y - l.y)) }
+            lastPanPoint = p
+        default: lastPanPoint = nil
         }
+    }
+
+    /// One finger, moving right away.
+    @objc func onDrag(_ g: UIPanGestureRecognizer) {
+        let p = g.location(in: view)
+        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
+        if dragSelects { boxGesture(g.state, p) } else { panGesture(g.state, p) }
+    }
+
+    /// One finger, held still first, then moving.
+    @objc func onLong(_ g: UILongPressGestureRecognizer) {
+        let p = g.location(in: view)
+        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
+        if g.state == .began { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        if dragSelects { panGesture(g.state, p) } else { boxGesture(g.state, p) }
+    }
+
+    @objc func onTwoFingerPan(_ g: UIPanGestureRecognizer) {
         let t = g.translation(in: view)
         pan(by: t)
         g.setTranslation(.zero, in: view)

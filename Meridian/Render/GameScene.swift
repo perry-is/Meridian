@@ -60,6 +60,7 @@ final class GameScene: SKScene {
     var fogTimer = 0.0
     var fxBudget = 0
     var boxStart: CGPoint?
+    var lastPanPoint: CGPoint?
     var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
     let battleCam = BattleCamera()

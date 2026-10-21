@@ -52,8 +52,8 @@ final class PlaythroughUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["queue_0"].waitForExistence(timeout: 3), "Production queue did not show the worker")
         shot("04_training")
 
-        // Box-select workers around the HQ with touch-and-hold then drag.
-        point(-145, -200).press(forDuration: 0.6, thenDragTo: point(60, 60))
+        // Box-select workers around the HQ with a one-finger drag.
+        point(-145, -200).press(forDuration: 0.05, thenDragTo: point(60, 60))
         sleep(1)
         XCTAssertTrue(title.exists)
         XCTAssertTrue(title.label.contains("selected") || title.label == "Engineer", "Box select failed: \(title.label)")
@@ -77,7 +77,13 @@ final class PlaythroughUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["placementReason"].exists, "Still in placement mode")
         shot("07_construction")
 
-        // Select the HQ again and order a rally / select army; then move units.
+        // Touch-and-hold then drag pans the camera instead of selecting.
+        let before = title.exists ? title.label : ""
+        point(0, 120).press(forDuration: 0.8, thenDragTo: point(-120, 220))
+        sleep(1)
+        XCTAssertEqual(title.exists ? title.label : "", before, "hold-then-drag should pan, not change the selection")
+        shot("07b_after_pan")
+        // Select the army and move it.
         app.buttons["Army"].tap()
         point(-60, 40).tap()
         sleep(3)

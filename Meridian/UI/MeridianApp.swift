@@ -60,6 +60,8 @@ struct RootView: View {
                     // Give the menu a frame to show the loading state before generating textures.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         if !fixedSeed { settings.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000 }
+                        // A real match always uses a playable battlefield (the test arena has no resources).
+                        if !MapLayout.playable.contains(settings.layout) { settings.layout = .crossroads }
                         controller = GameController(settings: settings)
                         loading = false
                     }
@@ -86,10 +88,10 @@ struct RootView: View {
                 return
             }
             if let b = arg("-battle"), let n = Int(b), controller == nil {
-                settings.layout = .arena
-                if arg("-faction") == nil { settings.playerFaction = .humans }
-                if arg("-enemy") == nil { settings.aiFaction = .machines }
-                startBattle(n, settings.playerFaction, settings.aiFaction)
+                // Observer launch: never alter the menu's own match settings.
+                let f0 = arg("-faction").flatMap { Faction(rawValue: $0) } ?? .humans
+                let f1 = arg("-enemy").flatMap { Faction(rawValue: $0) } ?? .machines
+                startBattle(n, f0, f1)
                 return
             }
             if a.contains("-autostart") && controller == nil {
