@@ -117,6 +117,12 @@ final class GameScene: SKScene {
     var scarPools: [String: ScarPool] = [:]
     var wrecks: [SKNode] = []
     var born: [Int: Double] = [:]
+    var waterTiles: [(Int, Int)] = []
+    var critters: [Critter] = []
+    var critterTimer = 0.0
+    var nextFlock = CACurrentMediaTime() + 6
+    var nextRipple = 0.0
+    var nextDevil = CACurrentMediaTime() + 10
 
     init(controller: GameController, size: CGSize) {
         ctl = controller
@@ -140,6 +146,7 @@ final class GameScene: SKScene {
         worldNode.addChild(fxLayer); fxLayer.zPosition = 0
         buildTerrain()
         buildSky()
+        buildWildlife()
         buildSites()
         buildFog()
         ghost = SKSpriteNode()
@@ -292,6 +299,7 @@ final class GameScene: SKScene {
         shakeEnabled = UserDefaults.standard.object(forKey: "fx.shake") as? Bool ?? true
         updateQuality(dt)
         updateSky()
+        updateWildlife(min(dt, 0.1))
         fxBudget = fxBudgetForQuality
         consumeEvents()
         syncEntities()

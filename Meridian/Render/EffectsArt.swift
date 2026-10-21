@@ -217,16 +217,19 @@ enum EffectsArt {
         }
     }
 
-    /// Distant flyer silhouette, wings up / down.
+    /// Distant flyer silhouette, wings up / down. Drawn white; tinted per biome at runtime.
     static func bird(_ frame: Int) -> CGImage {
         Pen.image(24, 14) { p in
-            let up: CGFloat = frame == 0 ? 1 : -0.6
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: 1, y: 7 + 5 * up))
-            path.addQuadCurve(to: CGPoint(x: 12, y: 7), control: CGPoint(x: 7, y: 7 + 2 * up))
-            path.addQuadCurve(to: CGPoint(x: 23, y: 7 + 5 * up), control: CGPoint(x: 17, y: 7 + 2 * up))
-            p.stroke(path, RGB(0.05, 0.05, 0.08, 0.95), 2)
-            p.dot(12, 7, 1.6, RGB(0.05, 0.05, 0.08, 1))
+            let up: CGFloat = frame == 0 ? 1 : -0.5
+            for side in [-1.0, 1.0] as [CGFloat] {
+                let wing = CGMutablePath()
+                wing.move(to: CGPoint(x: 12, y: 7.5))
+                wing.addQuadCurve(to: CGPoint(x: 12 + side * 11, y: 7 + 4.5 * up), control: CGPoint(x: 12 + side * 5, y: 7 + 3.5 * up + 1.5))
+                wing.addQuadCurve(to: CGPoint(x: 12, y: 6), control: CGPoint(x: 12 + side * 5, y: 6 + 1.5 * up))
+                wing.closeSubpath()
+                p.fill(wing, RGB(1, 1, 1, 1))
+            }
+            p.fill(p.ellipsePath(12, 6.8, 2.2, 1.4), RGB(1, 1, 1, 1))
         }
     }
 
@@ -246,6 +249,27 @@ enum EffectsArt {
         Pen.image(16, 26) { p in
             p.fill(p.poly([(1, 0), (15, 0), (15, 25), (8, 19), (1, 25)]), RGB(1, 1, 1))
             p.line((1, 3), (15, 3), RGB(0.7, 0.7, 0.7), 1)
+        }
+    }
+
+    /// Small field critter (side view, facing right), two hop frames. Tinted per biome at runtime.
+    static func critter(_ frame: Int) -> CGImage {
+        Pen.image(18, 14) { p in
+            let lift: CGFloat = frame == 0 ? 0 : 2
+            p.fill(p.ellipsePath(9, 2, 6, 1.5), RGB(0, 0, 0, 0.25))
+            p.shade(p.ellipsePath(8, 6 + lift, 6, 3.6), RGB(0.85, 0.85, 0.85), outline: RGB(0.08, 0.07, 0.07, 0.85), lw: 0.8)
+            p.shade(p.ellipsePath(13.5, 8.5 + lift, 3, 2.6), RGB(0.9, 0.9, 0.9), outline: RGB(0.08, 0.07, 0.07, 0.85), lw: 0.8)
+            p.limb((13, 10.5 + lift), (12, 13.5 + lift), RGB(0.8, 0.8, 0.8), 1.4)
+            p.dot(14.6, 9 + lift, 0.8, RGB(0.05, 0.05, 0.05))
+            if frame == 1 { p.limb((4, 5), (2, 2), RGB(0.7, 0.7, 0.7), 1.2) }
+        }
+    }
+
+    /// A large gliding sky-ray (highlands), seen from below.
+    static func skyray() -> CGImage {
+        Pen.image(40, 22) { p in
+            p.fill(p.poly([(2, 12), (16, 15), (20, 20), (24, 15), (38, 12), (24, 8), (20, 1), (16, 8)]), RGB(0.12, 0.08, 0.12, 0.92))
+            p.line((20, 1), (20, -2), RGB(0.12, 0.08, 0.12, 0.8), 1)
         }
     }
 }
