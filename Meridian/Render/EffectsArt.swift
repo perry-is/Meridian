@@ -210,4 +210,23 @@ enum EffectsArt {
             p.dot(12, 7, 1.6, RGB(0.05, 0.05, 0.08, 1))
         }
     }
+
+    /// Radar dish on a short mast (mast base at the bottom centre). Turned at runtime by squashing x.
+    static func radarDish() -> CGImage {
+        Pen.image(28, 30) { p in
+            p.limb((14, 2), (14, 13), RGB(0.3, 0.3, 0.32), 2)
+            p.shade(p.ellipsePath(14, 18, 11, 7), RGB(0.86, 0.87, 0.85), outline: RGB(0.05, 0.04, 0.07, 0.9))
+            p.fill(p.ellipsePath(15, 18.5, 6.5, 4), RGB(0.62, 0.64, 0.66))
+            p.limb((15, 18.5), (18, 24), RGB(0.3, 0.3, 0.32), 1.2)
+            p.dot(18, 24, 1.6, RGB(1, 0.35, 0.25))
+        }
+    }
+
+    /// Swallow-tail flag drawn upright (pole edge at the bottom); rotated to fly sideways at runtime.
+    static func flag() -> CGImage {
+        Pen.image(16, 26) { p in
+            p.fill(p.poly([(1, 0), (15, 0), (15, 25), (8, 19), (1, 25)]), RGB(1, 1, 1))
+            p.line((1, 3), (15, 3), RGB(0.7, 0.7, 0.7), 1)
+        }
+    }
 }

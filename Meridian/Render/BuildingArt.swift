@@ -128,7 +128,7 @@ enum BuildingArt {
             p.line(P(1.0, 0.9, 48, n), P(n - 1.2, 0.9, 48, n), tc, 4)
             let top = P(n * 0.5, n * 0.5, 78, n)
             antenna(p, top.0 - 6, top.1, 42)
-            dish(p, top.0 + 12, top.1 - 4, 10)
+            p.dot(top.0 + 12, top.1 - 4, 3, RGB(0.3, 0.3, 0.32))   // radar mount (the dish turns at runtime)
             // Helipad on the low deck.
             let hp = P(n - 0.9, n - 0.9, 26, n)
             p.stroke(p.ellipsePath(hp.0, hp.1, 13, 6.5), RGB(1, 1, 1, 0.8), 1.5); p.line((hp.0 - 4, hp.1), (hp.0 + 4, hp.1), RGB(1, 1, 1, 0.8), 1.5)
@@ -155,8 +155,7 @@ enum BuildingArt {
             windowsL(p, n, 0.5, n - 0.5, 0.3, 8, 5, win)
             box(p, n, 0.3, n * 0.66, n * 0.5, n - 0.3, 0, 14, concrete, roof)
             let f = P(n - 0.5, n - 0.5, 0, n)
-            p.limb((f.0, f.1), (f.0, f.1 + 62), RGB(0.3, 0.3, 0.3), 1.6)
-            p.shape([(f.0, f.1 + 62), (f.0 + 20, f.1 + 56), (f.0, f.1 + 50)], tc)
+            p.limb((f.0, f.1), (f.0, f.1 + 62), RGB(0.3, 0.3, 0.3), 1.6)   // flag flies at runtime
         case .heavy:
             box(p, n, 0.2, 0.25, n - 0.2, n - 0.2, 0, 34, armor.dark(0.05), roof)
             for (u0, u1) in [(0.4, n * 0.45), (n * 0.55, n - 0.4)] {
@@ -170,7 +169,6 @@ enum BuildingArt {
             let c0 = P(n - 0.6, n - 0.6, 34, n)
             p.limb((c0.0, c0.1), (c0.0, c0.1 + 36), RGB(0.95, 0.72, 0.15), 3)
             p.limb((c0.0, c0.1 + 36), (c0.0 - 48, c0.1 + 30), RGB(0.95, 0.72, 0.15), 3)
-            p.line((c0.0 - 40, c0.1 + 31), (c0.0 - 40, c0.1 + 14), RGB(0.2, 0.2, 0.2), 1)
             cylinder(p, P(0.6, n - 0.5, 34, n).0, P(0.6, n - 0.5, 34, n).1, 6, 18, RGB(0.6, 0.35, 0.2))
         case .air:
             WorldArt.pad(p, n, RGB(0.30, 0.31, 0.32))
@@ -198,7 +196,7 @@ enum BuildingArt {
             let s = P(n * 0.48, n * 0.5, 18, n)
             p.fill(p.roundRectPath(s.0 - 3, s.1 + 10, 6, 28, 2), RGB(0.15, 0.2, 0.3, 0.7))       // telescope slot
             p.limb((s.0, s.1 + 26), (s.0 + 14, s.1 + 44), RGB(0.3, 0.32, 0.36), 4)
-            dish(p, P(n - 0.5, n - 0.5, 18, n).0, P(n - 0.5, n - 0.5, 18, n).1, 9)
+            p.dot(P(n - 0.5, n - 0.5, 18, n).0, P(n - 0.5, n - 0.5, 18, n).1, 2.5, RGB(0.3, 0.3, 0.32))
             p.line(P(0.25, 0.25, 14, n), P(n - 0.25, 0.25, 14, n), tc, 3)
         case .tower:
             let b = P(n * 0.5, n * 0.5, 0, n)

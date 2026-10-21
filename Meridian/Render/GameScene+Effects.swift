@@ -991,7 +991,7 @@ extension GameScene {
                 s.setScale(0.5); s.run(.group([.scale(to: 1.3, duration: 0.5), .fadeOut(withDuration: 0.5)])); s.run(recycle(s, after: 0.52))
             }
         }
-        if fac == .aliens { v.body.yScale = 1 + 0.018 * CGFloat(sin(t * (busy ? 4 : 1.8) + seed)) }
+        animateParts(e, v, d, t, busy: busy)
         if t - e.lastHitTime < 0.08 { v.body.colorBlendFactor = 0.35; v.body.color = SKColor(red: 1, green: 0.3, blue: 0.2, alpha: 1) }
         else if e.disruptedUntil > t { v.body.colorBlendFactor = 0.4; v.body.color = SKColor(red: 0.4, green: 0.6, blue: 1, alpha: 1) }
         else { v.body.colorBlendFactor = 0 }

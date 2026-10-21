@@ -107,8 +107,10 @@ extension GameScene {
         if p.isHidden { return }
         p.color = color
         p.size = CGSize(width: width, height: width * 0.5)
-        p.alpha = night * strength
-        liftLight(p, in: v, by: -0.5)
+        // Beneath the structure: added to the ground before the night overlay darkens it, so the
+        // ground glows while the building itself keeps its shape.
+        p.alpha = min(1, night * strength * 1.5)
+        p.zPosition = -0.3
     }
 }
 

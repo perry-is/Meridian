@@ -33,6 +33,9 @@ final class EntityView {
     var idleSince = -1.0
     var shake: CGFloat = 0
     var trackX = 0.0
+    var parts: [String: SKSpriteNode] = [:]
+    var partT = 0.0
+    var phase = 0.0
     var trackY = 0.0
     var navLights: [SKSpriteNode] = []
     var headlight: SKSpriteNode?
@@ -154,6 +157,11 @@ final class GameScene: SKScene {
         if ProcessInfo.processInfo.arguments.contains("-nozoom") { battleCam.autoZoom = false }
         if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
         if !ctl.stressMode && !ctl.battleMode, let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
+        // `-camhq <player>`: frame that player's base and hold the camera there (captures).
+        if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-camhq"), let pl = Int(ProcessInfo.processInfo.arguments[i + 1]),
+           let hq = world.buildings(of: pl).first {
+            focus(hq.x + 1, hq.y - 1); battleCam.manualOverride(seconds: 1e7)
+        }
         ctl.focusCamera = { [weak self] x, y in self?.focus(x, y) }
         ctl.cameraWorldRect = { [weak self] in self?.visibleWorldQuad() ?? [] }
         applyZoom()
