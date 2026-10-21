@@ -316,14 +316,32 @@ final class GameController: ObservableObject {
                 let s = Double(e.size)
                 if x >= Double(e.tileX) - 0.3 && x <= Double(e.tileX) + s + 0.3 && y >= Double(e.tileY) - 0.3 && y <= Double(e.tileY) + s + 0.3 { d = 0.5 } else { continue }
             } else if e.isResource {
-                d = dist2(x, y, e.x, e.y).squareRoot() + 0.4
                 if !world.players[me].explored[world.tileIndex(e.x, e.y)] { continue }
+                // Hit-test the drawn sprite (trees and ore stand up from their base), in screen points.
+                let dx = x - e.x, dy = y - e.y
+                let sx = 32 * (dx + dy), sy = 16 * (dy - dx)
+                let pad = 10 + (radius - 0.7) * 24
+                let half = (e.type == ResourceKind.wood.rawValue ? 20.0 : 26.0) + pad
+                let top = (e.type == ResourceKind.wood.rawValue ? 66.0 : (e.type == ResourceKind.iron.rawValue ? 40.0 : 50.0)) + pad
+                guard abs(sx) <= half, sy >= -12 - pad, sy <= top else { continue }
+                d = hypot(sx, sy - top * 0.35) / 200   // always within the pick radius once inside the sprite
             } else {
-                // Air units are drawn higher up the screen; compensate.
-                let ox = e.isAir ? e.x - 0.75 : e.x, oy = e.isAir ? e.y + 0.75 : e.y
-                d = dist2(x, y, ox, oy).squareRoot() - e.radius * 0.5
+                // Sprites stand up-screen from their feet (air units much higher); test against the drawn body.
+                let lift = e.isAir ? 0.75 : 0.25
+                d = dist2(x, y, e.x - lift, e.y + lift).squareRoot() - e.radius * 0.5 - (e.owner == me ? 0.2 : 0)
             }
             if d < radius && d < bd { bd = d; best = e }
+        }
+        return best
+    }
+
+    /// Nearest explored resource node to a point (by its sprite, so taps on tree tops count).
+    func pickResource(_ x: Double, _ y: Double, within r: Double) -> Entity? {
+        var best: Entity? = nil, bd = r * r
+        for e in world.entities where e.alive && e.isResource && world.players[me].explored[world.tileIndex(e.x, e.y)] {
+            let lift = e.type == ResourceKind.wood.rawValue ? 0.8 : 0.5   // visual centre sits up-screen from the base
+            let d = dist2(x, y, e.x - lift, e.y + lift)
+            if d < bd { bd = d; best = e }
         }
         return best
     }
@@ -412,7 +430,12 @@ final class GameController: ObservableObject {
             mode = .normal; toast("Rally point set"); return
         case .normal: break
         }
-        let hit = pick(x, y, radius: r)
+        var hit = pick(x, y, radius: r)
+        // Workers selected: a tap on (or right next to) a resource node means "harvest", even if another unit is closer.
+        let workersSelected = !selection.isEmpty && selectedEntities.allSatisfy { $0.isUnit && world.traits[$0.type].worker }
+        if workersSelected, hit == nil || !(hit!.isResource || hit!.isBuilding || world.isEnemyPublic(me, hit!.owner)) {
+            if let node = pickResource(x, y, within: max(1.4, r * 1.6)) { hit = node }
+        }
         if let h = hit, h.owner == me {
             // Tapping own stuff: select it (transport + selected units => load handled via smart command).
             if !selection.isEmpty && !h.isBuilding && world.traits[h.type].capacity > 0 && selectedEntities.contains(where: { $0.isUnit && !$0.isAir && $0.id != h.id }) {
