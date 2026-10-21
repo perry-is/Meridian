@@ -45,6 +45,17 @@ extension GameScene {
             nextDevil = now + 28 + Double.random(in: 0...30)
             if zoom < 2.6 { dustDevil() }
         }
+        // A shooting star now and then on clear nights.
+        if night > 0.6 && now > nextStar {
+            nextStar = now + 14 + Double.random(in: 0...20)
+            let a = CGPoint(x: CGFloat.random(in: -0.4...0.3) * size.width, y: CGFloat.random(in: 0.15...0.45) * size.height)
+            let s = SKSpriteNode(texture: bank.fx["beam"], size: CGSize(width: 90, height: 3))
+            s.anchorPoint = CGPoint(x: 1, y: 0.5); s.blendMode = .add; s.colorBlendFactor = 1
+            s.color = SKColor(red: 0.85, green: 0.92, blue: 1, alpha: 1)
+            s.position = a; s.zRotation = -0.45; s.alpha = 0; s.zPosition = 895
+            cam.addChild(s)
+            s.run(.sequence([.group([.moveBy(x: 260, y: -120, duration: 0.7), .sequence([.fadeAlpha(to: 0.9, duration: 0.1), .wait(forDuration: 0.35), .fadeOut(withDuration: 0.25)])]), .removeFromParent()]))
+        }
         updateCritters(dt)
     }
 

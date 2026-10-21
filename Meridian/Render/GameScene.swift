@@ -122,6 +122,7 @@ final class GameScene: SKScene {
     var critterTimer = 0.0
     var nextFlock = CACurrentMediaTime() + 6
     var nextRipple = 0.0
+    var nextStar = 0.0
     var nextDevil = CACurrentMediaTime() + 10
 
     init(controller: GameController, size: CGSize) {
