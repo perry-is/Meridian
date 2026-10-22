@@ -56,6 +56,7 @@ extension GameScene {
         let s = fxPool.popLast() ?? {
             let n = SKSpriteNode(texture: bank.fx["glow"])
             n.colorBlendFactor = 1
+            fxAll.append(n)
             return n
         }()
         s.removeAllActions()
@@ -71,6 +72,15 @@ extension GameScene {
             s.removeFromParent(); s.isHidden = false
             if (self?.fxPool.count ?? 999) < 500 { self?.fxPool.append(s) }
         }])
+    }
+
+    /// Safety net: a pooled effect that is still on screen with no animation left (e.g. its actions were
+    /// cancelled mid-flight) is returned to the pool instead of lingering.
+    func sweepEffects() {
+        for s in fxAll where s.parent != nil && !s.hasActions() {
+            s.removeFromParent(); s.isHidden = false
+            if fxPool.count < 500 && !fxPool.contains(where: { $0 === s }) { fxPool.append(s) }
+        }
     }
 
     func visibleToMe(_ x: Double, _ y: Double) -> Bool { ctl.spectating || world.players[ctl.me].visible[world.tileIndex(x, y)] > 0 }
@@ -596,6 +606,23 @@ extension GameScene {
             }
             sfx?.play(cp.2 ? "attack" : "move", at: nil)
         }
+        // Workers' target: a ring flashes around the node or structure they were sent to.
+        if let tp = ctl.targetPing {
+            ctl.targetPing = nil
+            if let t = world.entity(tp.0), let tv = views[t.id] {
+                let w: CGFloat = t.isBuilding ? CGFloat(t.size) * 46 : (t.isUnit ? max(34, CGFloat(t.radius) * 140) : (t.type == ResourceKind.wood.rawValue ? 54 : 66))
+                let col = t.isResource ? GameScene.resourceColor(ResourceKind(rawValue: t.type)!) :
+                    (world.isEnemyPublic(ctl.me, t.owner) ? SKColor(red: 1, green: 0.3, blue: 0.25, alpha: 1) : SKColor(red: 0.45, green: 0.9, blue: 1, alpha: 1))
+                for k in 0..<2 {
+                    guard let s = fx() else { break }
+                    s.texture = bank.fx["selectring"]; s.blendMode = .alpha; s.size = CGSize(width: w, height: w / 2)
+                    s.color = col; s.position = tv.root.position; s.zPosition = 452; s.alpha = 0; s.setScale(1.35)
+                    s.run(.sequence([.wait(forDuration: Double(k) * 0.22), .group([.fadeAlpha(to: 1, duration: 0.08), .scale(to: 1, duration: 0.3)]),
+                                     .wait(forDuration: 0.25), .fadeOut(withDuration: 0.3)]))
+                    s.run(recycle(s, after: 1.2))
+                }
+            }
+        }
         for c in world.clouds where visibleToMe(c.x, c.y) && world.tick % (quality == 2 ? 5 : 9) == 0 {
             let jx = Double(hnoise(world.tick, Int(c.x * 10), 3) - 0.5) * c.radius
             let p = Iso.scene(c.x + jx, c.y)
@@ -1010,6 +1037,20 @@ extension GameScene {
             rangeRing.position = v.root.position
             rangeRing.isHidden = false
         } else { rangeRing.isHidden = true }
+    }
+
+    /// Marker on the first patrol point while waiting for the second tap.
+    func syncPatrolMarker() {
+        if let p = ctl.patrolFirst, ctl.mode == .patrol {
+            if patrolMark == nil {
+                let m = SKSpriteNode(texture: bank.fx["ring_marker"], size: CGSize(width: 54, height: 27))
+                m.color = SKColor(red: 0.35, green: 1, blue: 0.45, alpha: 1); m.colorBlendFactor = 1; m.zPosition = 452
+                m.run(.repeatForever(.sequence([.scale(to: 1.12, duration: 0.4), .scale(to: 0.95, duration: 0.4)])))
+                worldNode.addChild(m); patrolMark = m
+            }
+            patrolMark!.isHidden = false
+            patrolMark!.position = Iso.scene(p.0, p.1)
+        } else { patrolMark?.isHidden = true }
     }
 
     func line(_ i: Int) -> SKSpriteNode {

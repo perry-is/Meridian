@@ -36,6 +36,24 @@ final class CoreTests: XCTestCase {
     }
 
     /// Every playable start has all three resources within reach of the HQ.
+    func testPatrolShuttlesBetweenTwoPoints() {
+        let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .arena, seed: 3))
+        w.sandbox = true; w.clearAll()
+        let ids = (0..<4).map { k in w.spawnUnit(w.data.unitIndex["h_ranger"]!, owner: 0, x: 20 + Double(k), y: 20).id }
+        let a = (30.0, 20.0), b = (30.0, 34.0)
+        w.commandPatrol(ids, from: a, to: b)
+        var reachedA = false, reachedB = false
+        for _ in 0..<(20 * 60) {
+            w.step()
+            let cx = ids.compactMap { w.entity($0) }.reduce(0) { $0 + $1.x } / 4, cy = ids.compactMap { w.entity($0) }.reduce(0) { $0 + $1.y } / 4
+            if dist2(cx, cy, a.0, a.1) < 4 { reachedA = true }
+            if reachedA && dist2(cx, cy, b.0, b.1) < 4 { reachedB = true }
+            if reachedB && dist2(cx, cy, a.0, a.1) < 4 { break }
+        }
+        XCTAssertTrue(reachedA && reachedB, "patrol group should walk to the first point, then on to the second")
+        XCTAssertTrue(ids.allSatisfy { w.entity($0)?.order == .patrol }, "units keep patrolling")
+    }
+
     func testStartsHaveNearbyResources() {
         for layout in MapLayout.playable {
             for seed in [1, 42, 99999] as [UInt64] {

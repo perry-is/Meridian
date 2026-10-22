@@ -60,53 +60,34 @@ extension GameScene {
 
 #if os(iOS)
 extension GameScene: UIGestureRecognizerDelegate {
-    /// Hold time (seconds) before a still finger switches from box-select to free camera movement.
-    static let holdToPanDelay: TimeInterval = 0.4
-
-    /// "Drag to select" (default): one-finger drag box-selects; touch-and-hold then drag pans the camera.
-    /// Classic: one-finger drag pans; touch-and-hold then drag box-selects. Two fingers always pan.
-    var dragSelects: Bool { UserDefaults.standard.object(forKey: "input.dragSelects") as? Bool ?? true }
-
+    /// Touch controls:
+    ///  - one finger: tap selects / commands, double-tap selects all of a type, drag moves the camera;
+    ///  - two fingers: drag together to draw a selection box, pinch apart/together to zoom
+    ///    (decided by whichever motion shows first);
+    ///  - while placing a building, one finger drags the placement ghost.
     func setupTouch(_ view: SKView) {
         let tap = UITapGestureRecognizer(target: self, action: #selector(onTap(_:)))
         let dbl = UITapGestureRecognizer(target: self, action: #selector(onDoubleTap(_:)))
         dbl.numberOfTapsRequired = 2
         tap.require(toFail: dbl)
-        let long = UILongPressGestureRecognizer(target: self, action: #selector(onLong(_:)))
-        long.minimumPressDuration = GameScene.holdToPanDelay
-        long.allowableMovement = 10
         let drag = UIPanGestureRecognizer(target: self, action: #selector(onDrag(_:)))
         drag.minimumNumberOfTouches = 1
         drag.maximumNumberOfTouches = 1
-        drag.require(toFail: long)
-        let twoFinger = UIPanGestureRecognizer(target: self, action: #selector(onTwoFingerPan(_:)))
-        twoFinger.minimumNumberOfTouches = 2
-        twoFinger.maximumNumberOfTouches = 2
-        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(onPinch(_:)))
-        for g in [tap, dbl, long, drag, twoFinger, pinch] as [UIGestureRecognizer] { g.delegate = self; view.addGestureRecognizer(g) }
+        let two = UIPanGestureRecognizer(target: self, action: #selector(onTwoFinger(_:)))
+        two.minimumNumberOfTouches = 2
+        two.maximumNumberOfTouches = 2
+        for g in [tap, dbl, drag, two] as [UIGestureRecognizer] { g.delegate = self; view.addGestureRecognizer(g) }
         dbl.delaysTouchesEnded = false
-    }
-
-    public func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith o: UIGestureRecognizer) -> Bool {
-        (g is UIPinchGestureRecognizer && o is UIPanGestureRecognizer) || (o is UIPinchGestureRecognizer && g is UIPanGestureRecognizer)
     }
 
     @objc func onTap(_ g: UITapGestureRecognizer) { handleTap(g.location(in: view)) }
     @objc func onDoubleTap(_ g: UITapGestureRecognizer) { handleDoubleTap(g.location(in: view)) }
 
-    // Box selection, shared by both control schemes.
-    func boxGesture(_ state: UIGestureRecognizer.State, _ p: CGPoint) {
-        switch state {
-        case .began: boxStart = p; updateBox(p, p)
-        case .changed: if let s = boxStart { updateBox(s, p) }
-        case .ended: if let s = boxStart { finishBox(s, p) }; boxStart = nil
-        default: boxNode.isHidden = true; boxStart = nil
-        }
-    }
-
-    // Camera drag, shared by both control schemes.
-    func panGesture(_ state: UIGestureRecognizer.State, _ p: CGPoint) {
-        switch state {
+    /// One finger: move the camera (or the placement ghost).
+    @objc func onDrag(_ g: UIPanGestureRecognizer) {
+        let p = g.location(in: view)
+        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
+        switch g.state {
         case .began: lastPanPoint = p
         case .changed:
             if let l = lastPanPoint { pan(by: CGPoint(x: p.x - l.x, y: p.y - l.y)) }
@@ -115,30 +96,33 @@ extension GameScene: UIGestureRecognizerDelegate {
         }
     }
 
-    /// One finger, moving right away.
-    @objc func onDrag(_ g: UIPanGestureRecognizer) {
-        let p = g.location(in: view)
-        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
-        if dragSelects { boxGesture(g.state, p) } else { panGesture(g.state, p) }
-    }
-
-    /// One finger, held still first, then moving.
-    @objc func onLong(_ g: UILongPressGestureRecognizer) {
-        let p = g.location(in: view)
-        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
-        if g.state == .began { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-        if dragSelects { panGesture(g.state, p) } else { boxGesture(g.state, p) }
-    }
-
-    @objc func onTwoFingerPan(_ g: UIPanGestureRecognizer) {
-        let t = g.translation(in: view)
-        pan(by: t)
-        g.setTranslation(.zero, in: view)
-    }
-
-    @objc func onPinch(_ g: UIPinchGestureRecognizer) {
-        zoom(by: g.scale, around: g.location(in: view))
-        g.scale = 1
+    /// Two fingers: a selection box from where the fingers started to where they are, or a pinch zoom.
+    @objc func onTwoFinger(_ g: UIPanGestureRecognizer) {
+        guard let v = view else { return }
+        let mid = g.location(in: v)
+        let spread: CGFloat? = g.numberOfTouches >= 2 ? hypot(g.location(ofTouch: 0, in: v).x - g.location(ofTouch: 1, in: v).x,
+                                                              g.location(ofTouch: 0, in: v).y - g.location(ofTouch: 1, in: v).y) : nil
+        switch g.state {
+        case .began:
+            twoStart = mid; twoSpread = spread ?? 0; twoMode = 0
+        case .changed:
+            guard let s0 = twoStart else { return }
+            if twoMode == 0, let sp = spread {
+                // Decide by the first clear motion: fingers spreading/closing = zoom, moving together = select.
+                if abs(sp - twoSpread) > 18 { twoMode = 2 }
+                else if hypot(mid.x - s0.x, mid.y - s0.y) > 14 { twoMode = 1; UISelectionFeedbackGenerator().selectionChanged() }
+            }
+            if twoMode == 1 { updateBox(s0, mid) }
+            else if twoMode == 2, let sp = spread, twoSpread > 1 {
+                zoom(by: sp / twoSpread, around: mid)
+                twoSpread = sp
+            }
+        case .ended:
+            if twoMode == 1, let s0 = twoStart { finishBox(s0, mid) }
+            boxNode.isHidden = true; twoStart = nil; twoMode = 0
+        default:
+            boxNode.isHidden = true; twoStart = nil; twoMode = 0
+        }
     }
 }
 #else

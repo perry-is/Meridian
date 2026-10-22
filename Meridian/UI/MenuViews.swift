@@ -247,8 +247,8 @@ struct HelpView: View {
                     ])
                     group("Touch controls", [
                         "Tap a unit or building to select it. Double-tap a unit to select all of that type.",
-                        "Drag one finger to box-select. Touch and hold for a moment, then drag, to move the camera freely.",
-                        "Two fingers always pan; pinch to zoom. (Pause menu: switch off \"Drag to select\" for drag-to-pan.)",
+                        "Drag one finger to move around the map.",
+                        "Drag two fingers together to draw a selection box; pinch to zoom.",
                         "With units selected, tap the ground to move, tap an enemy to attack, tap a resource with workers to gather.",
                         "Tap or drag the minimap to jump the camera.",
                         "Attack-Move: tap the button, then the destination; units fight everything on the way.",
@@ -323,7 +323,6 @@ struct AudioSettings: View {
     @State private var sfx: Float = SoundEngine.shared?.sfxVolume ?? 0.8
     @State private var music: Float = SoundEngine.shared?.musicVolume ?? 0.45
     @AppStorage("fx.shake") private var shake = true
-    @AppStorage("input.dragSelects") private var dragSelects = true
     @AppStorage("fx.daynight") private var dayNight = true
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -332,7 +331,6 @@ struct AudioSettings: View {
             slider("music.note", "Music", $music) { SoundEngine.shared?.musicVolume = $0 }
             Toggle("Screen shake", isOn: $shake).font(.system(size: 12, weight: .semibold))
             Toggle("Day/night cycle (cosmetic)", isOn: $dayNight).font(.system(size: 12, weight: .semibold))
-            Toggle("Drag to select (hold, then drag to pan)", isOn: $dragSelects).font(.system(size: 12, weight: .semibold))
         }
         .frame(width: 260)
     }

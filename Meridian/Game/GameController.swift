@@ -119,7 +119,11 @@ final class GameController: ObservableObject {
     var spectating = false
     var selection: [Int] = []
     var selectedSite: Int? = nil
-    var mode: InputMode = .normal { didSet { refreshHUD() } }
+    var mode: InputMode = .normal { didSet { if mode != .patrol { patrolFirst = nil }; refreshHUD() } }
+    /// First point of a two-point patrol (set by the first tap in Patrol mode).
+    var patrolFirst: (Double, Double)? = nil
+    /// A worker's harvest / build / repair target, flashed with a ring as confirmation.
+    var targetPing: (Int, Double)? = nil
     var buildMenu = false { didSet { refreshHUD() } }
     var ghostTile: (Int, Int)? = nil
     var controlGroups: [Int: [Int]] = [:]
@@ -346,6 +350,17 @@ final class GameController: ObservableObject {
         return best
     }
 
+    /// Nearest visible enemy unit or structure to a point (sprite centre, so taps on the body count).
+    func pickEnemy(_ x: Double, _ y: Double, within r: Double) -> Entity? {
+        var best: Entity? = nil, bd = r * r
+        for e in world.entities where e.alive && e.onMap && !e.isMine && !e.isResource && world.isEnemyPublic(me, e.owner) && isShown(e) && !world.isCloaked(e) {
+            let lift = e.isAir ? 0.75 : (e.isBuilding ? Double(e.size) * 0.3 : 0.25)
+            let d = dist2(x, y, e.x - lift, e.y + lift) - (e.isBuilding ? Double(e.size * e.size) * 0.25 : 0)
+            if d < bd { bd = d; best = e }
+        }
+        return best
+    }
+
     func pickSite(_ x: Double, _ y: Double) -> Int? {
         for (i, s) in world.sites.enumerated() where dist2(s.x, s.y, x, y) < 2.2 * 2.2 { return i }
         return nil
@@ -390,6 +405,10 @@ final class GameController: ObservableObject {
         select(world.units(of: me).filter { !world.traits[$0.type].worker && !$0.isMine }.map { $0.id })
     }
 
+    func selectWorkers() {
+        select(world.units(of: me).filter { world.traits[$0.type].worker }.map { $0.id })
+    }
+
     func selectIdleWorker() {
         let idle = world.units(of: me).filter { world.traits[$0.type].worker && $0.order == .idle }
         if let w = idle.first { select([w.id]); focusCamera?(w.x, w.y) } else { toast("No idle workers") }
@@ -414,10 +433,23 @@ final class GameController: ObservableObject {
             ghostTile = (Int(x - Double(s) / 2 + 0.5), Int(y - Double(s) / 2 + 0.5))
             refreshHUD()
             return
-        case .attackMove, .patrol:
+        case .patrol:
+            // Two taps: the first and second patrol points.
+            let ids = myUnitSelection()
+            guard let a = patrolFirst else {
+                patrolFirst = (x, y)
+                commandPing = (x, y, false, world.time)
+                refreshHUD()
+                return
+            }
+            world.commandPatrol(ids, from: a, to: (x, y), formation: formation)
+            commandPing = (x, y, false, world.time)
+            mode = .normal
+            return
+        case .attackMove:
             let ids = myUnitSelection()
             if let t = pick(x, y, radius: r), world.isEnemyPublic(me, t.owner) { world.commandAttack(ids, target: t.id) }
-            else { world.commandMove(ids, x: x, y: y, attack: true, patrol: mode == .patrol, formation: formation) }
+            else { world.commandMove(ids, x: x, y: y, attack: true, formation: formation) }
             mode = .normal
             return
         case .unload:
@@ -435,6 +467,11 @@ final class GameController: ObservableObject {
         let workersSelected = !selection.isEmpty && selectedEntities.allSatisfy { $0.isUnit && world.traits[$0.type].worker }
         if workersSelected, hit == nil || !(hit!.isResource || hit!.isBuilding || world.isEnemyPublic(me, hit!.owner)) {
             if let node = pickResource(x, y, within: max(1.4, r * 1.6)) { hit = node }
+        }
+        // Combat units selected: a tap on (or close to) a visible enemy means "attack it".
+        let fighters = selectedEntities.contains { $0.isUnit && $0.owner == me && !world.traits[$0.type].worker }
+        if fighters, hit == nil || !world.isEnemyPublic(me, hit!.owner) {
+            if let foe = pickEnemy(x, y, within: max(1.3, r * 1.7)) { hit = foe }
         }
         if let h = hit, h.owner == me {
             // Tapping own stuff: select it (transport + selected units => load handled via smart command).
@@ -462,6 +499,12 @@ final class GameController: ObservableObject {
             toast("Rally point set"); return
         }
         world.commandSmart(selection, x: x, y: y, targetID: target?.id, player: me, formation: formation)
+        if let t = target, selectedEntities.contains(where: { $0.isUnit && world.traits[$0.type].worker }),
+           t.isResource || (t.owner == me && t.isBuilding && (!t.complete || t.hp < t.maxHp)) {
+            targetPing = (t.id, world.time)
+        } else if let t = target, world.isEnemyPublic(me, t.owner) {
+            targetPing = (t.id, world.time)
+        }
         commandPing = (x, y, target.map { world.isEnemyPublic(me, $0.owner) } ?? false, world.time)
     }
     var commandPing: (Double, Double, Bool, Double)? = nil
@@ -643,7 +686,7 @@ final class GameController: ObservableObject {
             return b
         }
         if mode != .normal {
-            h.menuTitle = { switch mode { case .attackMove: return "Attack-move: tap target"; case .patrol: return "Patrol: tap point"; case .unload: return "Unload: tap point"; case .emp: return "EMP: tap target"; case .rally: return "Rally: tap point"; default: return "" } }()
+            h.menuTitle = { switch mode { case .attackMove: return "Attack-move: tap target"; case .patrol: return patrolFirst == nil ? "Patrol: tap first point" : "Patrol: tap second point"; case .unload: return "Unload: tap point"; case .emp: return "EMP: tap target"; case .rally: return "Rally: tap point"; default: return "" } }()
             b.append(CommandButton(id: "cancel", title: "Cancel", symbol: "xmark.circle", hotkey: "\u{1b}") { [weak self] in self?.cancelMode() })
             return b
         }

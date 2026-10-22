@@ -9,7 +9,7 @@ final class PlaythroughUITests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
-        app.launchArguments = ["-seed", "42", "-faction", "humans", "-enemy", "machines"]
+        app.launchArguments = ["-seed", "42", "-faction", "humans", "-enemy", "machines", "-uitest"]
         app.launch()
     }
 
@@ -52,11 +52,16 @@ final class PlaythroughUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["queue_0"].waitForExistence(timeout: 3), "Production queue did not show the worker")
         shot("04_training")
 
-        // Box-select workers around the HQ with a one-finger drag.
-        point(-145, -200).press(forDuration: 0.05, thenDragTo: point(60, 60))
+        // One-finger drag moves the camera and never changes the selection.
+        let before = title.label
+        point(0, 120).press(forDuration: 0.05, thenDragTo: point(-120, 220))
+        sleep(1)
+        XCTAssertEqual(title.exists ? title.label : "", before, "one-finger drag should pan, not change the selection")
+        // Select the workers (stands in for the two-finger box, which XCUITest cannot perform).
+        app.buttons["test_select_workers"].tap()
         sleep(1)
         XCTAssertTrue(title.exists)
-        XCTAssertTrue(title.label.contains("selected") || title.label == "Engineer", "Box select failed: \(title.label)")
+        XCTAssertTrue(title.label.contains("selected") || title.label == "Engineer", "Worker selection failed: \(title.label)")
         shot("05_box_select")
 
         // Build a Drill Hall.
@@ -77,12 +82,6 @@ final class PlaythroughUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["placementReason"].exists, "Still in placement mode")
         shot("07_construction")
 
-        // Touch-and-hold then drag pans the camera instead of selecting.
-        let before = title.exists ? title.label : ""
-        point(0, 120).press(forDuration: 0.8, thenDragTo: point(-120, 220))
-        sleep(1)
-        XCTAssertEqual(title.exists ? title.label : "", before, "hold-then-drag should pan, not change the selection")
-        shot("07b_after_pan")
         // Select the army and move it.
         app.buttons["Army"].tap()
         point(-60, 40).tap()

@@ -174,6 +174,10 @@ struct SideRail: View {
     var body: some View {
         VStack(spacing: 6) {
             railButton("figure.walk.motion", "Army", badge: controller.hud.armyCount) { controller.selectArmy() }
+            if ProcessInfo.processInfo.arguments.contains("-uitest") {
+                // UI tests cannot perform two-finger drags; this stands in for a box select of the workers.
+                railButton("person.3", "Workers", badge: 0) { controller.selectWorkers() }.accessibilityIdentifier("test_select_workers")
+            }
             railButton("hammer.circle", "Idle", badge: controller.hud.idleWorkers, alert: controller.hud.idleWorkers > 0) { controller.selectIdleWorker() }
             ForEach(1...4, id: \.self) { n in
                 let g = controller.controlGroups[n]?.compactMap { controller.world.entity($0) } ?? []
@@ -253,7 +257,7 @@ struct SelectionPanel: View {
             if h.selectionTitle.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "hand.tap.fill").foregroundColor(accent.opacity(0.8))
-                    Text(controller.mode == .normal ? "Drag to select · Hold, then drag to pan" : (h.menuTitle ?? ""))
+                    Text(controller.mode == .normal ? "Drag to move · Two fingers to select" : (h.menuTitle ?? ""))
                         .font(.system(size: 12)).foregroundColor(.white.opacity(0.6))
                     Spacer()
                 }

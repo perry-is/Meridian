@@ -61,6 +61,7 @@ final class GameScene: SKScene {
     var views: [Int: EntityView] = [:]
     var projPool: [SKSpriteNode] = []
     var fxPool: [SKSpriteNode] = []
+    var fxAll: [SKSpriteNode] = []
     var beamPool: [SKSpriteNode] = []
     var barPool: [(SKSpriteNode, SKSpriteNode)] = []
     var siteViews: [(platform: SKSpriteNode, beacon: SKSpriteNode, pips: [SKSpriteNode])] = []
@@ -76,6 +77,10 @@ final class GameScene: SKScene {
     var fxBudget = 0
     var boxStart: CGPoint?
     var lastPanPoint: CGPoint?
+    var twoStart: CGPoint?
+    var twoSpread: CGFloat = 0
+    /// 0 undecided, 1 selection box, 2 pinch zoom.
+    var twoMode = 0
     var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
     let battleCam = BattleCamera()
@@ -114,6 +119,7 @@ final class GameScene: SKScene {
     var night: CGFloat = 0
     var siteGlows: [SKSpriteNode] = []
     var labelPool: [SKLabelNode] = []
+    var patrolMark: SKSpriteNode?
     var scarPools: [String: ScarPool] = [:]
     var wrecks: [SKNode] = []
     var born: [Int: Double] = [:]
@@ -306,12 +312,14 @@ final class GameScene: SKScene {
         syncEntities()
         syncProjectiles()
         syncSelectionOverlays()
+        syncPatrolMarker()
         applyShake(dt)
         syncSites()
         syncGhost()
         fogTimer -= dt
         if fogTimer <= 0 {
             fogTimer = 0.2
+            if world.tick % 20 < 4 { sweepEffects() }
             fogShader.uniformNamed("u_fog")?.textureValue = fogTexture()
             ctl.minimapVersion &+= 1
         }
@@ -329,6 +337,13 @@ final class GameScene: SKScene {
             print(String(format: "PERF t=%.0fs units=%d nodes=%d frame=%.2fms fps=%.1f p95=%.2fms | sim=%.2fms (max %.1f) sceneUpdate=%.2fms | proj=%d q=%d size=%.0fx%.0f",
                          world.time, units, worldNode.children.count, avg * 1000, 1 / avg, s[Int(Double(s.count) * 0.95)] * 1000, sim, simMax, upd, world.projectiles.count, quality, size.width, size.height))
             perfFrames.removeAll(); perfSim.removeAll(); perfUpd.removeAll()
+            if GameScene.flags.contains("stuck") {
+                var stuck = 0, lit = 0
+                for case let n as SKSpriteNode in worldNode.children where n.texture != nil && bank.lightning.contains(where: { $0 === n.texture }) && n.alpha > 0.05 && !n.isHidden {
+                    lit += 1; if !n.hasActions() { stuck += 1 }
+                }
+                print("STUCK lightning visible=\(lit) withoutActions=\(stuck) pool=\(fxPool.count)")
+            }
         }
     }
 

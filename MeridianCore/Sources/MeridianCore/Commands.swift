@@ -57,6 +57,20 @@ extension World {
         }
     }
 
+    /// Patrol between two chosen points: the group walks to `a` in formation, then shuttles between `a` and `b`,
+    /// each unit keeping its place in the formation at both ends.
+    public func commandPatrol(_ ids: [Int], from a: (Double, Double), to b: (Double, Double), formation: Formation = .balanced) {
+        commandMove(ids, x: a.0, y: a.1, attack: true, patrol: true, formation: formation)
+        for id in ids {
+            guard let u = entity(id), u.order == .patrol else { continue }
+            let dx = u.formationDX, dy = u.formationDY
+            u.ox = a.0 + dx; u.oy = a.1 + dy
+            u.formationDX = 0; u.formationDY = 0
+            u.px2 = b.0 + dx; u.py2 = b.1 + dy
+            if !u.isAir, nav.isBlocked(Int(u.px2), Int(u.py2)) { u.px2 = b.0; u.py2 = b.1 }
+        }
+    }
+
     public func commandAttack(_ ids: [Int], target: Int) {
         guard let t = entity(target) else { return }
         for id in ids {
