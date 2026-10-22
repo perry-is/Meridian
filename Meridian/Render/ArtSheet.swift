@@ -45,4 +45,41 @@ enum ArtSheet {
         CGImageDestinationFinalize(dest)
         print("wrote \(url.path)")
     }
+
+    /// Rig review: every unit of a faction, large, in four poses (rest; aimed up / tool raised;
+    /// aimed down / strike; gait frame with recoil). The upper part rotates about its pivot as in game.
+    static func writePoses(_ f: Faction, to url: URL) {
+        let data = GameData.shared
+        let ids = data.unitIDs(f)
+        let cell: CGFloat = 150, cols = 4
+        let W = cell * CGFloat(cols), H = cell * CGFloat(ids.count)
+        let img = Pen.image(W, H, scale: 1) { p in
+            p.fill(p.poly([(0, 0), (W, 0), (W, H), (0, H)]), RGB(0.27, 0.40, 0.25))
+            for (row, u) in ids.enumerated() {
+                let d = data.units[u], r = UnitArt.rig(d.id)
+                let S = UnitArt.canvasSize(d), sc = (cell - 10) / S
+                let poses: [(Int, CGFloat, CGFloat, String)] = r.kind == .tool || r.kind == .beamTool || r.kind == .biteTool
+                    ? [(0, 0, 0, ""), (2, 0.95, 0, "wood"), (4, -0.55, 0, "ore"), (6, 0.4, 0, "build")]
+                    : [(0, r.rest, 0, ""), (2, r.aimUp, 0, ""), (4, -r.aimDown, 0, ""), (6, r.rest, -r.kick, "")]
+                for (c, pose) in poses.enumerated() {
+                    let ox = CGFloat(c) * cell + 5, oy = H - CGFloat(row + 1) * cell + 5
+                    p.ctx.draw(UnitArt.renderBase(d, team: TeamColor.rgb(0), frame: pose.0), in: CGRect(x: ox, y: oy, width: S * sc, height: S * sc))
+                    if let up = UnitArt.renderUpper(d, team: TeamColor.rgb(0), variant: pose.3) {
+                        let k = S / 40 * sc
+                        let px = ox + r.pivot.x * k, py = oy + r.pivot.y * k
+                        p.ctx.saveGState()
+                        p.ctx.translateBy(x: px + pose.2 * k * cos(pose.1), y: py + pose.2 * k * sin(pose.1))
+                        p.ctx.rotate(by: pose.1)
+                        p.ctx.draw(up, in: CGRect(x: -r.pivot.x * k, y: -r.pivot.y * k, width: S * sc, height: S * sc))
+                        p.ctx.restoreGState()
+                        p.fill(p.ellipsePath(px, py, 2, 2), RGB(1, 0, 1, 0.8))
+                    }
+                }
+            }
+        }
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(dest, img, nil)
+        CGImageDestinationFinalize(dest)
+        print("wrote \(url.path)")
+    }
 }

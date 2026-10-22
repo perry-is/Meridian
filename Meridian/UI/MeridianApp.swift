@@ -8,6 +8,10 @@ struct MeridianApp: App {
         #if os(macOS)
         // Headless helpers for development: render an art contact sheet.
         let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--poses"), i + 2 < args.count, let f = Faction(rawValue: args[i + 1]) {
+            ArtSheet.writePoses(f, to: URL(fileURLWithPath: args[i + 2]))
+            exit(0)
+        }
         if let i = args.firstIndex(of: "--art-sheet"), i + 1 < args.count {
             ArtSheet.write(to: URL(fileURLWithPath: args[i + 1]))
             exit(0)
@@ -98,6 +102,7 @@ struct RootView: View {
                 let c = GameController(settings: settings, spectate: a.contains("-spectate"))
                 if let w = arg("-warp"), let secs = Double(w) { c.warp(seconds: secs) }
                 if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
+                if a.contains("-lab") { c.setupLab() }
                 controller = c
             }
         }

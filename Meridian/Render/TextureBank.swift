@@ -29,7 +29,9 @@ enum TeamColor {
 /// Generates every texture once at match start and packs them into a single atlas so SpriteKit can batch draws.
 final class TextureBank {
     let data: GameData
-    private(set) var unit: [[[SKTexture]]] = []     // [player][unitType][frame]
+    private(set) var unit: [[[SKTexture]]] = []     // [player][unitType][frame]  (base layer)
+    /// Upper rig layer per [player][unitType]: "" = default pose, plus worker tool variants.
+    private(set) var upper: [[[String: SKTexture]]] = []
     private(set) var building: [[SKTexture]] = []   // [player][buildingType]
     private(set) var resource: [[SKTexture]] = []   // [kind][variant]
     private(set) var cliffs: [SKTexture] = []
@@ -79,10 +81,12 @@ final class TextureBank {
                 un.append(name)
                 guard u.faction == f else { continue }
                 for fr in 0..<UnitArt.frameCount {
-                    let img = UnitArt.render(u, team: tc, frame: fr)
-                    images[name + "_\(fr)"] = .from(img)
-                    if pi == 0 && fr == 0 { unitIcons[i] = img }
+                    images[name + "_\(fr)"] = .from(UnitArt.renderBase(u, team: tc, frame: fr))
                 }
+                for v in [""] + UnitArt.rig(u.id).tools {
+                    if let up = UnitArt.renderUpper(u, team: tc, variant: v) { images[name + "_up" + v] = .from(up) }
+                }
+                if pi == 0 { unitIcons[i] = UnitArt.render(u, team: tc) }
             }
             for (i, b) in data.buildings.enumerated() {
                 let name = "b\(pi)_\(i)"
@@ -131,6 +135,11 @@ final class TextureBank {
 
         let atlas = SKTextureAtlas(dictionary: images)
         unit = unitNames.map { $0.map { n in (0..<UnitArt.frameCount).map { images[n + "_\($0)"] != nil ? atlas.textureNamed(n + "_\($0)") : SKTexture() } } }
+        upper = unitNames.map { $0.map { n in
+            var d: [String: SKTexture] = [:]
+            for v in ["", "wood", "ore", "build"] where images[n + "_up" + v] != nil { d[v] = atlas.textureNamed(n + "_up" + v) }
+            return d
+        } }
         building = buildingNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
         resource = ResourceKind.allCases.map { k in (0..<3).map { atlas.textureNamed("r\(k.rawValue)_\($0)") } }
         cliffs = (0..<6).map { atlas.textureNamed("cliff\($0)") }

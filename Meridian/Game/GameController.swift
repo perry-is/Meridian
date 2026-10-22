@@ -179,6 +179,44 @@ final class GameController: ObservableObject {
 
     var battleSize = 50
 
+    /// Development "unit lab" (`-lab`): the player's whole roster beside the HQ facing a held enemy line,
+    /// with workers chopping, mining and repairing — for reviewing unit animation up close.
+    var labFocus: (Double, Double)? = nil
+    func setupLab() {
+        world.sandbox = true
+        world.unlockAll(0); world.unlockAll(1)
+        guard let hq = world.buildings(of: me).first else { return }
+        let roster = data.unitIDs(world.players[me].faction).filter { data.units[$0].domain == .ground && data.units[$0].role != "worker" }
+        // Open ground toward the map centre: our line, then the enemy line facing it across ~7 tiles.
+        let mid = Double(world.map.size) / 2
+        let dx = mid - hq.x, dy = mid - hq.y, dl = max(1, (dx * dx + dy * dy).squareRoot())
+        let fx = dx / dl, fy = dy / dl, lx = -fy, ly = fx
+        func spot(_ along: Double, _ side: Double) -> (Double, Double) {
+            var (x, y) = (hq.x + fx * along + lx * side, hq.y + fy * along + ly * side)
+            if world.nav.isBlocked(Int(x), Int(y)) { let o = world.nav.nearestOpen(Int(x), Int(y)); x = Double(o.0) + 0.5; y = Double(o.1) + 0.5 }
+            return (x, y)
+        }
+        for (k, u) in roster.enumerated() {
+            let (x, y) = spot(9 + Double(k / 6) * 1.8, (Double(k % 6) - 2.5) * 1.7)
+            world.commandHold([world.spawnUnit(u, owner: me, x: x, y: y).id])
+        }
+        let foes = data.unitIDs(world.players[1 - me].faction).filter { data.units[$0].domain == .ground && ["heavy", "assault", "infantry"].contains(data.units[$0].role) }
+        for k in 0..<6 {
+            let (x, y) = spot(17, (Double(k) - 2.5) * 1.7)
+            world.commandHold([world.spawnUnit(foes[k % foes.count], owner: 1 - me, x: x, y: y).id])
+        }
+        labFocus = spot(12, 0)
+        let workers = world.units(of: me).filter { world.traits[$0.type].worker }
+        func nearest(_ k: ResourceKind) -> Entity? {
+            world.entities.filter { $0.alive && $0.isResource && $0.type == k.rawValue }.min { dist2($0.x, $0.y, hq.x, hq.y) < dist2($1.x, $1.y, hq.x, hq.y) }
+        }
+        for (i, w) in workers.enumerated() {
+            if i < 2, let n = nearest(.wood) { world.commandGather([w.id], node: n.id) }
+            else if i < 4, let n = nearest(.iron) { world.commandGather([w.id], node: n.id) }
+            else { hq.hp = hq.maxHp * 0.5; world.commandSmart([w.id], x: hq.x, y: hq.y, targetID: hq.id, player: me) }
+        }
+    }
+
     func setupBattle(_ perSide: Int) {
         battleSize = perSide
         world.sandbox = true

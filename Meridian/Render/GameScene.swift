@@ -37,6 +37,15 @@ final class EntityView {
     var partT = 0.0
     var phase = 0.0
     var charge: SKSpriteNode?
+    var upper: SKSpriteNode?
+    var rig = UnitArt.Rig()
+    var canvas: CGFloat = 40
+    var aim: CGFloat = 0
+    var gait = 0.0
+    var strikeCycle = -1
+    var lastStep = 0
+    var tool = ""
+    var beam: SKSpriteNode?
     var hover = false
     var trackY = 0.0
     var navLights: [SKSpriteNode] = []
@@ -174,6 +183,7 @@ final class GameScene: SKScene {
         if ProcessInfo.processInfo.arguments.contains("-nozoom") { battleCam.autoZoom = false }
         if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
         if !ctl.stressMode && !ctl.battleMode, let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
+        if let f = ctl.labFocus { focus(f.0, f.1) }
         // `-camhq <player>`: frame that player's base and hold the camera there (captures).
         if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-camhq"), let pl = Int(ProcessInfo.processInfo.arguments[i + 1]),
            let hq = world.buildings(of: pl).first {
@@ -379,6 +389,18 @@ final class GameScene: SKScene {
             }
             let v = EntityView(body: s, shadow: sh)
             v.frames = frames
+            v.rig = UnitArt.rig(d.id)
+            v.canvas = sz
+            v.gait = Double(e.id % 8) / 8
+            if !e.isAir, let ut = bank.upper[owner][e.type][""] {
+                // The acting part of the rig: rotates about its pivot to aim, recoil, strike and work.
+                let u = SKSpriteNode(texture: ut, size: CGSize(width: sz, height: sz))
+                u.anchorPoint = CGPoint(x: v.rig.pivot.x / 40, y: v.rig.pivot.y / 40)
+                u.position = CGPoint(x: (v.rig.pivot.x / 40 - 0.5) * sz, y: (v.rig.pivot.y / 40 - 0.12) * sz)
+                u.zPosition = 0.01
+                v.aim = v.rig.rest
+                s.addChild(u); v.upper = u
+            }
             v.bodyY = s.position.y
             // Team ring: the primary readability cue in big battles. Shape encodes class.
             let cls = e.isAir ? "ring_air" : (d.role == "siege" ? "ring_siege" : (d.tags.contains("massive") ? "ring_heavy" :

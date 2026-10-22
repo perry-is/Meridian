@@ -128,9 +128,17 @@ extension GameScene {
         let fac = world.players[e.owner].faction
         let seed = Double(e.id % 97)
         let speed = world.speed(e)
+        // Face what we're fighting (rigged units turn their whole body toward the target).
+        if v.upper != nil, let tg = world.entity(e.target), v.rig.kind != .tool {
+            let dx = Iso.scene(tg.x, tg.y).x - v.root.position.x
+            if abs(dx) > 6 { let ns: CGFloat = dx < 0 ? -1 : 1; if ns != v.facingSign { v.facingSign = ns; v.turnT = 0.12 } }
+        }
+        // Gait: frames advance with distance travelled, so feet plant instead of sliding.
         if !v.frames.isEmpty {
-            let rate = e.isAir ? 10.0 : 3.2 * max(1.5, speed)
-            let fr = (e.moving || e.isAir) ? Int(t * rate + seed) % v.frames.count : 0
+            let cycles = e.isAir ? 1.3 : speed / max(0.3, v.rig.stride)
+            if e.moving || e.isAir { v.gait += cycles / 60 }
+            else if v.gait.truncatingRemainder(dividingBy: 0.5) > 0.02 { v.gait += 1.0 / 60 * 1.5 }   // settle to a standing pose
+            let fr = Int(floor(v.gait * Double(v.frames.count))) % v.frames.count
             if v.body.texture !== v.frames[fr] { v.body.texture = v.frames[fr] }
         }
         var y = v.bodyY
@@ -143,18 +151,18 @@ extension GameScene {
             let cyc = (t + seed * 0.71).truncatingRemainder(dividingBy: 6 + Double(e.id % 5))
             if cyc < 1.1 { sxMul = -1 }
         }
-        // Workers swing their tools at the face.
-        if e.order == .gather && !e.moving && e.carryAmount < 99 { rot += CGFloat(sin(t * 8 + seed)) * 0.09 }
         if e.isAir {
             y += CGFloat(sin(t * 2.2 + seed)) * 2.5
             let target = CGFloat(-sx) * 0.14 * (e.moving ? 1 : 0.2)
             v.turn += (target - v.turn) * 0.1
             rot = v.turn
         } else if e.moving {
+            // Body bob locked to the stride: two bumps per gait cycle.
+            let g = v.gait * 2 * .pi
             switch fac {
-            case .humans: y += CGFloat(abs(sin(t * 10 + seed))) * (v.vehicle ? 0.5 : 1.3)
-            case .machines: rot = CGFloat(sin(t * 7 + seed)) * 0.025; y += CGFloat(abs(sin(t * 7 + seed))) * 0.8
-            case .aliens: sy = 1 + CGFloat(sin(t * 12 + seed)) * 0.05; rot = CGFloat(sin(t * 6 + seed)) * 0.05
+            case .humans: y += CGFloat(abs(sin(g))) * (v.vehicle ? 0.4 : 1.4); rot = v.vehicle ? 0 : CGFloat(sin(g)) * 0.03
+            case .machines: rot = CGFloat(sin(g)) * 0.03; y += CGFloat(abs(sin(g))) * (v.heavy ? 1.4 : 0.8)
+            case .aliens: sy = 1 + CGFloat(sin(g * 2)) * 0.045; rot = CGFloat(sin(g)) * 0.05
             }
         } else if fac == .aliens {
             sy = 1 + CGFloat(sin(t * 2.5 + seed)) * 0.03
@@ -174,7 +182,10 @@ extension GameScene {
         // Turning: a quick squash through the profile instead of an instant mirror.
         var xMag: CGFloat = 1
         if v.turnT > 0 { v.turnT -= 1.0 / 60; xMag = max(0.2, abs(CGFloat(cos((0.14 - v.turnT) / 0.14 * .pi)))) }
-        v.body.position = CGPoint(x: -v.facingSign * kick + joltX, y: y)
+        // Melee units throw their whole body into the blow.
+        var lunge: CGFloat = 0
+        if v.rig.kind == .melee && sinceFire < 0.22 { lunge = CGFloat(sin(sinceFire / 0.22 * .pi)) * 4 }
+        v.body.position = CGPoint(x: -v.facingSign * kick + v.facingSign * lunge + joltX, y: y)
         v.body.zRotation = rot * v.facingSign
         v.body.xScale = v.facingSign * xMag * sxMul
         v.body.yScale = sy
@@ -191,6 +202,18 @@ extension GameScene {
             }
             if k >= 1 { born.removeValue(forKey: e.id) }
         }
+        if let up = v.upper { animateRig(e, v, up, t, seed) }
+        // Footfalls: heavy walkers kick up dust on each step (the biggest make the ground tremble).
+        let step = Int(floor(v.gait * 2))
+        if step != v.lastStep {
+            v.lastStep = step
+            if e.moving && !e.isAir && v.heavy && !v.vehicle && detail && onScreen(v.root.position) {
+                let side = step % 2 == 0 ? -1.0 : 1.0
+                puff("smoke", at: CGPoint(x: v.root.position.x + CGFloat(side) * v.body.size.width * 0.18, y: v.root.position.y + 2),
+                     size: CGSize(width: 16, height: 8), color: biomeEarth.blend(.white, 0.25), alpha: 0.4, blend: .alpha, z: 95, life: 0.6, rise: 4, grow: 1.8)
+                if d.tags.contains("massive") { addTrauma(0.02, at: v.root.position) }
+            }
+        }
         // Energy weapons visibly charge before they fire.
         if let w = world.weapon(e), e.target >= 0, GameScene.family(w.style) == .energy, quality >= 1, zoom < 2.4 {
             let cd = e.cooldown
@@ -205,7 +228,7 @@ extension GameScene {
                 v.charge!.isHidden = false
                 v.charge!.size = CGSize(width: sz, height: sz)
                 v.charge!.alpha = 0.4 + 0.6 * k
-                v.charge!.position = CGPoint(x: v.body.position.x + v.facingSign * v.body.size.width * 0.3, y: v.body.position.y + (e.isAir ? 0 : v.body.size.height * 0.45))
+                v.charge!.position = v.upper != nil ? rigMuzzleLocal(v) : CGPoint(x: v.body.position.x + v.facingSign * v.body.size.width * 0.3, y: v.body.position.y + (e.isAir ? 0 : v.body.size.height * 0.45))
             } else { v.charge?.isHidden = true }
         } else { v.charge?.isHidden = true }
         v.body.alpha = world.isCloaked(e) ? 0.4 + 0.1 * CGFloat(sin(t * 6)) : 1
@@ -269,15 +292,7 @@ extension GameScene {
         let mine = e.owner == ctl.me || ctl.spectating
         // Harvest tick: cargo grew.
         if e.carryAmount > v.lastCarry, let node = world.entity(e.gatherNode), let nv = views[node.id], onScreen(v.root.position) {
-            nv.shake = 1
-            let p = nv.root.position
-            let col = GameScene.resourceColor(e.carryKind)
-            if detail {
-                for k in 0..<2 {
-                    puff(e.carryKind == .wood ? "pixel" : "spark", at: CGPoint(x: p.x + CGFloat(k * 8 - 4), y: p.y + 14), size: CGSize(width: 4, height: 4),
-                         color: col, blend: .alpha, z: 456, life: 0.45, rise: 14, drift: CGFloat(k * 2 - 1) * 12)
-                }
-            }
+            if v.upper == nil { nv.shake = 1 }
         }
         // Delivery: cargo emptied.
         if e.carryAmount == 0 && v.lastCarry > 0 && mine && e.owner == ctl.me && zoom < 2.2 && onScreen(v.root.position) {
@@ -670,11 +685,17 @@ extension GameScene {
         let tp = Iso.scene(toward.0, toward.1)
         let a = atan2(tp.y - base.y, tp.x - base.x)
         let w = v.body.size.width, h = v.body.size.height
-        let tip = CGPoint(x: base.x + cos(a) * w * 0.42, y: base.y + (src.isAir ? 38 : h * 0.45) + sin(a) * w * 0.18)
+        let tip = v.upper != nil ? base + rigMuzzleLocal(v) : CGPoint(x: base.x + cos(a) * w * 0.42, y: base.y + (src.isAir ? 38 : h * 0.45) + sin(a) * w * 0.18)
         let size = min(42, 12 + dmg * 0.55)
         let col = GameScene.styleColor(style)
         switch GameScene.family(style) {
         case .ballistic:
+            if detail && v.upper != nil && v.rig.kind == .gun && dmg < 25 {
+                // Spent brass flicks out of the breech.
+                let back = base + rigMuzzleLocal(v)
+                puff("pixel", at: CGPoint(x: back.x - v.facingSign * 10, y: back.y), size: CGSize(width: 2.4, height: 1.4),
+                     color: SKColor(red: 1, green: 0.8, blue: 0.35, alpha: 1), blend: .alpha, z: 452, life: 0.35, rise: 7, drift: -v.facingSign * 8)
+            }
             if let s = fx() {
                 s.texture = bank.sparks[0]; s.size = CGSize(width: size, height: size); s.color = col; s.position = tip; s.zPosition = 452; s.zRotation = a
                 s.run(.animate(with: Array(bank.sparks.prefix(2)), timePerFrame: 0.035)); s.run(recycle(s, after: 0.08))
@@ -963,7 +984,14 @@ extension GameScene {
             return
         }
         if v.vehicle || v.heavy {
-            // Wreck: the hull stays, scorched and burning, then fades.
+            // Wreck: the hull stays, scorched and burning, then fades. Turrets blow off and tumble.
+            if let up = v.upper, v.rig.kind == .turret || v.rig.kind == .artillery, fac != .aliens {
+                up.color = .black; up.colorBlendFactor = 0.6
+                let dir: CGFloat = hnoise(e.id, 7, 7) > 0.5 ? 1 : -1
+                let flyUp = SKAction.moveBy(x: dir * 14, y: 26, duration: 0.32); flyUp.timingMode = .easeOut
+                let fall = SKAction.moveBy(x: dir * 10, y: -30, duration: 0.3); fall.timingMode = .easeIn
+                up.run(.group([.sequence([flyUp, fall]), .rotate(byAngle: dir * 2.4, duration: 0.62)]))
+            }
             body.color = .black; body.colorBlendFactor = fac == .aliens ? 0.45 : 0.68
             body.run(.rotate(byAngle: -0.12 * side, duration: 0.25))
             if fac == .aliens { body.run(.scaleY(to: 0.55, duration: 0.8)) }
