@@ -49,38 +49,38 @@ enum UnitArt {
         var r = Rig()
         switch id {
         // Concord
-        case "h_engineer": r.kind = .tool; r.pivot = CGPoint(x: 20.5, y: 20.5); r.muzzle = CGPoint(x: 31, y: 15); r.tools = ["wood", "ore", "build"]
-        case "h_pathfinder": r.kind = .gun; r.pivot = CGPoint(x: 20.5, y: 20.5); r.muzzle = CGPoint(x: 33, y: 19.5); r.kick = 1
-        case "h_ranger": r.kind = .gun; r.pivot = CGPoint(x: 20.5, y: 20.5); r.muzzle = CGPoint(x: 36, y: 19.6)
-        case "h_breacher": r.kind = .gun; r.pivot = CGPoint(x: 21, y: 20); r.muzzle = CGPoint(x: 36.5, y: 18.6); r.kick = 2.6; r.stride = 0.55
-        case "h_lancer": r.kind = .gun; r.pivot = CGPoint(x: 20, y: 23); r.muzzle = CGPoint(x: 37, y: 25); r.kick = 2.4; r.aimUp = 0.7
-        case "h_skyguard": r.kind = .gun; r.pivot = CGPoint(x: 20, y: 22); r.muzzle = CGPoint(x: 32, y: 32); r.aimUp = 0.5; r.aimDown = 0.9; r.kick = 1.6
-        case "h_medic": r.kind = .gun; r.pivot = CGPoint(x: 20.5, y: 20.5); r.muzzle = CGPoint(x: 31, y: 18.5); r.kick = 0.6
-        case "h_ghost": r.kind = .gun; r.pivot = CGPoint(x: 20.5, y: 20.5); r.muzzle = CGPoint(x: 38.5, y: 20); r.kick = 2.2; r.stride = 0.7
-        case "h_buggy": r.kind = .turret; r.pivot = CGPoint(x: 22, y: 21); r.muzzle = CGPoint(x: 36.5, y: 22.5); r.kick = 1.2; r.stride = 1.1
-        case "h_bastion": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 23.5); r.muzzle = CGPoint(x: 40, y: 25); r.kick = 3.2; r.aimUp = 0.3; r.aimDown = 0.2; r.stride = 1.2
-        case "h_mortar": r.kind = .artillery; r.pivot = CGPoint(x: 18, y: 20); r.muzzle = CGPoint(x: 31, y: 21); r.rest = 0.75; r.aimUp = 1.1; r.aimDown = -0.4; r.kick = 3; r.stride = 1.2
-        case "h_minelayer": r.kind = .turret; r.pivot = CGPoint(x: 27, y: 21); r.muzzle = CGPoint(x: 37.5, y: 21.5); r.kick = 1; r.stride = 1.2
+        case "h_engineer": r.kind = .tool; r.pivot = CGPoint(x: 20.8, y: 22); r.muzzle = CGPoint(x: 31, y: 15); r.tools = ["wood", "ore", "build"]
+        case "h_pathfinder": r.kind = .gun; r.pivot = CGPoint(x: 20.8, y: 22); r.muzzle = CGPoint(x: 32.8, y: 20.2); r.kick = 1
+        case "h_ranger": r.kind = .gun; r.pivot = CGPoint(x: 20.8, y: 22); r.muzzle = CGPoint(x: 36.4, y: 20)
+        case "h_breacher": r.kind = .gun; r.pivot = CGPoint(x: 20.8, y: 22); r.muzzle = CGPoint(x: 36, y: 19); r.kick = 2.6; r.stride = 0.55
+        case "h_lancer": r.kind = .gun; r.pivot = CGPoint(x: 20.2, y: 23.2); r.muzzle = CGPoint(x: 37.4, y: 25); r.kick = 2.4; r.aimUp = 0.7
+        case "h_skyguard": r.kind = .gun; r.pivot = CGPoint(x: 20.2, y: 22.6); r.muzzle = CGPoint(x: 26.5, y: 32); r.aimUp = 0.5; r.aimDown = 0.9; r.kick = 1.6
+        case "h_medic": r.kind = .gun; r.pivot = CGPoint(x: 20.8, y: 22); r.muzzle = CGPoint(x: 32, y: 19); r.kick = 0.6
+        case "h_ghost": r.kind = .gun; r.pivot = CGPoint(x: 20.8, y: 22); r.muzzle = CGPoint(x: 39, y: 20.2); r.kick = 2.2; r.stride = 0.7
+        case "h_buggy": r.kind = .turret; r.pivot = CGPoint(x: 22, y: 20.4); r.muzzle = CGPoint(x: 37, y: 22.3); r.kick = 1.2; r.stride = 1.1
+        case "h_bastion": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 22); r.muzzle = CGPoint(x: 39.8, y: 24.6); r.kick = 3.2; r.aimUp = 0.3; r.aimDown = 0.2; r.stride = 1.2
+        case "h_mortar": r.kind = .artillery; r.pivot = CGPoint(x: 17.6, y: 20); r.muzzle = CGPoint(x: 32.4, y: 20.8); r.rest = 0.75; r.aimUp = 1.1; r.aimDown = -0.4; r.kick = 3; r.stride = 1.2
+        case "h_minelayer": r.kind = .turret; r.pivot = CGPoint(x: 25, y: 20); r.muzzle = CGPoint(x: 38.2, y: 21.6); r.kick = 1; r.stride = 1.2
         // Lattice
         case "m_fabricator": r.kind = .beamTool; r.pivot = CGPoint(x: 20, y: 17); r.muzzle = CGPoint(x: 33, y: 11); r.tools = ["wood", "ore", "build"]; r.stride = 0.9
         case "m_arc": r.kind = .emitter; r.pivot = CGPoint(x: 20, y: 24); r.muzzle = CGPoint(x: 20, y: 32); r.kick = 1; r.stride = 0.6
-        case "m_shockframe": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 22); r.muzzle = CGPoint(x: 37, y: 16); r.kick = 2; r.stride = 0.7
+        case "m_shockframe": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 21.6); r.muzzle = CGPoint(x: 33.4, y: 16); r.kick = 2; r.stride = 0.7
         case "m_piercer": r.kind = .turret; r.pivot = CGPoint(x: 16, y: 18); r.muzzle = CGPoint(x: 40.5, y: 19); r.kick = 3.4; r.aimUp = 0.3; r.aimDown = 0.25; r.stride = 0.8
-        case "m_flak": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 17); r.muzzle = CGPoint(x: 26, y: 32); r.aimUp = 0.4; r.aimDown = 0.8; r.kick = 1.6; r.stride = 1
+        case "m_flak": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 17.4); r.muzzle = CGPoint(x: 26.4, y: 32); r.aimUp = 0.4; r.aimDown = 0.8; r.kick = 1.6; r.stride = 1
         case "m_jammer": r.kind = .head; r.pivot = CGPoint(x: 20, y: 22); r.muzzle = CGPoint(x: 20, y: 34); r.stride = 0.6
-        case "m_runner": r.kind = .turret; r.pivot = CGPoint(x: 22, y: 16); r.muzzle = CGPoint(x: 38.5, y: 17); r.kick = 1.2; r.stride = 1.2
-        case "m_bulwark": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 21); r.muzzle = CGPoint(x: 40, y: 21); r.kick = 2.6; r.aimUp = 0.3; r.aimDown = 0.25; r.stride = 0.9
-        case "m_coil": r.kind = .artillery; r.pivot = CGPoint(x: 13, y: 17); r.muzzle = CGPoint(x: 39.5, y: 27); r.rest = 0.15; r.aimUp = 0.75; r.aimDown = -0.05; r.kick = 3.4; r.stride = 1.1
+        case "m_runner": r.kind = .turret; r.pivot = CGPoint(x: 21, y: 16.2); r.muzzle = CGPoint(x: 38.6, y: 16.8); r.kick = 1.2; r.stride = 1.2
+        case "m_bulwark": r.kind = .turret; r.pivot = CGPoint(x: 20, y: 21.2); r.muzzle = CGPoint(x: 40.2, y: 21.2); r.kick = 2.6; r.aimUp = 0.3; r.aimDown = 0.25; r.stride = 0.9
+        case "m_coil": r.kind = .artillery; r.pivot = CGPoint(x: 12, y: 17.4); r.muzzle = CGPoint(x: 39.4, y: 27); r.rest = 0.15; r.aimUp = 0.75; r.aimDown = -0.05; r.kick = 3.4; r.stride = 1.1
         case "m_suppress": r.kind = .emitter; r.pivot = CGPoint(x: 20, y: 22); r.muzzle = CGPoint(x: 20, y: 25); r.aimUp = 0; r.aimDown = 0; r.stride = 0.7
         // Brood
         case "a_weaver": r.kind = .biteTool; r.pivot = CGPoint(x: 26, y: 14); r.muzzle = CGPoint(x: 33.5, y: 14.5); r.tools = ["wood", "ore", "build"]; r.stride = 0.7
-        case "a_mantis": r.kind = .melee; r.pivot = CGPoint(x: 20, y: 18); r.muzzle = CGPoint(x: 35, y: 26); r.stride = 0.7
-        case "a_ravager": r.kind = .melee; r.pivot = CGPoint(x: 28, y: 15); r.muzzle = CGPoint(x: 40, y: 9); r.stride = 1
-        case "a_spinecaster": r.kind = .gun; r.pivot = CGPoint(x: 17, y: 19); r.muzzle = CGPoint(x: 30, y: 31); r.aimUp = 0.5; r.aimDown = 0.5; r.kick = 1.6; r.stride = 0.8
+        case "a_mantis": r.kind = .melee; r.pivot = CGPoint(x: 20.4, y: 18.6); r.muzzle = CGPoint(x: 35.4, y: 30); r.stride = 0.7
+        case "a_ravager": r.kind = .melee; r.pivot = CGPoint(x: 28.6, y: 15.6); r.muzzle = CGPoint(x: 40.4, y: 7.2); r.stride = 1
+        case "a_spinecaster": r.kind = .gun; r.pivot = CGPoint(x: 17, y: 19); r.muzzle = CGPoint(x: 31, y: 30.6); r.aimUp = 0.5; r.aimDown = 0.5; r.kick = 1.6; r.stride = 0.8
         case "a_needleback": r.kind = .gun; r.pivot = CGPoint(x: 20, y: 18); r.muzzle = CGPoint(x: 23, y: 35); r.aimUp = 0.3; r.aimDown = 0.6; r.kick = 1.4; r.stride = 0.8
         case "a_skitter": r.kind = .melee; r.pivot = CGPoint(x: 26, y: 13); r.muzzle = CGPoint(x: 34, y: 13); r.stride = 0.9
-        case "a_colossus": r.kind = .melee; r.pivot = CGPoint(x: 30, y: 17); r.muzzle = CGPoint(x: 40, y: 10); r.stride = 1.3
-        case "a_rupturer": r.kind = .artillery; r.pivot = CGPoint(x: 24, y: 21); r.muzzle = CGPoint(x: 37, y: 31); r.rest = 0.2; r.aimUp = 0.6; r.aimDown = 0.1; r.kick = 2.4; r.stride = 1
+        case "a_colossus": r.kind = .melee; r.pivot = CGPoint(x: 29.4, y: 18.4); r.muzzle = CGPoint(x: 41, y: 4); r.stride = 1.3
+        case "a_rupturer": r.kind = .artillery; r.pivot = CGPoint(x: 24, y: 21); r.muzzle = CGPoint(x: 37.6, y: 31.6); r.rest = 0.2; r.aimUp = 0.6; r.aimDown = 0.1; r.kick = 2.4; r.stride = 1
         case "a_seeder": r.kind = .emitter; r.pivot = CGPoint(x: 20, y: 18); r.muzzle = CGPoint(x: 20, y: 30); r.aimUp = 0; r.aimDown = 0; r.stride = 0.7
         default: r.kind = .none
         }
@@ -214,6 +214,7 @@ enum UnitArt {
     // MARK: Base layer
 
     static func base(_ id: String, _ p: Pen, _ tc: RGB) {
+        if concordBase(id, p, tc) || latticeBase(id, p, tc) || broodBase(id, p, tc) { return }
         switch id {
         // MARK: Concord
         case "h_engineer": soldier(p, body: RGB(0.62, 0.55, 0.35), tc: tc, helmet: RGB(1.0, 0.68, 0.1), pack: RGB(0.45, 0.42, 0.35))
@@ -443,6 +444,7 @@ enum UnitArt {
     // MARK: Upper layer (rest pose: weapon level, facing right)
 
     static func upper(_ id: String, _ v: String, _ p: Pen, _ tc: RGB) {
+        if concordUpper(id, v, p, tc) || latticeUpper(id, v, p, tc) || broodUpper(id, v, p, tc) { return }
         switch id {
         // MARK: Concord
         case "h_engineer":
