@@ -6,7 +6,7 @@ xcrun simctl install $D build/dd/Build/Products/Release-iphonesimulator/Meridian
 xcrun simctl terminate $D dev.meridian.rts 2>/dev/null
 xcrun simctl launch $D dev.meridian.rts -autostart -seed 42 -map crossroads -faction $F -enemy $E -lab -zoom $Z -tod 0.1 >/dev/null
 sleep 4
-xcrun simctl io $D recordVideo --codec h264 --force "$OUT.mp4" >/dev/null 2>&1 &
-REC=$!; sleep $SECS; kill -INT $REC; wait $REC 2>/dev/null
+T=$(mktemp -d); xcrun simctl io $D recordVideo --codec h264 --force "$T/v.mp4" >/dev/null 2>&1 &
+REC=$!; sleep $SECS; kill -INT $REC; wait $REC 2>/dev/null; mv "$T/v.mp4" "$OUT.mp4"
 ffmpeg -loglevel error -y -i "$OUT.mp4" -frames:v 1 -vf "fps=4,crop=iw:ih*0.42:0:ih*0.29,scale=400:-1,tile=5x4" "$OUT.jpg"
 echo "$OUT.jpg"

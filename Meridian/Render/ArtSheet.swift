@@ -82,4 +82,28 @@ enum ArtSheet {
         CGImageDestinationFinalize(dest)
         print("wrote \(url.path)")
     }
+
+    /// Building review: one faction's eight structures, large, on a terrain-coloured ground.
+    static func writeBuildings(_ f: Faction, to url: URL) {
+        let data = GameData.shared
+        let ids = data.buildingIDs(f)
+        let cols = 4, cellW: CGFloat = 300, cellH: CGFloat = 300
+        let W = cellW * CGFloat(cols), H = cellH * CGFloat((ids.count + cols - 1) / cols)
+        let img = Pen.image(W, H, scale: 1) { p in
+            p.fill(p.poly([(0, 0), (W, 0), (W, H), (0, H)]), RGB(0.27, 0.40, 0.25))
+            for (k, b) in ids.enumerated() {
+                let d = data.buildings[b]
+                let im = WorldArt.building(d, team: TeamColor.rgb(0))
+                let c = WorldArt.buildingCanvas(d)
+                let sc = min((cellW - 20) / c.w, (cellH - 20) / c.h) * 1.0
+                let x = CGFloat(k % cols) * cellW + (cellW - c.w * sc) / 2
+                let y = H - CGFloat(k / cols + 1) * cellH + 10
+                p.ctx.draw(im, in: CGRect(x: x, y: y, width: c.w * sc, height: c.h * sc))
+            }
+        }
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(dest, img, nil)
+        CGImageDestinationFinalize(dest)
+        print("wrote \(url.path)")
+    }
 }

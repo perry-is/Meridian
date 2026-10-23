@@ -2,7 +2,7 @@
 # Reproducible screenshot set for visual comparison.
 # Usage: tools/capture.sh <out-dir> [device-udid]
 set -e
-OUT=${1:?out dir}; D=${2:-60C5DB9D-0CBF-4604-84D7-856AA7A60930}
+OUT=${1:?out dir}; [[ "$OUT" = /* ]] || OUT="$PWD/$OUT"; D=${2:-60C5DB9D-0CBF-4604-84D7-856AA7A60930}
 APP=build/dd/Build/Products/Release-iphonesimulator/Meridian.app
 mkdir -p "$OUT"
 xcrun simctl install $D "$APP"

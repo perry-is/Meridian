@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Records the Mission 5 world showcase clips and joins them. Usage: tools/world_video.sh <out.mp4>
-OUT=${1:?out}; D=${2:-60C5DB9D-0CBF-4604-84D7-856AA7A60930}
-TMP=build/shots/vid; rm -rf $TMP; mkdir -p $TMP
+OUT=${1:?out}; [[ "$OUT" = /* ]] || OUT="$PWD/$OUT"; D=${2:-60C5DB9D-0CBF-4604-84D7-856AA7A60930}
+TMP=$(mktemp -d); rm -rf $TMP; mkdir -p $TMP
 xcrun simctl install $D build/dd/Build/Products/Release-iphonesimulator/Meridian.app
 clip() { # name warmup seconds args...
   local name=$1 warm=$2 secs=$3; shift 3
@@ -19,7 +19,7 @@ clip 3_lattice 12 7 -autostart -spectate -seed 5 -map riverbend -faction machine
 clip 4_brood 12 7 -autostart -spectate -seed 5 -map highlands -faction aliens -enemy humans -warp 300 -camhq 0 -zoom 0.9 -tod 0.12
 clip 5_plateau 14 9 -autostart -spectate -seed 11 -map highlands -faction machines -enemy aliens -warp 600
 clip 6_battle 4 14 -battle 100
-(cd $TMP && ffmpeg -loglevel error -y -f concat -safe 0 -i list.txt -c copy ../world_demo.mp4)
-cp build/shots/world_demo.mp4 "$OUT"
+(cd $TMP && ffmpeg -loglevel error -y -f concat -safe 0 -i list.txt -c copy world_demo.mp4)
+cp "$TMP/world_demo.mp4" "$OUT"
 xcrun simctl terminate $D dev.meridian.rts 2>/dev/null
 ls -la "$OUT"

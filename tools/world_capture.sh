@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Matching scene set for environment / building / battle comparisons (Mission 5).
 # Usage: tools/world_capture.sh <out-dir> [device-udid]
-OUT=${1:?out dir}; D=${2:-60C5DB9D-0CBF-4604-84D7-856AA7A60930}
+OUT=${1:?out dir}; [[ "$OUT" = /* ]] || OUT="$PWD/$OUT"; D=${2:-60C5DB9D-0CBF-4604-84D7-856AA7A60930}
 APP=build/dd/Build/Products/Release-iphonesimulator/Meridian.app
 mkdir -p "$OUT"
 xcrun simctl install $D "$APP"
@@ -10,7 +10,7 @@ shoot() { # name wait args...
   xcrun simctl terminate $D dev.meridian.rts 2>/dev/null || true
   xcrun simctl launch --console-pty $D dev.meridian.rts "$@" > "$OUT/$name.log" 2>&1 &
   sleep $wait
-  xcrun simctl io $D screenshot "$OUT/$name.png" >/dev/null 2>&1
+  T=$(mktemp -d); xcrun simctl io $D screenshot "$T/$name.png" >/dev/null 2>&1; mv "$T/$name.png" "$OUT/$name.png"
   sips -s format jpeg -s formatOptions 80 -Z 1200 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null && rm "$OUT/$name.png"
   echo "captured $name"
 }
