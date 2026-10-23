@@ -226,6 +226,7 @@ struct GameView: View {
     var onRestart: (() -> Void)? = nil
     @State private var scene: GameScene? = nil
     @State private var showPause = false
+    @Environment(\.scenePhase) private var phase
 
     var body: some View {
         GeometryReader { geo in
@@ -249,6 +250,10 @@ struct GameView: View {
             }
             .onAppear {
                 if scene == nil { scene = GameScene(controller: controller, size: geo.size) }
+            }
+            .onChange(of: phase) { _, p in
+                // Leaving the app (call, notification, home) pauses the match instead of letting it run on.
+                if p != .active && !controller.spectating && controller.gameOver == nil { controller.paused = true; showPause = true }
             }
             .sheet(isPresented: $controller.showTech) {
                 TechTreeView(controller: controller)
