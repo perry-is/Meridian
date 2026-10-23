@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 import MeridianCore
 
 /// Isometric projection shared by the renderer and input. World tiles are 64x32 points.
@@ -56,6 +59,32 @@ struct Toast: Identifiable {
     var text: String
     var time: Date
     var warning: Bool
+    /// Where it happened: tapping the toast jumps the camera there.
+    var at: (Double, Double)? = nil
+}
+
+/// Light haptic feedback for key moments (iPhone only).
+enum Haptics {
+    static func warning() {
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
+    }
+    static func success() {
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+    }
+    static func error() {
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        #endif
+    }
+    static func tap() {
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+    }
 }
 
 /// Snapshot published to SwiftUI a few times per second (cheap to diff, never touches the sim directly).
@@ -90,6 +119,8 @@ struct HUDState {
     var portrait: (type: Int, building: Bool, owner: Int)? = nil
     var stats: [(symbol: String, value: String)] = []
     var tags: [String] = []
+    /// Commander's guide: the suggested next step for new players (nil when there is nothing to suggest).
+    var guide: String? = nil
     var siteOwners: [Int] = []
     var siteProgress: [Double] = []
     var tileHP: [Int: Double] = [:]
@@ -285,6 +316,7 @@ final class GameController: ObservableObject {
         if world.time - lastHUD > 0.2 { lastHUD = world.time; refreshHUD() }
         if let w = world.winner, gameOver == nil {
             gameOver = (w == me, world.victoryReason)
+            if w == me { Haptics.success() } else { Haptics.error() }
             SoundEngine.shared?.play(w == me ? "victory" : "defeat", at: nil, minGap: 0)
         }
     }
@@ -299,7 +331,9 @@ final class GameController: ObservableObject {
                 if owner == me { toast("Site captured") } else { toast("Enemy captured a site", warning: true) }
                 _ = site
             case .researched(let owner, let u):
-                if owner == me { toast("Research complete: \(data.upgrades[u].name)") }
+                if owner == me { toast("Research complete: \(data.upgrades[u].name)"); Haptics.success() }
+            case .built(let id):
+                if let e = world.entity(id), e.owner == me { Haptics.tap() }
             case .message(let owner, let text):
                 if owner == me { toast(text, warning: true) }
             default: break
@@ -309,12 +343,42 @@ final class GameController: ObservableObject {
         for e in world.entities where e.alive && e.owner == me && world.time - e.lastDamagedTime < 0.06 && !e.isMine {
             if world.time - lastAttackAlert > 12 {
                 lastAttackAlert = world.time
-                toast(e.isBuilding ? "Your base is under attack" : "Your forces are under attack", warning: true)
+                toasts.append(Toast(text: e.isBuilding ? "Your base is under attack — tap to view" : "Your forces are under attack — tap to view", time: Date(), warning: true, at: (e.x, e.y)))
+                if toasts.count > 4 { toasts.removeFirst(toasts.count - 4) }
+                Haptics.warning()
                 attackPings.append((e.x, e.y, world.time))
             }
             break
         }
         attackPings.removeAll { world.time - $0.t > 6 }
+    }
+
+    /// Commander's guide: on for Easy matches (and whenever enabled in settings) until dismissed.
+    var guideDismissed = false
+    var guideOn: Bool {
+        guard !guideDismissed else { return false }
+        return settings.difficulty == .easy || (UserDefaults.standard.object(forKey: "guide.on") as? Bool ?? false)
+    }
+
+    /// The next useful thing for a new player to do, in plain words.
+    func guideStep() -> String? {
+        let f = world.players[me].faction
+        let units = world.units(of: me).filter { !$0.isMine }
+        let workers = units.filter { world.traits[$0.type].worker }.count
+        let army = units.count - workers
+        let blds = world.buildings(of: me)
+        let barracksID = data.buildingIDs(f).first { data.buildings[$0].kind == .infantry }
+        let barracks = barracksID.map { data.buildings[$0].name } ?? "barracks"
+        let hasBarracks = blds.contains { world.bdef($0).kind == .infantry }
+        let workerName = data.unitIDs(f).first { data.units[$0].role == "worker" }.map { data.units[$0].name } ?? "worker"
+        let sites = world.sites.filter { $0.owner == me && $0.control >= 1 }.count
+        if workers < 8 { return "Train more \(workerName)s: tap your HQ, then the \(workerName) button. More workers means more resources." }
+        if !hasBarracks { return "Build a \(barracks): select a worker, tap Build, choose the \(barracks), place it, then Confirm." }
+        if army < 4 { return "Train soldiers at your \(barracks) so you can defend your base." }
+        if sites == 0 { return "Capture a site: tap Army, then tap one of the glowing platforms on the map." }
+        if army < 12 { return "Keep growing your army. Tap Army any time to select every soldier." }
+        if world.time > 360 { return "Attack! Tap Army, then Attack-Move, then tap toward the enemy base." }
+        return nil
     }
 
     func toast(_ s: String, warning: Bool = false) {
@@ -578,6 +642,7 @@ final class GameController: ObservableObject {
     func refreshHUD() {
         var h = HUDState()
         let p = world.players[me]
+        h.guide = guideOn && !spectating ? guideStep() : nil
         h.res = p.res
         h.units = p.unitCount
         h.cap = data.rules.combat.unitCap

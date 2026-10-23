@@ -21,6 +21,12 @@ public final class AIController {
     var workerTarget: Int
     var attackThreshold: Double
     var maxQueue: Int
+    /// Difficulty shaping (decision-making only — the AI never gets or loses stats or resources):
+    var firstAttack: Double = 330      // earliest attack time
+    var attackGap: Double = 45         // rest between attacks
+    var waveCap = 0                    // most units sent per attack (0 = whole army)
+    var retreatAt = 0.5                // fall back after losing this share of the attack force
+    var attackGroup = Set<Int>()
     var attacking = false
     var attackTarget: (Double, Double)? = nil
     var attackStartValue = 0.0
@@ -43,12 +49,17 @@ public final class AIController {
         self.strategy = strategy
         rng = RNG(seed: seed &+ UInt64(player) &* 977)
         switch difficulty {
-        case .easy: thinkInterval = 2.0; workerTarget = 13; attackThreshold = 3600; maxQueue = 1
-        case .normal: thinkInterval = 1.0; workerTarget = 22; attackThreshold = 2900; maxQueue = 2
+        case .easy:
+            // A gentle opponent a beginner can beat: slow to react, small economy, late, small, cautious attacks.
+            thinkInterval = 4.0; workerTarget = 6; attackThreshold = 5600; maxQueue = 1
+            firstAttack = 780; attackGap = 300; waveCap = 8; retreatAt = 0.7
+        case .normal:
+            thinkInterval = 3.0; workerTarget = 8; attackThreshold = 5000; maxQueue = 1
+            firstAttack = 600; attackGap = 230; retreatAt = 0.62
         case .hard: thinkInterval = 0.5; workerTarget = 34; attackThreshold = 2600; maxQueue = 2
         }
         switch strategy {
-        case .aggressive: attackThreshold *= 0.7; workerTarget -= 3
+        case .aggressive: attackThreshold *= 0.7; workerTarget = max(6, workerTarget - 3); firstAttack -= 90
         case .territorial: attackThreshold *= 1.15
         case .tech: attackThreshold *= 1.3; workerTarget += 2
         case .balanced: break
@@ -185,11 +196,11 @@ public final class AIController {
         let tier2 = p.completedUpgrades.contains(w.data.upgradeIndex["\(px)_tier2"]!)
         let tier3 = p.completedUpgrades.contains(w.data.upgradeIndex["\(px)_tier3"]!)
         let ownedSites = w.sites.filter { $0.owner == player && $0.control >= 1 }.count
-        let hard = difficulty == .hard, easy = difficulty == .easy
+        let hard = difficulty == .hard, easy = difficulty != .hard
         var goals: [(BuildingKind, Int)] = [(.infantry, 1)]
         if workers.count >= 8 || t > 70 { goals.append((.depot, 1)) }
         if t > 150 || strategy == .tech { goals.append((.research, 1)) }
-        if strategy != .aggressive || t > 300 { goals.append((.tower, (t > 150 || raided) ? 1 : 0)) }
+        if (strategy != .aggressive || t > 300) && (difficulty != .easy || t > 600) { goals.append((.tower, (t > 150 || raided) ? 1 : 0)) }
         if p.faction == .machines { goals.insert((.tower, t > 75 ? (t > 220 ? 2 : 1) : 0), at: 1) }
         if ownedSites > 0 && t > 200 { goals.append((.forward, 1)) }
         if tier2 { goals.append((.heavy, 1)); if t > 330 { goals.append((.air, 1)) } }
@@ -359,7 +370,7 @@ public final class AIController {
             prio.insert(contentsOf: [first, "a_roots"], at: 5); prio.append(second)
         }
         if strategy == .tech { prio.swapAt(1, 4) }
-        if difficulty == .easy && w.time < 400 { prio = Array(prio.prefix(3)) }
+        if difficulty != .hard && w.time < (difficulty == .easy ? 900 : 400) { prio = Array(prio.prefix(3)) }
         let maxResearch = difficulty == .hard ? 2 : 1
         if p.researching.count >= maxResearch { return }
         let rich = p.res[0] > 400 && p.res[1] > 150
@@ -369,7 +380,7 @@ public final class AIController {
             guard let u = w.data.upgradeIndex[id] else { continue }
             if w.upgradeAvailability(player, u) != nil { continue }
             let g = w.data.upgrades[u]
-            if id.hasSuffix("tier2") && w.time < (strategy == .aggressive ? 260 : 150) { continue }
+            if id.hasSuffix("tier2") && w.time < (difficulty == .easy ? 480 : (strategy == .aggressive ? 260 : 150)) { continue }
             guard let b = buildings.first(where: { $0.complete && w.bdef($0).kind == g.researchedAt && $0.queue.isEmpty }) else { continue }
             if p.canAfford(g.cost) {
                 w.commandResearch(b.id, upgrade: u)
@@ -534,7 +545,7 @@ public final class AIController {
         }
 
         // 1b. Hard AI defends its territory: respond to owned sites being contested or decapped.
-        if difficulty != .easy && !attacking {
+        if difficulty == .hard && !attacking {
             for s in w.sites where s.owner == player && (s.contested || s.control < 0.95) {
                 let responders = army.filter { dist2($0.x, $0.y, s.x, s.y) < 45 * 45 && ($0.order == .idle || $0.order == .hold) }
                 if responders.count >= 3 { w.commandMove(responders.map { $0.id }, x: s.x, y: s.y, attack: true, formation: .defensive); lastPlan = "Holding territory"; return }
@@ -546,15 +557,22 @@ public final class AIController {
         let capped = p.unitCount >= w.data.rules.combat.unitCap - 10
         let enemyEst = enemySeen.reduce(0.0) { $0 + Double($1.value) * w.data.units[$1.key].cost.value(w.data.rules.economy) * (w.data.units[$1.key].role == "worker" ? 0 : 1) }
         let confident = difficulty != .hard || value > enemyEst * 1.25
-        if !attacking && (value >= threshold && confident || capped) && w.time - lastAttackEnd > (difficulty == .easy ? 120 : 45) && w.time > (strategy == .aggressive ? 240 : 330) {
+        // The attack force: the whole army, or (gentler AIs) only a capped wave while the rest stays home.
+        var force = army
+        if attacking && waveCap > 0 { force = army.filter { attackGroup.contains($0.id) }; if force.isEmpty { attacking = false; assembling = false; lastAttackEnd = w.time } }
+        if !attacking && (value >= threshold && confident || capped) && w.time - lastAttackEnd > attackGap && w.time > firstAttack {
             attacking = true
-            attackStartValue = value
+            if waveCap > 0 {
+                attackGroup = Set(army.sorted { $0.id < $1.id }.prefix(waveCap).map { $0.id })
+                force = army.filter { attackGroup.contains($0.id) }
+            }
+            attackStartValue = armyValue(w, force)
             attackTarget = chooseAttackTarget(w)
-            if difficulty != .easy {
+            if difficulty == .hard {
                 assembling = true
                 assembleSince = w.time
                 let st = stagingPoint(w)
-                w.commandMove(ids, x: st.0, y: st.1, attack: true, formation: doctrine(w, p))
+                w.commandMove(force.map { $0.id }, x: st.0, y: st.1, attack: true, formation: doctrine(w, p))
                 lastPlan = "Assembling"
                 return
             }
@@ -562,13 +580,13 @@ public final class AIController {
         }
         if attacking && assembling {
             let st = stagingPoint(w)
-            let near = army.filter { dist2($0.x, $0.y, st.0, st.1) < 10 * 10 }.count
-            if Double(near) < Double(army.count) * 0.7 && w.time - assembleSince < 25 { return }
+            let near = force.filter { dist2($0.x, $0.y, st.0, st.1) < 10 * 10 }.count
+            if Double(near) < Double(force.count) * 0.7 && w.time - assembleSince < 25 { return }
             assembling = false
             guard let t = attackTarget else { attacking = false; return }
             // Main body advances in doctrine formation; fast raiders swing around a flank.
-            let fast = army.filter { w.udef($0).role == "fast" }
-            let main = army.filter { w.udef($0).role != "fast" }.map { $0.id }
+            let fast = force.filter { w.udef($0).role == "fast" }
+            let main = force.filter { w.udef($0).role != "fast" }.map { $0.id }
             w.commandMove(main, x: t.0, y: t.1, attack: true, formation: doctrine(w, p))
             if !fast.isEmpty {
                 let dx = t.0 - st.0, dy = t.1 - st.1
@@ -581,30 +599,30 @@ public final class AIController {
             return
         }
         if attacking {
-            if value < attackStartValue * 0.5 && !capped {
+            if armyValue(w, force) < attackStartValue * (1 - retreatAt) && !capped {
                 attacking = false
                 assembling = false
                 lastAttackEnd = w.time
                 // Brood fall back into Bloom (owned site or base) to regenerate; others to the staging point.
                 var st = stagingPoint(w)
-                if p.faction == .aliens, let s = w.sites.filter({ $0.owner == player && $0.control >= 1 }).min(by: { dist2($0.x, $0.y, army[0].x, army[0].y) < dist2($1.x, $1.y, army[0].x, army[0].y) }) {
+                if p.faction == .aliens, let s = w.sites.filter({ $0.owner == player && $0.control >= 1 }).min(by: { dist2($0.x, $0.y, force[0].x, force[0].y) < dist2($1.x, $1.y, force[0].x, force[0].y) }) {
                     st = (s.x, s.y)
                 }
-                w.commandMove(ids, x: st.0, y: st.1, attack: false, formation: .defensive)
+                w.commandMove(force.map { $0.id }, x: st.0, y: st.1, attack: false, formation: .defensive)
                 lastPlan = "Retreating"
                 return
             }
             // Re-target when the current objective is gone.
             if let t = attackTarget, !targetStillValid(w, t) { attackTarget = chooseAttackTarget(w) }
             guard let t = attackTarget else { attacking = false; return }
-            let laggards = army.filter { ($0.order == .idle && $0.target < 0) || ($0.order == .attackMove && dist2($0.ox, $0.oy, t.0, t.1) > 9) || $0.order == .move }
+            let laggards = force.filter { ($0.order == .idle && $0.target < 0) || ($0.order == .attackMove && dist2($0.ox, $0.oy, t.0, t.1) > 9) || $0.order == .move }
             if !laggards.isEmpty { w.commandMove(laggards.map { $0.id }, x: t.0, y: t.1, attack: true, formation: doctrine(w, p)) }
             return
         }
 
         // 3. Expansion: send squads to capture neutral or weakly held sites.
         let (bx, by) = baseCenter(w)
-        let maxSquads = difficulty == .easy ? 1 : (strategy == .territorial ? 4 : 3)
+        let maxSquads = difficulty == .hard ? (strategy == .territorial ? 4 : 3) : (difficulty == .easy && w.time < 480 ? 0 : 1)
         siteSquads = siteSquads.filter { (k, v) in w.sites[k].owner != player && v.contains { w.entity($0) != nil } }
         let candidates = w.sites.enumerated().filter { $0.element.owner != player }
             .sorted { dist2($0.element.x, $0.element.y, bx, by) < dist2($1.element.x, $1.element.y, bx, by) }

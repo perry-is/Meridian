@@ -1,0 +1,12 @@
+=== Ladder normal vs hard: 27 games ===
+normal wins 7, hard wins 20, unresolved 0
+Victory types: ["Enemy base destroyed": 18, "Territorial dominance": 9]
+Duration: median 14:50, min 10:20, max 20:28
+=== Ladder easy vs normal: 27 games ===
+easy wins 0, normal wins 27, unresolved 0
+Victory types: ["Enemy base destroyed": 19, "Territorial dominance": 8]
+Duration: median 14:52, min 9:46, max 17:30
+=== Ladder easy vs hard: 27 games ===
+easy wins 0, hard wins 27, unresolved 0
+Victory types: ["Territorial dominance": 1, "Enemy base destroyed": 26]
+Duration: median 11:07, min 7:54, max 17:30

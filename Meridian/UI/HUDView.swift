@@ -20,6 +20,7 @@ struct HUDView: View {
             VStack(spacing: 6) {
                 TopBar(controller: controller, compact: compact, showPause: $showPause, accent: accent)
                 ToastStack(controller: controller)
+                if let g = controller.hud.guide { GuideCard(text: g, accent: accent) { controller.guideDismissed = true; controller.refreshHUD() } }
                 HStack(alignment: .top) {
                     SideRail(controller: controller, accent: accent)
                     Spacer()
@@ -146,11 +147,46 @@ struct SiteStrip: View {
     }
 }
 
+/// Commander's guide card: one suggested next step, dismissible.
+struct GuideCard: View {
+    let text: String
+    let accent: Color
+    var onDismiss: () -> Void
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "lightbulb.fill").foregroundColor(Theme.gold).font(.system(size: 13))
+            Text(text).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button(action: onDismiss) { Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).padding(4) }
+                .buttonStyle(.plain).accessibilityLabel("Hide guide")
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(Chamfer(cut: 7).fill(Color.black.opacity(0.72)))
+        .overlay(Chamfer(cut: 7).stroke(Theme.gold.opacity(0.55), lineWidth: 1))
+        .foregroundColor(.white)
+        .frame(maxWidth: 420)
+        .padding(.horizontal, 60)
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.3), value: text)
+    }
+}
+
 struct ToastStack: View {
     @ObservedObject var controller: GameController
     var body: some View {
         VStack(spacing: 4) {
             ForEach(controller.toasts) { t in
+                Button {
+                    if let at = t.at { controller.focusCamera?(at.0, at.1); Haptics.tap() }
+                } label: { toastRow(t) }
+                .buttonStyle(.plain)
+                .allowsHitTesting(t.at != nil)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: controller.toasts.map { $0.id })
+    }
+
+    func toastRow(_ t: Toast) -> some View {
                 HStack(spacing: 6) {
                     Image(systemName: t.warning ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
                         .foregroundColor(t.warning ? Color(red: 1, green: 0.45, blue: 0.35) : Theme.accent)
@@ -161,10 +197,6 @@ struct ToastStack: View {
                 .overlay(Chamfer(cut: 6).stroke((t.warning ? Color.red : Theme.accent).opacity(0.5), lineWidth: 1))
                 .foregroundColor(.white)
                 .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
-        .allowsHitTesting(false)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: controller.toasts.map { $0.id })
     }
 }
 

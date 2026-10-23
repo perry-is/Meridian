@@ -25,6 +25,9 @@ final class PlaythroughUITests: XCTestCase {
     }
 
     func testCorePlaythrough() throws {
+        let play = app.buttons["PLAY"]
+        XCTAssertTrue(play.waitForExistence(timeout: 25), "Title screen did not appear")
+        play.tap()
         let deploy = app.buttons["DEPLOY"]
         if !deploy.waitForExistence(timeout: 10) { app.swipeUp(); }
         // The menu scrolls on the small cover screen.

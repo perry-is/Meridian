@@ -8,6 +8,10 @@ struct MeridianApp: App {
         #if os(macOS)
         // Headless helpers for development: render an art contact sheet.
         let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--icon"), i + 1 < args.count {
+            IconArt.write(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
         if let i = args.firstIndex(of: "--music"), i + 1 < args.count {
             MusicScore.writeWAVs(to: URL(fileURLWithPath: args[i + 1]))
             exit(0)
@@ -38,8 +42,18 @@ struct MeridianApp: App {
     }
 }
 
+enum Screen { case boot, title, setup, loading, game }
+
 struct RootView: View {
     @State private var settings = GameSettings()
+    @State private var controller: GameController? = nil
+    @State private var fixedSeed = false
+    @State private var screen: Screen = .boot
+    @State private var watch = false
+    @State private var progress = 0.0
+    @State private var step = ""
+    @State private var tip = Tips.all.randomElement()!
+    @StateObject private var backdrop = MenuBackdrop()
 
     func startBattle(_ n: Int, _ f0: Faction, _ f1: Faction) {
         var s = settings
@@ -48,39 +62,85 @@ struct RootView: View {
         let c = GameController(settings: s, spectate: true)
         c.setupBattle(n)
         controller = c
+        screen = .game
     }
-    @State private var controller: GameController? = nil
-    @State private var loading = false
-    @State private var fixedSeed = false
 
-    var body: some View {
-        ZStack {
-            if let c = controller {
-                GameView(controller: c, onQuit: { controller = nil }, onRestart: c.battleMode ? {
-                    let n = c.battleSize, f0 = c.settings.playerFaction, f1 = c.settings.aiFaction
-                    controller = nil
-                    DispatchQueue.main.async { startBattle(n, f0, f1) }
-                } : nil)
-                    .transition(.opacity)
-            } else {
-                MainMenuView(settings: $settings, loading: loading, onSpectate: {
-                    var s = settings
-                    s.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000
-                    controller = GameController(settings: s, spectate: true)
-                }, onBattle: { n in startBattle(n, settings.playerFaction, settings.aiFaction) }) {
-                    loading = true
-                    // Give the menu a frame to show the loading state before generating textures.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        if !fixedSeed { settings.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000 }
-                        // A real match always uses a playable battlefield (the test arena has no resources).
-                        if !MapLayout.playable.contains(settings.layout) { settings.layout = .crossroads }
-                        controller = GameController(settings: settings)
-                        loading = false
-                    }
+    /// Boot: load data, synthesize audio and raise the menu's live battlefield behind a branded loader.
+    func boot() {
+        let t0 = Date()
+        step = "Charting the frontier…"; progress = 0.08
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            _ = GameData.shared
+            _ = SoundEngine.shared
+            step = "Tuning the orchestra…"; progress = 0.35
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                step = "Raising the battlefield…"; progress = 0.55
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    backdrop.start()
+                    step = "Ready"; progress = 1
+                    let wait = max(0.25, 1.8 - Date().timeIntervalSince(t0))
+                    DispatchQueue.main.asyncAfter(deadline: .now() + wait) { screen = .title }
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: controller == nil)
+    }
+
+    /// Match loading: generate the map and world, build the faction art, then drop into the game.
+    func startMatch() {
+        tip = Tips.all.randomElement()!
+        step = "Surveying the battlefield…"; progress = 0.06
+        screen = .loading
+        let t0 = Date()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            backdrop.stop()
+            if !fixedSeed { settings.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000 }
+            // A real match always uses a playable battlefield (the test arena has no resources).
+            if !MapLayout.playable.contains(settings.layout) { settings.layout = .crossroads }
+            let c = GameController(settings: settings, spectate: watch)
+            step = "Assembling the armies…"; progress = 0.45
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                _ = TextureBank.make(data: GameData.shared, factions: c.world.players.map { $0.faction })
+                step = "Final preparations…"; progress = 0.85
+                let wait = max(0.15, 1.6 - Date().timeIntervalSince(t0))
+                DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+                    progress = 1
+                    controller = c
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { screen = .game }
+                }
+            }
+        }
+    }
+
+    func backToMenu() {
+        controller = nil
+        screen = .setup
+        DispatchQueue.main.async { backdrop.start() }
+    }
+
+    var body: some View {
+        ZStack {
+            switch screen {
+            case .game:
+                if let c = controller {
+                    GameView(controller: c, onQuit: backToMenu, onRestart: c.battleMode ? {
+                        let n = c.battleSize, f0 = c.settings.playerFaction, f1 = c.settings.aiFaction
+                        controller = nil
+                        DispatchQueue.main.async { startBattle(n, f0, f1) }
+                    } : nil)
+                    .transition(.opacity)
+                }
+            case .boot:
+                LoadingView(title: "Preparing the frontier", step: step, progress: progress).transition(.opacity)
+            case .title:
+                TitleView(backdrop: backdrop, onPlay: { screen = .setup }).transition(.opacity)
+            case .setup:
+                SetupView(settings: $settings, watch: $watch, backdrop: backdrop, onBack: { screen = .title }, onDeploy: startMatch).transition(.opacity)
+            case .loading:
+                LoadingView(title: watch ? "Preparing the battle" : "Deploying", step: step, progress: progress, tip: tip,
+                            accent: Theme.faction(settings.playerFaction)).transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: screen)
         .onAppear {
             // Development switches: -autostart, -spectate (AI plays both sides), -warp <seconds>, -faction/-enemy <name>, -map <layout>.
             let a = ProcessInfo.processInfo.arguments
@@ -88,6 +148,7 @@ struct RootView: View {
             if let f = arg("-faction"), let v = Faction(rawValue: f) { settings.playerFaction = v }
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
+            if let d = arg("-difficulty"), let v = Difficulty(rawValue: d) { settings.difficulty = v }
             if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
             if let sc = arg("-scenario").flatMap({ TacticalScenario(rawValue: $0) }), controller == nil {
                 var st = settings
@@ -97,6 +158,7 @@ struct RootView: View {
                 sc.setup(c.world, formation: arg("-formation").flatMap { Formation(rawValue: $0) } ?? .balanced)
                 c.battleMode = true
                 controller = c
+                screen = .game
                 return
             }
             if let b = arg("-battle"), let n = Int(b), controller == nil {
@@ -112,7 +174,9 @@ struct RootView: View {
                 if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
                 if a.contains("-lab") { c.setupLab() }
                 controller = c
+                screen = .game
             }
+            if controller == nil && screen == .boot { boot() }
         }
         #if os(iOS)
         .statusBarHidden(true)

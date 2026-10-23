@@ -131,6 +131,36 @@ case "tournament":
     let sorted = durations.sorted()
     print("Duration: median \(mmss(sorted[sorted.count / 2])), min \(mmss(sorted.first!)), max \(mmss(sorted.last!))")
 
+case "ladder":
+    // Difficulty check: player 0 at --d0 against player 1 at --d1, every faction pairing (mirrors included),
+    // every playable map, both start positions.
+    let seeds = Int(opt("seeds", "1"))!
+    let limit = Double(opt("limit", "2700"))!
+    let d0 = parseDiff(opt("d0", "easy")), d1 = parseDiff(opt("d1", "normal"))
+    var w0 = 0, w1 = 0, draws = 0, n = 0
+    var durations: [Double] = []
+    var reasons: [String: Int] = [:]
+    for a in Faction.allCases {
+        for b in Faction.allCases {
+            for layout in MapLayout.playable {
+                for s in 0..<seeds {
+                    let swap = (n % 2) == 1
+                    let r = runMatch(a, b, layout: layout, seed: UInt64(300 + s * 11), diff: [d0, d1], strat: [.balanced, .balanced], swap: swap, limit: limit, verbose: false)
+                    n += 1
+                    if r.winner == 0 { w0 += 1 } else if r.winner == 1 { w1 += 1 } else { draws += 1 }
+                    durations.append(r.time); reasons[r.reason, default: 0] += 1
+                    print("#\(n) \(a.rawValue)[\(d0.rawValue)] v \(b.rawValue)[\(d1.rawValue)] \(layout.rawValue): winner \(r.winner) by \(r.reason) at \(mmss(r.time))")
+                    fflush(stdout)
+                }
+            }
+        }
+    }
+    let sorted = durations.sorted()
+    print("\n=== Ladder \(d0.rawValue) vs \(d1.rawValue): \(n) games ===")
+    print("\(d0.rawValue) wins \(w0), \(d1.rawValue) wins \(w1), unresolved \(draws)")
+    print("Victory types: \(reasons)")
+    print("Duration: median \(mmss(sorted[sorted.count / 2])), min \(mmss(sorted.first!)), max \(mmss(sorted.last!))")
+
 case "combat":
     // Equal-cost 1-unit-type vs 1-unit-type duels on an open arena, every cross-faction pairing.
     let budget = Double(opt("budget", "1500"))!
