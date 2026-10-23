@@ -68,8 +68,21 @@ enum MusicScore {
         var lp: Float = 0
         return { t in let n = noise(); lp += (n - lp) * 0.5; return (n - lp) * env(t, 0.001, 70) * amp }
     }
+    /// Tom: a short, tight drum with only a hint of pitch drop (no springy glide).
     static func tom(_ f: Double, _ amp: Float = 0.3) -> (Double) -> Float {
-        { t in Float(sin(2 * .pi * (f * t + f * 0.6 / 12 * (1 - exp(-12 * t))))) * env(t, 0.002, 7) * amp }
+        var lp: Float = 0
+        return { t in
+            let n = noise(); lp += (n - lp) * 0.08
+            return (Float(sin(2 * .pi * (f * t + f * 0.08 / 30 * (1 - exp(-30 * t))))) * env(t, 0.002, 14) + lp * env(t, 0.001, 30) * 0.8) * amp
+        }
+    }
+    /// Soft heartbeat thump: a felt-mallet low drum, no pitch glide.
+    static func thump(_ amp: Float = 0.3) -> (Double) -> Float {
+        var lp: Float = 0
+        return { t in
+            let n = noise(); lp += (n - lp) * 0.03
+            return (Float(sine(52, t)) * env(t, 0.004, 16) + lp * env(t, 0.002, 22) * 1.4) * amp
+        }
     }
     static func bell(_ f: Double) -> (Double) -> Float {
         { t in Float(sine(f, t) + 0.3 * sine(f * 2.76, t)) * Float(exp(-1.6 * t)) * 0.06 }
@@ -114,14 +127,14 @@ enum MusicScore {
         for bar in 0..<16 {
             let t0 = Double(bar) * 2, ci = bar / 4
             // Heartbeat: lub-dub on beat one.
-            tr.add(t0, 0.5, tom(70, 0.35)); tr.add(t0 + 0.32, 0.5, tom(62, 0.22))
+            tr.add(t0, 0.4, thump(0.34)); tr.add(t0 + 0.32, 0.4, thump(0.2))
             // Bass ostinato in eighths on the root, accenting the bar.
             for e in 0..<8 { let f = roots[ci] * (e == 6 ? 1.5 : 1); tr.add(t0 + Double(e) * 0.25, 0.24, bass(f, 0.24, e % 4 == 0 ? 0.11 : 0.07)) }
         }
         // String tremolo on the chord's fifth and ninth, swelling through each section.
         for ci in 0..<4 {
             for f in [chords[ci][2] * 2, chords[ci][4] * 2] {
-                tr.add(Double(ci) * 8, 8.2) { t in Float(sine(f, t)) * Float(0.55 + 0.45 * sin(2 * .pi * 11 * t)) * ar(t, 8.2, 3, 1.2) * 0.035 }
+                tr.add(Double(ci) * 8, 8.2) { t in Float(sine(f, t) * 0.7 + sine(f * 1.004, t) * 0.3) * Float(0.85 + 0.15 * sin(2 * .pi * 0.5 * t)) * ar(t, 8.2, 3, 1.4) * 0.03 }
             }
         }
         tr.normalize(0.5)
