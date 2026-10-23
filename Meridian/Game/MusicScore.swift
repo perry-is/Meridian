@@ -48,6 +48,18 @@ enum MusicScore {
             return Float(x) * ar(t, dur, 0.09, 0.35) * 0.09
         }
     }
+    /// Warm wooden flute: nearly pure tone, a touch of breath at the attack, slow gentle vibrato.
+    static func flute(_ f: Double, _ dur: Double) -> (Double) -> Float {
+        var lp: Float = 0
+        return { t in
+            let vib = 1 + 0.003 * sin(2 * .pi * 4.6 * t) * min(1, max(0, t - 0.3) / 0.6)
+            let tone = sine(f * vib, t) + 0.12 * sine(2 * f * vib, t) + 0.03 * sine(3 * f * vib, t)
+            let n = noise(); lp += (n - lp) * 0.12
+            let breath = lp * Float(exp(-6 * t)) * 0.35 + lp * 0.05
+            return (Float(tone) + breath) * ar(t, dur, 0.14, 0.45) * 0.075
+        }
+    }
+
     static func pluck(_ f: Double, _ amp: Float = 0.06) -> (Double) -> Float {
         { t in Float(sine(f, t) + 0.5 * sine(2 * f, t) * exp(-8 * t) + 0.25 * sine(3 * f, t) * exp(-14 * t)) * env(t, 0.002, 6) * amp }
     }
@@ -111,7 +123,7 @@ enum MusicScore {
             (40.0, 659.3, 1.0), (41.0, 587.3, 0.5), (41.5, 523.3, 0.5), (42.0, 392.0, 2.5),
             (48.0, 349.2, 1.0), (49.0, 466.2, 1.0), (50.0, 587.3, 1.0), (51.0, 523.3, 1.0), (52.0, 440.0, 2.5),
             (56.0, 392.0, 1.0), (57.0, 466.2, 1.0), (58.0, 587.3, 1.5), (59.5, 523.3, 0.5), (60.0, 587.3, 3.6)]
-        for (t, f, d) in theme { tr.add(t, d + 0.3, horn(f, d + 0.3)); tr.add(t, d + 0.3, horn(f / 2, d + 0.3)) }
+        for (t, f, d) in theme { tr.add(t, d + 0.5, flute(f, d + 0.5)) }
         // Drone and wind across the whole loop.
         var wind: Float = 0
         tr.add(0, 64) { t in
