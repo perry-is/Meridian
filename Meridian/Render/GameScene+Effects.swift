@@ -648,9 +648,10 @@ extension GameScene {
             sfx?.play(cp.2 ? "attack" : "move", at: nil)
         }
         // Workers' target: a ring flashes around the node or structure they were sent to.
-        if let tp = ctl.targetPing {
-            ctl.targetPing = nil
-            if let t = world.entity(tp.0), let tv = views[t.id] {
+        let pings = ctl.targetPings
+        ctl.targetPings.removeAll()
+        for id in pings {
+            if let t = world.entity(id), let tv = views[t.id] {
                 let w: CGFloat = t.isBuilding ? CGFloat(t.size) * 46 : (t.isUnit ? max(34, CGFloat(t.radius) * 140) : (t.type == ResourceKind.wood.rawValue ? 54 : 66))
                 let col = t.isResource ? GameScene.resourceColor(ResourceKind(rawValue: t.type)!) :
                     (world.isEnemyPublic(ctl.me, t.owner) ? SKColor(red: 1, green: 0.3, blue: 0.25, alpha: 1) : SKColor(red: 0.45, green: 0.9, blue: 1, alpha: 1))

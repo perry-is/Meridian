@@ -154,7 +154,8 @@ final class GameController: ObservableObject {
     /// First point of a two-point patrol (set by the first tap in Patrol mode).
     var patrolFirst: (Double, Double)? = nil
     /// A worker's harvest / build / repair target, flashed with a ring as confirmation.
-    var targetPing: (Int, Double)? = nil
+    /// Targets to flash with a ring: what workers were just sent to, or are busy with when selected.
+    var targetPings: [Int] = []
     var buildMenu = false { didSet { refreshHUD() } }
     var ghostTile: (Int, Int)? = nil
     var controlGroups: [Int: [Int]] = [:]
@@ -398,6 +399,14 @@ final class GameController: ObservableObject {
 
     func select(_ ids: [Int]) {
         selection = ids.filter { world.entity($0) != nil }
+        // Selecting workers shows what they're busy with: a ring flashes on each job (a few at most).
+        var jobs: [Int] = []
+        for e in selectedEntities where e.isUnit && world.traits[e.type].worker {
+            let job = e.order == .gather || e.order == .returnCargo ? e.gatherNode : (e.order == .build || e.order == .repair ? e.orderTarget : -1)
+            if job >= 0, !jobs.contains(job) { jobs.append(job) }
+            if jobs.count >= 3 { break }
+        }
+        targetPings += jobs
         selectedSite = nil
         buildMenu = false
         if case .place = mode { mode = .normal }
@@ -446,6 +455,17 @@ final class GameController: ObservableObject {
         var best: Entity? = nil, bd = r * r
         for e in world.entities where e.alive && e.isResource && world.players[me].explored[world.tileIndex(e.x, e.y)] {
             let lift = e.type == ResourceKind.wood.rawValue ? 0.8 : 0.5   // visual centre sits up-screen from the base
+            let d = dist2(x, y, e.x - lift, e.y + lift)
+            if d < bd { bd = d; best = e }
+        }
+        return best
+    }
+
+    /// Nearest of the player's own units to a point (by the drawn body, which stands up-screen of the feet).
+    func pickOwnUnit(_ x: Double, _ y: Double, within r: Double) -> Entity? {
+        var best: Entity? = nil, bd = r * r
+        for e in world.entities where e.alive && e.onMap && e.isUnit && !e.isMine && e.owner == me {
+            let lift = e.isAir ? 0.75 : 0.3
             let d = dist2(x, y, e.x - lift, e.y + lift)
             if d < bd { bd = d; best = e }
         }
@@ -567,14 +587,16 @@ final class GameController: ObservableObject {
         var hit = pick(x, y, radius: r)
         // Workers selected: a tap on (or right next to) a resource node means "harvest", even if another unit is closer.
         let workersSelected = !selection.isEmpty && selectedEntities.allSatisfy { $0.isUnit && world.traits[$0.type].worker }
-        if workersSelected, hit == nil || !(hit!.isResource || hit!.isBuilding || world.isEnemyPublic(me, hit!.owner)) {
+        if workersSelected, hit == nil {
             if let node = pickResource(x, y, within: max(1.4, r * 1.6)) { hit = node }
         }
         // Combat units selected: a tap on (or close to) a visible enemy means "attack it".
         let fighters = selectedEntities.contains { $0.isUnit && $0.owner == me && !world.traits[$0.type].worker }
-        if fighters, hit == nil || !world.isEnemyPublic(me, hit!.owner) {
+        if fighters, hit == nil || (hit!.owner != me && !world.isEnemyPublic(me, hit!.owner)) {
             if let foe = pickEnemy(x, y, within: max(1.3, r * 1.7)) { hit = foe }
         }
+        // A near miss on one of your own units selects it rather than ordering a move.
+        if hit == nil, let own = pickOwnUnit(x, y, within: 0.6 * max(1, zoom * 0.8)) { hit = own }
         if let h = hit, h.owner == me {
             // Tapping own stuff: select it (transport + selected units => load handled via smart command).
             if !selection.isEmpty && !h.isBuilding && world.traits[h.type].capacity > 0 && selectedEntities.contains(where: { $0.isUnit && !$0.isAir && $0.id != h.id }) {
@@ -597,15 +619,25 @@ final class GameController: ObservableObject {
     func command(at x: Double, y: Double, target: Entity?) {
         guard !selection.isEmpty else { return }
         if selectedEntities.allSatisfy({ $0.isBuilding }) {
-            for e in selectedEntities { world.setRally(e.id, x: x, y: y) }
-            toast("Rally point set"); return
+            // Rally on a resource (or right beside one): new workers go straight to gathering it.
+            let node = target.flatMap { $0.isResource ? $0 : nil } ?? pickResource(x, y, within: 1.2)
+            if let n = node {
+                for e in selectedEntities { world.setRally(e.id, x: n.x, y: n.y) }
+                targetPings.append(n.id)
+                let kind = ["Iron", "Gold", "Wood"][n.type]
+                toast("Rally set: new workers will gather \(kind)")
+            } else {
+                for e in selectedEntities { world.setRally(e.id, x: x, y: y) }
+                toast("Rally point set")
+            }
+            return
         }
         world.commandSmart(selection, x: x, y: y, targetID: target?.id, player: me, formation: formation)
         if let t = target, selectedEntities.contains(where: { $0.isUnit && world.traits[$0.type].worker }),
            t.isResource || (t.owner == me && t.isBuilding && (!t.complete || t.hp < t.maxHp)) {
-            targetPing = (t.id, world.time)
+            targetPings.append(t.id)
         } else if let t = target, world.isEnemyPublic(me, t.owner) {
-            targetPing = (t.id, world.time)
+            targetPings.append(t.id)
         }
         commandPing = (x, y, target.map { world.isEnemyPublic(me, $0.owner) } ?? false, world.time)
     }
