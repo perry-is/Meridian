@@ -102,6 +102,31 @@ extension GameScene {
         return s
     }
 
+    // MARK: Adaptive music
+
+    /// Feeds the score: tension while enemy units are in sight (one wandering scout is a subtle shift),
+    /// combat as shots fly on screen; the sound engine eases between them.
+    func updateMusicMood(_ dt: Double) {
+        guard let snd = SoundEngine.shared else { return }
+        snd.updateMusic(dt)
+        guard !silent else { snd.setMood(tension: 0, combat: 0); return }
+        combatHeat *= exp(-dt / 3)
+        tensionTimer -= dt
+        if tensionTimer <= 0 {
+            tensionTimer = 0.5
+            if ctl.spectating {
+                tensionLevel = 0.35
+            } else {
+                var seen = 0
+                for e in world.entities where e.alive && e.isUnit && e.onMap && !e.isMine && world.isEnemyPublic(ctl.me, e.owner) && world.canSee(ctl.me, e) {
+                    seen += 1; if seen >= 6 { break }
+                }
+                tensionLevel = seen == 0 ? 0 : min(1, 0.32 + 0.12 * Float(seen))
+            }
+        }
+        snd.setMood(tension: tensionLevel, combat: Float(min(1, combatHeat / 10)))
+    }
+
     // MARK: Screen shake (trauma model; offsets the world, not the camera, so tracking stays smooth)
 
     func addTrauma(_ amount: CGFloat, at p: CGPoint) {
@@ -110,8 +135,8 @@ extension GameScene {
     }
 
     func applyShake(_ dt: Double) {
-        trauma = max(0, trauma - CGFloat(dt) * 1.8)
-        let s = trauma * trauma * 10 * min(1.6, zoom)
+        trauma = max(0, trauma - CGFloat(dt) * 2.4)
+        let s = trauma * trauma * 4.5 * min(1.4, zoom)
         let t = CACurrentMediaTime()
         worldNode.position = CGPoint(x: s * CGFloat(sin(t * 47) + sin(t * 23) * 0.5), y: s * 0.6 * CGFloat(cos(t * 41) + sin(t * 17) * 0.5))
     }
@@ -558,6 +583,7 @@ extension GameScene {
             switch ev {
             case .shot(let from, let fx0, let fy0, let tx, let ty, let style, _, let air):
                 guard visibleToMe(fx0, fy0) || visibleToMe(tx, ty) else { continue }
+                combatHeat += onScreen(Iso.scene(tx, ty)) ? 1 : 0.4
                 let src = world.entity(from)
                 let srcAir = src?.isAir ?? false
                 if style == "arc" { lightningFX(fx0, fy0, tx, ty, srcAir, air) }

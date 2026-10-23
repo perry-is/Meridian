@@ -13,6 +13,20 @@ final class SoundEngine {
     private var voices: [AVAudioPlayerNode] = []
     private var nextVoice = 0
     private let music = AVAudioPlayerNode()
+    private let tensionNode = AVAudioPlayerNode()
+    private let combatNode = AVAudioPlayerNode()
+    private var moodTarget = (tension: Float(0), combat: Float(0))
+    private var mood = (tension: Float(0), combat: Float(0))
+    private var musicFade: Float = 0
+    /// Silent when the simulator is driven by the development / test tools (captures, labs, UI tests).
+    static let muted: Bool = {
+        #if targetEnvironment(simulator)
+        let a = ProcessInfo.processInfo.arguments
+        return ["-autostart", "-battle", "-lab", "-spectate", "-uitest", "-stress", "-scenario", "-mute", "-artsheet"].contains { a.contains($0) }
+        #else
+        return ProcessInfo.processInfo.arguments.contains("-mute")
+        #endif
+    }()
     private var buffers: [String: [AVAudioPCMBuffer]] = [:]
     private var lastPlayed: [String: Double] = [:]
     private let format: AVAudioFormat
@@ -50,7 +64,7 @@ final class SoundEngine {
     private func apply() {
         sfxMixer.outputVolume = sfxVolume
         musicMixer.outputVolume = musicVolume
-        engine.mainMixerNode.outputVolume = master
+        engine.mainMixerNode.outputVolume = SoundEngine.muted ? 0 : master
     }
 
     private func setup() {
@@ -58,10 +72,12 @@ final class SoundEngine {
         try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [.mixWithOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
         #endif
-        engine.attach(sfxMixer); engine.attach(musicMixer); engine.attach(music)
+        engine.attach(sfxMixer); engine.attach(musicMixer); engine.attach(music); engine.attach(tensionNode); engine.attach(combatNode)
         engine.connect(sfxMixer, to: engine.mainMixerNode, format: format)
         engine.connect(musicMixer, to: engine.mainMixerNode, format: format)
         engine.connect(music, to: musicMixer, format: format)
+        engine.connect(tensionNode, to: musicMixer, format: format)
+        engine.connect(combatNode, to: musicMixer, format: format)
         for _ in 0..<20 {
             let v = AVAudioPlayerNode()
             engine.attach(v)
@@ -73,11 +89,45 @@ final class SoundEngine {
         do { try engine.start(); started = true } catch { started = false }
         // Voices run permanently; playback is just queueing buffers onto an idle voice.
         if started { voices.forEach { $0.play() } }
-        if started, let m = buffers["music"]?.first {
-            music.scheduleBuffer(m, at: nil, options: .loops)
-            music.volume = 0.9
-            music.play()
+        guard started else { return }
+        // The adaptive score is built off the main thread, then all three stems start on the same sample.
+        DispatchQueue.global(qos: .utility).async { [self] in
+            let stems = [MusicScore.calm(), MusicScore.tension(), MusicScore.combat()].map(pcm)
+            DispatchQueue.main.async { [self] in
+                for (node, buf) in zip([music, tensionNode, combatNode], stems) { node.volume = 0; node.scheduleBuffer(buf, at: nil, options: .loops) }
+                let start = AVAudioTime(hostTime: mach_absolute_time() + AVAudioTime.hostTime(forSeconds: 0.2))
+                for node in [music, tensionNode, combatNode] { node.play(at: start) }
+            }
         }
+    }
+
+    private func pcm(_ s: [Float]) -> AVAudioPCMBuffer {
+        let b = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(s.count))!
+        b.frameLength = AVAudioFrameCount(s.count)
+        let out = b.floatChannelData![0]
+        s.withUnsafeBufferPointer { src in for i in 0..<s.count { out[i] = max(-1, min(1, src[i])) } }
+        let fade = 256
+        for i in 0..<fade { let g = Float(i) / Float(fade); out[i] *= g; out[s.count - 1 - i] *= g }
+        return b
+    }
+
+    // MARK: Adaptive music
+
+    /// Desired intensity: tension (enemies near, 0…1) and combat (fighting on screen, 0…1).
+    func setMood(tension: Float, combat: Float) { moodTarget = (min(1, max(0, tension)), min(1, max(0, combat))) }
+
+    /// Eases the stems toward the mood: swells in over a few seconds, settles back slowly after a fight.
+    func updateMusic(_ dt: Double) {
+        func ease(_ v: Float, _ target: Float, up: Float, down: Float) -> Float {
+            let k = Float(dt) / (target > v ? up : down)
+            return v + (target - v) * min(1, k)
+        }
+        mood.tension = ease(mood.tension, max(moodTarget.tension, moodTarget.combat * 0.6), up: 3, down: 9)
+        mood.combat = ease(mood.combat, moodTarget.combat, up: 1.6, down: 7)
+        musicFade = min(1, musicFade + Float(dt) / 4)                 // the score fades in at the start of a scene
+        music.volume = musicFade * (0.95 - 0.35 * mood.combat)
+        tensionNode.volume = musicFade * 0.75 * mood.tension * (1 - 0.4 * mood.combat)
+        combatNode.volume = musicFade * 0.85 * mood.combat
     }
 
     // MARK: Playback
@@ -241,37 +291,5 @@ final class SoundEngine {
         buffers["emp"] = [make(0.6) { t, _ in Float(sin(2 * .pi * (300 + 200 * sin(40 * t)) * t)) * self.env(t, attack: 0.01, decay: 5) * 0.5 }]
         buffers["victory"] = [seq([523, 659, 784, 1047, 1319], 0.14, 0.3)]
         buffers["defeat"] = [seq([440, 349, 294, 220], 0.2, 0.3)]
-        buffers["music"] = [score()]
-    }
-
-    /// 32-second ambient loop: slow minor-ninth pads over a drone, with sparse pentatonic bell notes.
-    private func score() -> AVAudioPCMBuffer {
-        let dur = 32.0
-        let chords: [[Double]] = [[146.8, 174.6, 220.0, 261.6, 329.6], [130.8, 164.8, 196.0, 246.9, 293.7],
-                                  [116.5, 146.8, 174.6, 220.0, 261.6], [130.8, 155.6, 196.0, 233.1, 293.7]]
-        let bells: [(Double, Double)] = [(1.5, 587.3), (5.0, 659.3), (9.5, 880.0), (12.0, 784.0), (17.5, 587.3), (21.0, 698.5), (25.5, 880.0), (29.0, 523.3)]
-        var wind: Float = 0
-        return make(dur) { t, _ in
-            let ci = Int(t / 8) % 4
-            let local = t.truncatingRemainder(dividingBy: 8)
-            let fadeIn = min(1, local / 2.5), fadeOut = min(1, (8 - local) / 2.5)
-            let shape = Float(fadeIn * fadeOut)
-            var s: Float = 0
-            for (k, f) in chords[ci].enumerated() {
-                let det = 1 + Double(k) * 0.0007
-                s += Float(sin(2 * .pi * f * det * t) * 0.6 + sin(2 * .pi * f * 1.003 * t) * 0.4) * 0.07
-            }
-            s *= shape
-            s += Float(sin(2 * .pi * 73.4 * t)) * 0.05                                   // drone
-            for (bt, f) in bells where t >= bt && t < bt + 3.5 {
-                let lt = t - bt
-                s += Float(sin(2 * .pi * f * lt) + 0.3 * sin(2 * .pi * f * 2.76 * lt)) * Float(exp(-1.6 * lt)) * 0.06
-            }
-            wind += (self.noise() - wind) * 0.01
-            s += wind * 0.25 * Float(0.5 + 0.5 * sin(2 * .pi * t / 16))
-            // Seamless loop edges.
-            let edge = Float(min(1, t / 1.0, (dur - t) / 1.0))
-            return s * edge
-        }
     }
 }

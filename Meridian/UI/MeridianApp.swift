@@ -8,6 +8,10 @@ struct MeridianApp: App {
         #if os(macOS)
         // Headless helpers for development: render an art contact sheet.
         let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--music"), i + 1 < args.count {
+            MusicScore.writeWAVs(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
         if let i = args.firstIndex(of: "--buildings"), i + 2 < args.count, let f = Faction(rawValue: args[i + 1]) {
             ArtSheet.writeBuildings(f, to: URL(fileURLWithPath: args[i + 2]))
             exit(0)

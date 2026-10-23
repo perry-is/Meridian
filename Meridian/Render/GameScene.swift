@@ -129,6 +129,9 @@ final class GameScene: SKScene {
     var siteGlows: [SKSpriteNode] = []
     var labelPool: [SKLabelNode] = []
     var patrolMark: SKSpriteNode?
+    var combatHeat = 0.0
+    var tensionTimer = 0.0
+    var tensionLevel: Float = 0
     var scarPools: [String: ScarPool] = [:]
     var wrecks: [SKNode] = []
     var born: [Int: Double] = [:]
@@ -316,6 +319,7 @@ final class GameScene: SKScene {
         shakeEnabled = UserDefaults.standard.object(forKey: "fx.shake") as? Bool ?? true
         updateQuality(dt)
         updateSky()
+        updateMusicMood(dt)
         updateWildlife(min(dt, 0.1))
         fxBudget = fxBudgetForQuality
         consumeEvents()
