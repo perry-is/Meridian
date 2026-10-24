@@ -15,6 +15,8 @@ final class SoundEngine {
     private let music = AVAudioPlayerNode()
     private let tensionNode = AVAudioPlayerNode()
     private let combatNode = AVAudioPlayerNode()
+    /// Unit radio chatter (not spatialised; one line at a time).
+    private let radioNode = AVAudioPlayerNode()
     private var moodTarget = (tension: Float(0), combat: Float(0))
     private var mood = (tension: Float(0), combat: Float(0))
     private var musicFade: Float = 0
@@ -72,12 +74,13 @@ final class SoundEngine {
         try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [.mixWithOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
         #endif
-        engine.attach(sfxMixer); engine.attach(musicMixer); engine.attach(music); engine.attach(tensionNode); engine.attach(combatNode)
+        engine.attach(sfxMixer); engine.attach(musicMixer); engine.attach(music); engine.attach(tensionNode); engine.attach(combatNode); engine.attach(radioNode)
         engine.connect(sfxMixer, to: engine.mainMixerNode, format: format)
         engine.connect(musicMixer, to: engine.mainMixerNode, format: format)
         engine.connect(music, to: musicMixer, format: format)
         engine.connect(tensionNode, to: musicMixer, format: format)
         engine.connect(combatNode, to: musicMixer, format: format)
+        engine.connect(radioNode, to: sfxMixer, format: format)
         for _ in 0..<20 {
             let v = AVAudioPlayerNode()
             engine.attach(v)
@@ -88,7 +91,7 @@ final class SoundEngine {
         apply()
         do { try engine.start(); started = true } catch { started = false }
         // Voices run permanently; playback is just queueing buffers onto an idle voice.
-        if started { voices.forEach { $0.play() } }
+        if started { voices.forEach { $0.play() }; radioNode.play() }
         guard started else { return }
         // The adaptive score is built off the main thread, then all three stems start on the same sample.
         DispatchQueue.global(qos: .utility).async { [self] in
@@ -158,6 +161,19 @@ final class SoundEngine {
             v.volume = vol
             v.pan = pan
             v.scheduleBuffer(buf, at: nil, options: [], completionHandler: nil)
+        }
+    }
+
+    /// Plays a radio line, cutting off any line still playing.
+    func playRadio(_ samples: [Float]) {
+        guard started, !samples.isEmpty else { return }
+        let b = pcm(samples)
+        let node = radioNode
+        queue.async {
+            node.stop()
+            node.volume = 0.9
+            node.scheduleBuffer(b, at: nil, options: [], completionHandler: nil)
+            node.play()
         }
     }
 

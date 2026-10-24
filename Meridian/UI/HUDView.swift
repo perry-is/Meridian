@@ -309,7 +309,10 @@ struct SelectionPanel: View {
                 }
             } else {
                 HStack(alignment: .top, spacing: 8) {
-                    if let pt = h.portrait { Portrait(type: pt.type, building: pt.building, owner: pt.owner, size: compact ? 48 : 56) }
+                    if let pt = h.portrait {
+                        if pt.unit { UnitPortraitView(unitID: controller.data.units[pt.type].id, unitType: pt.type, owner: pt.owner, size: compact ? 66 : 78, radio: controller.radio) }
+                        else { Portrait(type: pt.type, building: pt.building, owner: pt.owner, size: compact ? 48 : 56) }
+                    }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(h.selectionTitle).font(.system(size: 15, weight: .bold)).accessibilityIdentifier("selectionTitle")
@@ -340,6 +343,10 @@ struct SelectionPanel: View {
             }
         }
         .foregroundColor(.white)
+        .overlay(alignment: .topLeading) {
+            RadioSubtitle(radio: controller.radio, accent: accent).offset(x: 4, y: -30)
+                .animation(.easeOut(duration: 0.2), value: controller.radio.line?.id)
+        }
     }
 
     func tiles(_ h: HUDState) -> some View {

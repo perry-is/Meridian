@@ -100,13 +100,47 @@ struct MeridianEmblem: View {
     }
 }
 
+/// Painted loading art: a phone-shaped version and a wider one for the Duo's unfolded screen and iPad.
+/// The boot art has a progress bar painted in; the live bar is laid exactly over it.
+enum LoadArt {
+    case threeFronts, faction(Faction)
+
+    var name: String {
+        switch self {
+        case .threeFronts: return "LoadBoot"
+        case .faction(.humans): return "LoadConcord"
+        case .faction(.machines): return "LoadLattice"
+        case .faction(.aliens): return "LoadBrood"
+        }
+    }
+
+    struct Variant { let image: String; let size: CGSize; let bar: CGRect? }
+
+    /// Picks the version whose shape best fits the screen. Bar rects are in image pixels.
+    func variant(for view: CGSize) -> Variant {
+        let wide = view.width / max(1, view.height) > 0.62
+        let bar: CGRect?
+        if wide {
+            if case .threeFronts = self { bar = CGRect(x: 404, y: 1907, width: 727, height: 14) } else { bar = nil }
+            return Variant(image: name + "Wide", size: CGSize(width: 1536, height: 2048), bar: bar)
+        }
+        if case .threeFronts = self { bar = CGRect(x: 174, y: 1557, width: 594, height: 11) } else { bar = nil }
+        return Variant(image: name, size: CGSize(width: 941, height: 1672), bar: bar)
+    }
+}
+
 struct LoadingView: View {
     let title: String
     let step: String
     let progress: Double
     var tip: String? = nil
     var accent: Color = Theme.accent
+    var art: LoadArt? = nil
     var body: some View {
+        if let art { ArtLoadingView(art: art, title: title, step: step, progress: progress, tip: tip, accent: accent) } else { plain }
+    }
+
+    var plain: some View {
         GeometryReader { geo in
             ZStack {
                 LinearGradient(colors: [Color(red: 0.03, green: 0.05, blue: 0.09), Color(red: 0.01, green: 0.02, blue: 0.04)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
@@ -147,6 +181,91 @@ struct LoadingView: View {
                     Spacer().frame(height: 40)
                 }
             }
+        }
+    }
+}
+
+/// Loading screen over painted art (the art carries the game's title).
+struct ArtLoadingView: View {
+    let art: LoadArt
+    let title: String
+    let step: String
+    let progress: Double
+    var tip: String?
+    var accent: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                              height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
+            let v = art.variant(for: full)
+            let k = max(full.width / v.size.width, full.height / v.size.height)
+            let ox = (full.width - v.size.width * k) / 2, oy = (full.height - v.size.height * k) / 2
+            // Where the painted bar lands on screen (if it does).
+            let painted: CGRect? = v.bar.map { CGRect(x: ox + $0.minX * k, y: oy + $0.minY * k, width: $0.width * k, height: max(6, $0.height * k)) }
+                .flatMap { $0.minX >= 8 && $0.maxX <= full.width - 8 && $0.maxY <= full.height - 20 ? $0 : nil }
+            ZStack(alignment: .topLeading) {
+                Color.black
+                Image(v.image).resizable().interpolation(.high)
+                    .frame(width: v.size.width * k, height: v.size.height * k)
+                    .position(x: full.width / 2, y: full.height / 2)
+                if let r = painted {
+                    // Live bar over the painted one, then the step and tip below it.
+                    bar(width: r.width, height: r.height)
+                        .position(x: r.midX, y: r.midY)
+                    Text(step).font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.75))
+                        .position(x: full.width / 2, y: r.maxY + 16)
+                    // The painted bar sits low, so the tip goes above it.
+                    tipView.frame(width: full.width, height: 160, alignment: .bottom)
+                        .position(x: full.width / 2, y: r.minY - 14 - 80)
+                } else {
+                    VStack(spacing: 10) {
+                        Spacer()
+                        Text(title.uppercased()).font(.system(size: 12, weight: .heavy)).tracking(4).foregroundColor(accent)
+                            .shadow(color: .black, radius: 4)
+                        bar(width: min(320, full.width - 80), height: 7)
+                        Text(step).font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.8))
+                            .shadow(color: .black, radius: 3)
+                        tipView
+                        Spacer().frame(height: max(30, geo.safeAreaInsets.bottom + 20))
+                    }
+                    .frame(width: full.width, height: full.height)
+                    .position(x: full.width / 2, y: full.height / 2)
+                    .background(alignment: .bottom) {
+                        LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom).frame(height: full.height * 0.38)
+                    }
+                }
+            }
+            .frame(width: full.width, height: full.height)
+            .clipped()
+            .offset(x: -geo.safeAreaInsets.leading, y: -geo.safeAreaInsets.top)
+        }
+    }
+
+    func bar(width: CGFloat, height: CGFloat) -> some View {
+        let p = max(0.03, min(1, progress))
+        return ZStack(alignment: .leading) {
+            Chamfer(cut: height * 0.5).fill(Color(red: 0.02, green: 0.04, blue: 0.08)).frame(width: width + 6, height: height + 6).offset(x: -3)
+            Chamfer(cut: height * 0.5).stroke(Color(red: 0.35, green: 0.7, blue: 1).opacity(0.6), lineWidth: 1).frame(width: width, height: height)
+            Chamfer(cut: height * 0.5)
+                .fill(LinearGradient(colors: [Color(red: 0.55, green: 0.85, blue: 1), Color(red: 0.85, green: 0.95, blue: 1)], startPoint: .leading, endPoint: .trailing))
+                .frame(width: max(height * 2, width * p), height: height)
+                .shadow(color: Color(red: 0.4, green: 0.8, blue: 1), radius: 6)
+        }
+        .frame(width: width, height: height, alignment: .leading)
+        .animation(.easeOut(duration: 0.35), value: progress)
+    }
+
+    @ViewBuilder var tipView: some View {
+        if let t = tip {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lightbulb.fill").foregroundColor(Theme.gold)
+                Text(t).font(.system(size: 13)).foregroundColor(.white.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .frame(maxWidth: 420)
+            .background(Chamfer(cut: 8).fill(Color.black.opacity(0.6)))
+            .padding(.horizontal, 24)
         }
     }
 }
@@ -201,8 +320,9 @@ struct TitleView: View {
                         Button {
                             SoundEngine.shared?.play("built", at: nil, minGap: 0)
                             // First time: offer the tutorial.
-                            if !UserDefaults.standard.bool(forKey: "tutorial.offered") && !ProcessInfo.processInfo.arguments.contains("-uitest") {
-                                UserDefaults.standard.set(true, forKey: "tutorial.offered"); offerTutorial = true
+                            // Offer the tutorial until the player ticks "Don't show this again" (it stays in How to Play).
+                            if !UserDefaults.standard.bool(forKey: "tutorial.hideOffer") && !ProcessInfo.processInfo.arguments.contains("-uitest") {
+                                withAnimation(.easeOut(duration: 0.2)) { offerTutorial = true }
                             } else { onPlay() }
                         } label: {
                             Text(saved == nil ? "PLAY" : "NEW BATTLE").font(.system(size: saved == nil ? 24 : 18, weight: .black)).tracking(saved == nil ? 10 : 6)
@@ -238,11 +358,71 @@ struct TitleView: View {
         .sheet(isPresented: $showSettings) {
             VStack(spacing: 16) { Text("Settings").font(.title3.bold()); AudioSettings() }.padding(30).presentationDetents([.medium])
         }
-        .confirmationDialog("New to Meridian?", isPresented: $offerTutorial, titleVisibility: .visible) {
-            Button("Play the 5-minute tutorial") { onTutorial() }
-            Button("Skip to battle setup") { onPlay() }
-        } message: { Text("Boot Camp teaches the basics by playing a short guided match.") }
+        .overlay {
+            if offerTutorial {
+                TutorialOffer(onTutorial: { offerTutorial = false; onTutorial() },
+                              onSkip: { offerTutorial = false; onPlay() },
+                              onDismiss: { withAnimation(.easeOut(duration: 0.2)) { offerTutorial = false } })
+                    .transition(.opacity)
+            }
+        }
         .onAppear { saved = SaveStore.info; withAnimation(.easeOut(duration: 0.9)) { appear = true } }
+    }
+}
+
+/// "New to Meridian?" card shown on Play, with an opt-out. The tutorial is always available from How to Play.
+struct TutorialOffer: View {
+    var onTutorial: () -> Void
+    var onSkip: () -> Void
+    var onDismiss: () -> Void
+    @State private var hide = UserDefaults.standard.bool(forKey: "tutorial.hideOffer")
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "graduationcap.fill").font(.system(size: 30)).foregroundColor(Theme.gold)
+                Text("NEW TO MERIDIAN?").font(.system(size: 17, weight: .black)).tracking(4).foregroundColor(.white)
+                Text("Boot Camp teaches the basics by playing a short guided match.")
+                    .font(.system(size: 13)).foregroundColor(.white.opacity(0.75)).multilineTextAlignment(.center)
+                Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); onTutorial() } label: {
+                    Text("PLAY THE 5-MINUTE TUTORIAL").font(.system(size: 14, weight: .heavy)).tracking(2)
+                        .frame(maxWidth: .infinity).padding(.vertical, 13)
+                        .background(Chamfer(cut: 10).fill(Theme.gold))
+                        .foregroundColor(.black)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Play the tutorial")
+                Button { SoundEngine.shared?.play("click", at: nil); onSkip() } label: {
+                    Text("SKIP TO BATTLE SETUP").font(.system(size: 13, weight: .heavy)).tracking(2)
+                        .frame(maxWidth: .infinity).padding(.vertical, 11)
+                        .background(Chamfer(cut: 10).fill(Color.black.opacity(0.5)))
+                        .overlay(Chamfer(cut: 10).stroke(Theme.accent.opacity(0.6), lineWidth: 1))
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Skip to battle setup")
+                Button {
+                    hide.toggle()
+                    UserDefaults.standard.set(hide, forKey: "tutorial.hideOffer")
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: hide ? "checkmark.square.fill" : "square").font(.system(size: 17))
+                            .foregroundColor(hide ? Theme.gold : .white.opacity(0.7))
+                        Text("Don't show this again").font(.system(size: 13)).foregroundColor(.white.opacity(0.85))
+                    }
+                    .padding(.vertical, 8).padding(.horizontal, 16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Don't show this again").accessibilityValue(hide ? "On" : "Off")
+                Text("You can always find the tutorial under How to Play.")
+                    .font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
+            }
+            .padding(22)
+            .frame(maxWidth: 340)
+            .background(Chamfer(cut: 16).fill(Color(red: 0.07, green: 0.08, blue: 0.10).opacity(0.96)))
+            .overlay(Chamfer(cut: 16).stroke(Theme.gold.opacity(0.55), lineWidth: 1.2))
+            .padding(24)
+        }
     }
 }
 

@@ -120,7 +120,7 @@ struct HUDState {
     var placementReason: String? = nil
     // Presentation extras.
     var faction: Faction = .humans
-    var portrait: (type: Int, building: Bool, owner: Int)? = nil
+    var portrait: (type: Int, building: Bool, owner: Int, unit: Bool)? = nil
     var stats: [(symbol: String, value: String)] = []
     var tags: [String] = []
     /// Commander's guide: the suggested next step for new players (nil when there is nothing to suggest).
@@ -484,6 +484,26 @@ final class GameController: ObservableObject {
         if case .place = mode { mode = .normal }
         mode = .normal
         refreshHUD()
+        if !ids.isEmpty { chatter(.select) }
+    }
+
+    // MARK: Radio chatter
+
+    let radio = Radio()
+
+    /// The unit that speaks for a selection (and whose face is shown): the most expensive one.
+    func leadUnit(_ ents: [Entity]) -> Entity? {
+        ents.filter { $0.isUnit }.max { a, b in
+            let ca = data.units[a.type].cost, cb = data.units[b.type].cost
+            return (ca.iron + ca.wood + ca.gold * 2, b.id) < (cb.iron + cb.wood + cb.gold * 2, a.id)
+        }
+    }
+
+    func chatter(_ kind: Radio.Kind) {
+        guard !spectating, !battleMode, !stressMode, let lead = leadUnit(selectedEntities), lead.owner == me else { return }
+        var k = kind
+        if kind == .select && selection.count == 1 && lead.hp < lead.maxHp * 0.35 { k = .hurt }
+        radio.chatter(k, unit: data.units[lead.type], type: lead.type, faction: world.players[me].faction)
     }
 
     func selectSite(_ i: Int) {
@@ -713,7 +733,9 @@ final class GameController: ObservableObject {
         }
         commandPing = (x, y, target.map { world.isEnemyPublic(me, $0.owner) } ?? false, world.time)
     }
-    var commandPing: (Double, Double, Bool, Double)? = nil
+    var commandPing: (Double, Double, Bool, Double)? = nil {
+        didSet { if let c = commandPing { chatter(c.2 ? .attack : .move) } }
+    }
 
     func myUnitSelection() -> [Int] { selectedEntities.filter { $0.isUnit && $0.owner == me }.map { $0.id } }
 
@@ -821,7 +843,7 @@ final class GameController: ObservableObject {
         if ents.count == 1 {
             let e = first
             h.selectionHP = (e.hp, e.maxHp)
-            h.portrait = (e.type, e.isBuilding, e.owner)
+            h.portrait = (e.type, e.isBuilding, e.owner, e.isUnit)
             if e.isUnit {
                 let d = world.udef(e)
                 h.stats = [("shield.fill", fmt(world.armor(e))), ("hare.fill", fmt(world.speed(e)))]
@@ -878,6 +900,7 @@ final class GameController: ObservableObject {
                 let o = typeHP[e.type] ?? (0, 0); typeHP[e.type] = (o.0 + e.hp, o.1 + e.maxHp)
             }
             h.tileHP = typeHP.mapValues { $0.0 / max(1, $0.1) }
+            if let lead = leadUnit(ents) { h.portrait = (lead.type, false, lead.owner, true) }
             h.selectionTitle = "\(ents.count) selected"
             h.selectionIcons = counts.sorted { $0.value > $1.value }.map { (type: $0.key, count: $0.value, building: false) }
             let hp = ents.reduce(0) { $0 + $1.hp }, mx = ents.reduce(0) { $0 + $1.maxHp }

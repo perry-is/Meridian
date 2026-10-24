@@ -107,3 +107,102 @@ enum ArtSheet {
         print("wrote \(url.path)")
     }
 }
+
+extension ArtSheet {
+    /// Portrait review: every unit's face (top), then a few units through look / blink / talk poses.
+    static func writePortraits(to url: URL) {
+        let data = GameData.shared
+        let cell: CGFloat = 120, cols = 15
+        let poses: [(String, PortraitArt.Pose)] = [
+            ("rest", PortraitArt.Pose()),
+            ("look left", PortraitArt.Pose(look: CGPoint(x: -1, y: 0.2))),
+            ("look right", PortraitArt.Pose(look: CGPoint(x: 1, y: -0.3))),
+            ("blink", PortraitArt.Pose(blink: 1)),
+            ("talk", PortraitArt.Pose(mouth: 0.55, t: 0.3)),
+            ("talk wide", PortraitArt.Pose(look: CGPoint(x: 0.4, y: 0.2), mouth: 1, t: 1.1)),
+        ]
+        let samples = ["h_ranger", "h_kestrel", "m_arc", "m_bulwark", "a_mantis", "a_colossus"]
+        let W = cell * CGFloat(cols), H = cell * 3 + cell * CGFloat(samples.count)
+        func face(_ p: Pen, _ id: String, _ x: CGFloat, _ y: CGFloat, _ pose: PortraitArt.Pose) {
+            let s = cell - 8
+            let r = CGRect(x: x + 4, y: y + 4, width: s, height: s)
+            let fac = id.first == "m" ? RGB(0.10, 0.20, 0.26) : (id.first == "a" ? RGB(0.18, 0.12, 0.22) : RGB(0.16, 0.18, 0.12))
+            p.grad(p.roundRectPath(r.minX, r.minY, s, s, 8), fac.light(0.15), fac.dark(0.5), from: CGPoint(x: r.midX, y: r.maxY), to: CGPoint(x: r.midX, y: r.minY), outline: nil)
+            p.ctx.saveGState()
+            p.ctx.addPath(p.roundRectPath(r.minX, r.minY, s, s, 8)); p.ctx.clip()
+            p.ctx.translateBy(x: r.minX, y: r.minY); p.ctx.scaleBy(x: s / 40, y: s / 40)
+            PortraitArt.draw(Pen(p.ctx, 40, 40), unit: id, team: TeamColor.rgb(0), pose: pose)
+            p.ctx.restoreGState()
+            p.stroke(p.roundRectPath(r.minX, r.minY, s, s, 8), TeamColor.rgb(0).alpha(0.8), 1.5)
+        }
+        let img = Pen.image(W, H, scale: 2) { p in
+            p.fill(p.poly([(0, 0), (W, 0), (W, H), (0, H)]), RGB(0.06, 0.06, 0.08))
+            for (fi, f) in Faction.allCases.enumerated() {
+                for (k, u) in data.unitIDs(f).enumerated() {
+                    face(p, data.units[u].id, CGFloat(k) * cell, H - CGFloat(fi + 1) * cell, PortraitArt.Pose(look: CGPoint(x: 0.25, y: 0)))
+                }
+            }
+            for (si, id) in samples.enumerated() {
+                for (k, pose) in poses.enumerated() {
+                    face(p, id, CGFloat(k) * cell, H - 3 * cell - CGFloat(si + 1) * cell, pose.1)
+                }
+            }
+        }
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(dest, img, nil)
+        CGImageDestinationFinalize(dest)
+        print("wrote \(url.path)")
+    }
+}
+
+extension ArtSheet {
+    /// Alpha bounds of a unit in its 40×40 design grid (origin bottom-left).
+    static func designBounds(_ d: UnitDef) -> CGRect {
+        let img = UnitArt.render(d, team: TeamColor.rgb(0))
+        let w = img.width, h = img.height
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let px = ctx.data!.assumingMemoryBound(to: UInt8.self)
+        var x0 = w, x1 = 0, y0 = h, y1 = 0
+        for y in 0..<h { for x in 0..<w where px[(y * w + x) * 4 + 3] > 40 { x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y) } }
+        let k = 40 / CGFloat(w)
+        // Memory rows run top-down.
+        return CGRect(x: CGFloat(x0) * k, y: CGFloat(h - 1 - y1) * k, width: CGFloat(x1 - x0) * k, height: CGFloat(y1 - y0) * k)
+    }
+
+    /// Prototype: close-ups of the actual units (vector, drawn straight from the unit art).
+    static func writeCloseups(to url: URL) {
+        let data = GameData.shared
+        let cell: CGFloat = 120, cols = 15
+        let W = cell * CGFloat(cols), H = cell * 3
+        let img = Pen.image(W, H, scale: 2) { p in
+            p.fill(p.poly([(0, 0), (W, 0), (W, H), (0, H)]), RGB(0.06, 0.06, 0.08))
+            for (fi, f) in Faction.allCases.enumerated() {
+                for (k, u) in data.unitIDs(f).enumerated() {
+                    let d = data.units[u]
+                    let b = designBounds(d)
+                    let side = max(b.height * 0.92, b.width * 0.62)
+                    let focus = CGRect(x: b.maxX - side + side * 0.04, y: b.maxY - side + side * 0.02, width: side, height: side)
+                    let s = cell - 8
+                    let r = CGRect(x: CGFloat(k) * cell + 4, y: H - CGFloat(fi + 1) * cell + 4, width: s, height: s)
+                    let bg = fi == 1 ? RGB(0.10, 0.20, 0.26) : (fi == 2 ? RGB(0.18, 0.12, 0.22) : RGB(0.16, 0.18, 0.12))
+                    p.grad(p.roundRectPath(r.minX, r.minY, s, s, 8), bg.light(0.15), bg.dark(0.5), from: CGPoint(x: r.midX, y: r.maxY), to: CGPoint(x: r.midX, y: r.minY), outline: nil)
+                    p.ctx.saveGState()
+                    p.ctx.addPath(p.roundRectPath(r.minX, r.minY, s, s, 8)); p.ctx.clip()
+                    p.ctx.translateBy(x: r.minX, y: r.minY); p.ctx.scaleBy(x: s / focus.width, y: s / focus.height)
+                    p.ctx.translateBy(x: -focus.minX, y: -focus.minY)
+                    UnitArt.phase = 0
+                    let pen = Pen(p.ctx, 40, 40)
+                    UnitArt.base(d.id, pen, TeamColor.rgb(0))
+                    UnitArt.upper(d.id, "", pen, TeamColor.rgb(0))
+                    p.ctx.restoreGState()
+                    p.stroke(p.roundRectPath(r.minX, r.minY, s, s, 8), TeamColor.rgb(0).alpha(0.8), 1.5)
+                }
+            }
+        }
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(dest, img, nil)
+        CGImageDestinationFinalize(dest)
+        print("wrote \(url.path)")
+    }
+}

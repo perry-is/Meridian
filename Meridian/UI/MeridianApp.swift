@@ -24,6 +24,18 @@ struct MeridianApp: App {
             ArtSheet.writePoses(f, to: URL(fileURLWithPath: args[i + 2]))
             exit(0)
         }
+        if let i = args.firstIndex(of: "--radio"), i + 1 < args.count {
+            RadioVoice.writeSamples(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
+        if let i = args.firstIndex(of: "--closeups"), i + 1 < args.count {
+            ArtSheet.writeCloseups(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
+        if let i = args.firstIndex(of: "--portraits"), i + 1 < args.count {
+            ArtSheet.writePortraits(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
         if let i = args.firstIndex(of: "--art-sheet"), i + 1 < args.count {
             ArtSheet.write(to: URL(fileURLWithPath: args[i + 1]))
             exit(0)
@@ -53,6 +65,7 @@ struct RootView: View {
     @State private var progress = 0.0
     @State private var step = ""
     @State private var tip = Tips.all.randomElement()!
+    @State private var loadArt: LoadArt = .threeFronts
     @StateObject private var backdrop = MenuBackdrop()
 
     func startBattle(_ n: Int, _ f0: Faction, _ f1: Faction) {
@@ -87,6 +100,7 @@ struct RootView: View {
 
     /// Match loading: generate the map and world, build the faction art, then drop into the game.
     func startMatch() {
+        loadArt = watch ? .threeFronts : .faction(settings.playerFaction)
         tip = Tips.all.randomElement()!
         step = "Surveying the battlefield…"; progress = 0.06
         screen = .loading
@@ -113,6 +127,7 @@ struct RootView: View {
 
     /// Continue the saved match: read and rebuild it off the main thread behind the loading screen.
     func resumeMatch() {
+        loadArt = SaveStore.info.map { .faction($0.playerFaction) } ?? .threeFronts
         tip = Tips.all.randomElement()!
         step = "Recovering your battlefield…"; progress = 0.08
         screen = .loading
@@ -139,6 +154,7 @@ struct RootView: View {
     }
 
     func startTutorial() {
+        loadArt = .faction(.humans)
         tip = "Boot Camp: follow the gold markers. You can skip at any time."
         step = "Preparing Boot Camp…"; progress = 0.1
         screen = .loading
@@ -175,14 +191,14 @@ struct RootView: View {
                     .transition(.opacity)
                 }
             case .boot:
-                LoadingView(title: "Preparing the frontier", step: step, progress: progress).transition(.opacity)
+                LoadingView(title: "Preparing the frontier", step: step, progress: progress, art: .threeFronts).transition(.opacity)
             case .title:
                 TitleView(backdrop: backdrop, onPlay: { screen = .setup }, onContinue: resumeMatch, onTutorial: startTutorial).transition(.opacity)
             case .setup:
                 SetupView(settings: $settings, watch: $watch, backdrop: backdrop, onBack: { screen = .title }, onDeploy: startMatch).transition(.opacity)
             case .loading:
                 LoadingView(title: watch ? "Preparing the battle" : "Deploying", step: step, progress: progress, tip: tip,
-                            accent: Theme.faction(settings.playerFaction)).transition(.opacity)
+                            accent: Theme.faction(settings.playerFaction), art: loadArt).transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.35), value: screen)
@@ -201,6 +217,13 @@ struct RootView: View {
                 controller = c; screen = .game; return
             }
             if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
+            if let h = arg("-holdload") {
+                // Development: hold a loading screen for review (boot, humans, machines, aliens).
+                loadArt = Faction(rawValue: h).map { .faction($0) } ?? .threeFronts
+                tip = Tips.all[0]; step = "Assembling the armies…"; progress = 0.45
+                screen = .loading
+                return
+            }
             if let sc = arg("-scenario").flatMap({ TacticalScenario(rawValue: $0) }), controller == nil {
                 var st = settings
                 st.layout = .arena
@@ -224,6 +247,17 @@ struct RootView: View {
                 if let w = arg("-warp"), let secs = Double(w) { c.warp(seconds: secs) }
                 if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
                 if a.contains("-lab") { c.setupLab() }
+                if let u = arg("-portraitdemo") {
+                    // Development: spawn a unit by id next to the base, select it and have it talk every few seconds.
+                    let hq = c.world.buildings(of: c.me)[0]
+                    if let t = c.data.units.firstIndex(where: { $0.id == u }) {
+                        let e = c.world.spawnUnit(t, owner: c.me, x: hq.x + 3, y: hq.y + 3)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { c.select([e.id]); c.focusCamera?(e.x, e.y) }
+                        Timer.scheduledTimer(withTimeInterval: 3.5, repeats: true) { _ in
+                            MainActor.assumeIsolated { c.radio.chatter(.poke, unit: c.data.units[t], type: t, faction: c.data.units[t].faction) }
+                        }
+                    }
+                }
                 controller = c
                 screen = .game
             }
