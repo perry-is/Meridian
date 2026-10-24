@@ -221,7 +221,7 @@ struct SideRail: View {
             railButton("figure.walk.motion", "Army", badge: controller.hud.armyCount) { controller.selectArmy() }
                 .overlay { if controller.hud.tutorialRail == "army" { GlowFrame(cut: 6) } }
             if ProcessInfo.processInfo.arguments.contains("-uitest") {
-                // UI tests cannot perform two-finger drags; this stands in for a box select of the workers.
+                // UI tests cannot perform hold-and-drag box selection; this stands in for a box select of the workers.
                 railButton("person.3", "Workers", badge: 0) { controller.selectWorkers() }.accessibilityIdentifier("test_select_workers")
             }
             railButton("hammer.circle", "Idle", badge: controller.hud.idleWorkers, alert: controller.hud.idleWorkers > 0) { controller.selectIdleWorker() }
@@ -303,7 +303,7 @@ struct SelectionPanel: View {
             if h.selectionTitle.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "hand.tap.fill").foregroundColor(accent.opacity(0.8))
-                    Text(controller.mode == .normal ? "Drag to move · Two fingers to select" : (h.menuTitle ?? ""))
+                    Text(controller.mode == .normal ? "Drag to move · Hold, then drag to select" : (h.menuTitle ?? ""))
                         .font(.system(size: 12)).foregroundColor(.white.opacity(0.6))
                     Spacer()
                 }

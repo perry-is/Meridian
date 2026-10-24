@@ -17,6 +17,8 @@ extension GameScene {
 
     func handleDoubleTap(_ p: CGPoint) {
         let (x, y) = worldPoint(fromView: p)
+        // Placing a building: double-tap a spot to build there.
+        if placing { ctl.moveGhost(worldX: x, y: y); ctl.confirmPlacement(); return }
         if let e = ctl.pick(x, y, radius: 0.9), e.owner == ctl.me { ctl.selectSameType(as: e, visibleOnly: visibleWorldQuad()) }
     }
 
@@ -62,9 +64,9 @@ extension GameScene {
 extension GameScene: UIGestureRecognizerDelegate {
     /// Touch controls:
     ///  - one finger: tap selects / commands, double-tap selects all of a type, drag moves the camera;
-    ///  - two fingers: drag together to draw a selection box, pinch apart/together to zoom
-    ///    (decided by whichever motion shows first);
-    ///  - while placing a building, one finger drags the placement ghost.
+    ///  - press and hold on the map, then drag: a selection box;
+    ///  - two fingers: pinch to zoom (dragging two fingers together also draws a box);
+    ///  - while placing a building, one finger drags the placement ghost and a double-tap builds there.
     func setupTouch(_ view: SKView) {
         let tap = UITapGestureRecognizer(target: self, action: #selector(onTap(_:)))
         let dbl = UITapGestureRecognizer(target: self, action: #selector(onDoubleTap(_:)))
@@ -76,7 +78,12 @@ extension GameScene: UIGestureRecognizerDelegate {
         let two = UIPanGestureRecognizer(target: self, action: #selector(onTwoFinger(_:)))
         two.minimumNumberOfTouches = 2
         two.maximumNumberOfTouches = 2
-        for g in [tap, dbl, drag, two] as [UIGestureRecognizer] { g.delegate = self; view.addGestureRecognizer(g) }
+        // Hold briefly, then drag, to draw a selection box. A quick drag still pans straight away.
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(onHold(_:)))
+        hold.minimumPressDuration = 0.35
+        hold.allowableMovement = 10
+        drag.require(toFail: hold)
+        for g in [tap, dbl, drag, two, hold] as [UIGestureRecognizer] { g.delegate = self; view.addGestureRecognizer(g) }
         dbl.delaysTouchesEnded = false
     }
 
@@ -93,6 +100,28 @@ extension GameScene: UIGestureRecognizerDelegate {
             if let l = lastPanPoint { pan(by: CGPoint(x: p.x - l.x, y: p.y - l.y)) }
             lastPanPoint = p
         default: lastPanPoint = nil
+        }
+    }
+
+    /// Hold, then drag: a selection box from where the finger was held.
+    @objc func onHold(_ g: UILongPressGestureRecognizer) {
+        let p = g.location(in: view)
+        if placing { if g.state == .changed { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y) }; return }
+        switch g.state {
+        case .began:
+            boxStart = p
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            updateBox(p, CGPoint(x: p.x + 1, y: p.y + 1))
+        case .changed:
+            if let s = boxStart { updateBox(s, p) }
+        case .ended:
+            if let s = boxStart {
+                // Held without dragging: nothing to box, so just hide it.
+                if hypot(s.x - p.x, s.y - p.y) < 8 { boxNode.isHidden = true } else { finishBox(s, p) }
+            }
+            boxStart = nil
+        default:
+            boxNode.isHidden = true; boxStart = nil
         }
     }
 

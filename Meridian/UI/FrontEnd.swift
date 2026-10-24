@@ -36,7 +36,7 @@ extension Difficulty {
 enum Tips {
     static let all = [
         "Tap a tree or ore with workers selected to put them to work — a ring confirms the order.",
-        "Drag two fingers to draw a selection box. One finger moves the camera.",
+        "Press and hold, then drag, to draw a selection box. A quick drag moves the camera.",
         "Captured sites trickle all three resources. Hold most of them to win by dominance.",
         "Idle workers wear a small amber marker. Tap Idle to find one.",
         "Tap an enemy with combat units selected to focus your attack on it.",

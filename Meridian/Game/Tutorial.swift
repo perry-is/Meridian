@@ -119,13 +119,13 @@ extension GameController {
                                  .min { dist2($0.x, $0.y, h.x, h.y) < dist2($1.x, $1.y, h.x, h.y) }.map { ($0.x, $0.y) }
                          },
                          done: { c in c.world.units(of: c.me).contains { c.world.traits[$0.type].worker && ($0.order == .gather || $0.order == .returnCargo) && c.world.entity($0.gatherNode)?.type == ResourceKind.wood.rawValue } }),
-            TutorialStep(title: "Select a group", text: "Put two fingers on the screen and drag them together to draw a box around several workers. (Double-tapping a unit selects every unit of that type.)",
+            TutorialStep(title: "Select a group", text: "Press and hold on empty ground for a moment, then drag to draw a box around several workers. (Double-tapping a unit selects every unit of that type.)",
                          done: { c in c.selectedEntities.filter { $0.isUnit }.count >= 2 }),
             TutorialStep(title: "Train a worker", text: "More workers means more resources. Tap your HQ, then tap the \(wName) button.",
                          button: { c in "u\(c.workerType)" },
                          target: { $0.hq.map { ($0.x, $0.y) } },
                          done: { c in (c.hq?.queue.contains { !$0.isUpgrade && $0.index == c.workerType } ?? false) || c.world.players[c.me].stats.unitsProduced > 0 }),
-            TutorialStep(title: "Build a \(bName)", text: "Select a \(wName), tap Build, choose the \(bName), drag it to an open spot and tap Confirm.",
+            TutorialStep(title: "Build a \(bName)", text: "Select a \(wName), tap Build, choose the \(bName), drag it to an open spot and tap Confirm (or just double-tap the spot).",
                          button: { c in
                              if case .place = c.mode { return "confirm" }
                              if c.buildMenu { return "b\(c.barracksType)" }

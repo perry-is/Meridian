@@ -110,7 +110,8 @@ struct HelpView: View {
                     group("Touch controls", [
                         "Tap a unit or building to select it. Double-tap a unit to select all of that type.",
                         "Drag one finger to move around the map.",
-                        "Drag two fingers together to draw a selection box; pinch to zoom.",
+                        "Press and hold on the map, then drag, to draw a selection box. Pinch with two fingers to zoom.",
+                        "Placing a building: drag it into position and tap Confirm, or simply double-tap the spot.",
                         "With units selected, tap the ground to move, tap an enemy to attack, tap a resource with workers to gather.",
                         "Tap or drag the minimap to jump the camera.",
                         "Attack-Move: tap the button, then the destination; units fight everything on the way.",
