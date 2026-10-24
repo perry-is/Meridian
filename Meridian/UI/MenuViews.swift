@@ -105,6 +105,7 @@ struct HelpView: View {
                     group("Goal", [
                         "Destroy every enemy structure, or",
                         "Hold \(Int((7 * GameData.shared.rules.territory.dominanceFraction).rounded(.up))) of 7 strategic sites for \(Int(GameData.shared.rules.territory.dominanceSeconds / 60)) min \(Int(GameData.shared.rules.territory.dominanceSeconds) % 60) s once the dominance protocol activates at \(Int(GameData.shared.rules.territory.dominanceStart / 60)):00.",
+                        "Quick Match plays on a smaller map with everything built faster; dominance activates at \(Int(GameData.quick.rules.territory.dominanceStart / 60)):00 and needs \(Int(GameData.quick.rules.territory.dominanceSeconds / 60)) min \(Int(GameData.quick.rules.territory.dominanceSeconds) % 60) s.",
                     ])
                     group("Touch controls", [
                         "Tap a unit or building to select it. Double-tap a unit to select all of that type.",

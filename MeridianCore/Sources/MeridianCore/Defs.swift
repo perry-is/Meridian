@@ -184,6 +184,8 @@ public struct GameRules: Codable, Sendable {
     public var economy: EconomyRules
     public var territory: TerritoryRules
     public var combat: CombatRules
+    /// Pace of the match relative to standard (Quick Match < 1). The AI reads time on this clock.
+    public var tempo: Double?
 }
 
 // MARK: - Database
@@ -244,6 +246,32 @@ public final class GameData: @unchecked Sendable {
         let rules = try read("rules.json", GameRules.self)
         return GameData(units: units, buildings: buildings, upgrades: upgrades, factions: factions, rules: rules)
     }
+
+    /// Quick Match: the same units and costs on a faster clock — shorter build, train and research times,
+    /// richer starts, quicker gathering and capture, and an earlier, shorter dominance victory.
+    /// Combat is untouched, so the factions' strengths relative to each other are unchanged.
+    public static let quickTempo = 0.6
+    nonisolated(unsafe) private static var _quick: GameData?
+    public static var quick: GameData {
+        if let q = _quick { return q }
+        let s = shared, k = quickTempo
+        var us = s.units, bs = s.buildings, gs = s.upgrades, r = s.rules
+        for i in us.indices { us[i].buildTime = (us[i].buildTime * k * 10).rounded() / 10 }
+        for i in bs.indices { bs[i].buildTime = (bs[i].buildTime * k * 10).rounded() / 10 }
+        for i in gs.indices { gs[i].time = (gs[i].time * k).rounded() }
+        r.economy.startIron *= 2; r.economy.startWood *= 2; r.economy.startGold += 100
+        r.economy.gatherTime = r.economy.gatherTime.map { $0 * k }
+        r.territory.captureTime *= k
+        r.territory.income = r.territory.income.map { $0 / k }
+        r.territory.dominanceStart = 420
+        r.territory.dominanceSeconds = 150
+        r.tempo = k
+        let q = GameData(units: us, buildings: bs, upgrades: gs, factions: s.factions, rules: r, applyFactionMultipliers: false)
+        _quick = q
+        return q
+    }
+    /// Quick Match battlefields are smaller.
+    public static let quickMapSize = 84
 
     nonisolated(unsafe) private static var _shared: GameData?
     public static var shared: GameData {

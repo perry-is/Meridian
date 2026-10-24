@@ -57,7 +57,8 @@ public struct MatchConfig: Sendable {
     public var seed: UInt64
     public var mapSize: Int
     public var swapStarts: Bool
-    public init(factions: [Faction], layout: MapLayout = .crossroads, seed: UInt64 = 1, mapSize: Int = 112, swapStarts: Bool = false) {
+    public static let defaultMapSize = 112
+    public init(factions: [Faction], layout: MapLayout = .crossroads, seed: UInt64 = 1, mapSize: Int = MatchConfig.defaultMapSize, swapStarts: Bool = false) {
         self.factions = factions; self.layout = layout; self.seed = seed; self.mapSize = mapSize; self.swapStarts = swapStarts
     }
 }

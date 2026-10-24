@@ -120,7 +120,7 @@ struct RootView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { backdrop.stop() }
         DispatchQueue.global(qos: .userInitiated).async {
             guard let save = SaveStore.read() else { DispatchQueue.main.async { screen = .title }; return }
-            let m = Match.load(save)
+            let m = Match.load(save, data: save.extras["quick"] == "1" ? .quick : .shared)
             DispatchQueue.main.async {
                 step = "Assembling the armies…"; progress = 0.55
                 let c = GameController(resume: m, save: save)
@@ -194,6 +194,7 @@ struct RootView: View {
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
             if let d = arg("-difficulty"), let v = Difficulty(rawValue: d) { settings.difficulty = v }
+            if a.contains("-quick") { settings.quick = true }
             if a.contains("-uitest") || a.contains("-nosave") { SaveStore.delete() }
             if a.contains("-tutorial") && controller == nil {
                 let c = GameController(tutorial: true); c.exitTutorial = { backToMenu() }

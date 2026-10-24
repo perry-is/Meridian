@@ -25,6 +25,8 @@ struct GameSettings {
     var difficulty: Difficulty = .normal
     var strategy: AIStrategy = .balanced
     var layout: MapLayout = .crossroads
+    /// Quick Match: smaller map and a faster clock (about ten minutes).
+    var quick = false
     var seed: UInt64 = UInt64(Date().timeIntervalSince1970) % 100_000
 }
 
@@ -139,7 +141,7 @@ final class GameController: ObservableObject {
     let match: Match
     var world: World { match.world }
     let me = 0
-    let data = GameData.shared
+    var data: GameData { world.data }
 
     @Published var hud = HUDState()
     @Published var toasts: [Toast] = []
@@ -179,6 +181,7 @@ final class GameController: ObservableObject {
         st.playerFaction = save.factions[0]; st.aiFaction = save.factions[1]; st.layout = save.layout; st.seed = save.seed
         st.difficulty = save.extras["difficulty"].flatMap { Difficulty(rawValue: $0) } ?? .normal
         st.strategy = save.extras["strategy"].flatMap { AIStrategy(rawValue: $0) } ?? .balanced
+        st.quick = save.extras["quick"] == "1"
         settings = st
         spectating = false
         match = m
@@ -206,12 +209,13 @@ final class GameController: ObservableObject {
         var s = match.save()
         s.extras["difficulty"] = settings.difficulty.rawValue
         s.extras["strategy"] = settings.strategy.rawValue
+        s.extras["quick"] = settings.quick ? "1" : "0"
         if let c = cameraState?() { s.extras["camX"] = String(c.0); s.extras["camY"] = String(c.1); s.extras["zoom"] = String(c.2) }
         if let g = try? JSONEncoder().encode(controlGroups), let gs = String(data: g, encoding: .utf8) { s.extras["groups"] = gs }
         s.extras["formation"] = formation.rawValue
         s.extras["guideDismissed"] = guideDismissed ? "1" : "0"
         SaveStore.write(s, info: SaveStore.Info(playerFaction: settings.playerFaction, aiFaction: settings.aiFaction, layout: settings.layout,
-                                                difficulty: settings.difficulty.title, gameTime: world.time, savedAt: Date()))
+                                                difficulty: settings.difficulty.title + (settings.quick ? " · Quick" : ""), gameTime: world.time, savedAt: Date()))
         lastAutosave = world.time
     }
 
@@ -235,12 +239,13 @@ final class GameController: ObservableObject {
 
     init(settings: GameSettings, spectate: Bool = false, aiPlayers: Bool) {
         self.settings = settings
-        let cfg = MatchConfig(factions: [settings.playerFaction, settings.aiFaction], layout: settings.layout, seed: settings.seed)
+        let cfg = MatchConfig(factions: [settings.playerFaction, settings.aiFaction], layout: settings.layout, seed: settings.seed,
+                              mapSize: settings.quick ? GameData.quickMapSize : MatchConfig.defaultMapSize)
         var ai: [(player: Int, difficulty: Difficulty, strategy: AIStrategy)] = [(1, settings.difficulty, settings.strategy)]
         if spectate { ai.insert((0, settings.difficulty, .balanced), at: 0) }
         if !aiPlayers { ai = [] }
         spectating = spectate
-        match = Match(config: cfg, ai: ai)
+        match = Match(config: cfg, ai: ai, data: settings.quick ? .quick : .shared)
         refreshHUD()
     }
 

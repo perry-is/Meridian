@@ -102,6 +102,29 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(fields.subtracting(saved), [], "Entity fields missing from EntitySnapshot (update SaveEntity.swift)")
     }
 
+    /// Quick Match: smaller maps still give every base its resources and connect everything; the pace is faster.
+    func testQuickMatchMaps() {
+        for layout in MapLayout.playable { for seed in [3, 42, 777] as [UInt64] {
+            let w = World(config: MatchConfig(factions: [.machines, .aliens], layout: layout, seed: seed, mapSize: GameData.quickMapSize), data: .quick)
+            XCTAssertEqual(w.map.size, GameData.quickMapSize)
+            XCTAssertEqual(w.sites.count, 7, "\(layout) \(seed) sites")
+            for p in 0..<2 {
+                let hq = w.buildings(of: p)[0]; var c = [0, 0, 0]
+                for e in w.entities where e.isResource && e.alive && dist2(e.x, e.y, hq.x, hq.y) < 13 * 13 { c[e.type] += 1 }
+                XCTAssertGreaterThanOrEqual(c[0], 6, "\(layout) \(seed) p\(p) iron"); XCTAssertGreaterThanOrEqual(c[2], 8, "\(layout) \(seed) p\(p) wood")
+            }
+        } }
+        XCTAssertLessThan(GameData.quick.units[0].buildTime, GameData.shared.units[0].buildTime)
+        XCTAssertEqual(GameData.quick.units[0].cost, GameData.shared.units[0].cost)
+        // A saved Quick Match resumes on its own map size and clock.
+        let m = Match(config: MatchConfig(factions: [.humans, .machines], seed: 5, mapSize: GameData.quickMapSize), ai: [(1, .normal, .balanced)], data: .quick)
+        for _ in 0..<600 { m.step() }
+        let r = Match.load(try! JSONDecoder().decode(MatchSave.self, from: JSONEncoder().encode(m.save())), data: .quick)
+        XCTAssertEqual(r.world.map.size, GameData.quickMapSize)
+        for _ in 0..<200 { m.step(); r.step() }
+        XCTAssertEqual(m.world.time, r.world.time); XCTAssertEqual(m.world.players[1].res, r.world.players[1].res)
+    }
+
     func testStartsHaveNearbyResources() {
         for layout in MapLayout.playable {
             for seed in [1, 42, 99999] as [UInt64] {

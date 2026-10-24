@@ -282,6 +282,14 @@ struct SetupView: View {
                             factionGrid(selection: $settings.aiFaction, wide: wide, compact: true)
                             GlassPanel(accent: Theme.faction(settings.playerFaction), padding: 12) {
                                 VStack(alignment: .leading, spacing: 12) {
+                                    labeled("MATCH LENGTH") {
+                                        Picker("Match length", selection: $settings.quick) {
+                                            Text("Standard").tag(false); Text("Quick").tag(true)
+                                        }.pickerStyle(.segmented).accessibilityIdentifier("matchLength")
+                                        Text(settings.quick ? "About 10 minutes: a smaller map, richer starts and everything built faster."
+                                                            : "The full campaign for the map: room to expand, scout and outthink.")
+                                            .font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
+                                    }
                                     labeled("DIFFICULTY") {
                                         Picker("Difficulty", selection: $settings.difficulty) { ForEach(Difficulty.allCases, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
                                         Text(settings.difficulty.blurb).font(.system(size: 11)).foregroundColor(.white.opacity(0.6))

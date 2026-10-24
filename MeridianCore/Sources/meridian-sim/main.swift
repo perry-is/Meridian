@@ -29,8 +29,9 @@ struct MatchResult {
 
 func runMatch(_ f0: Faction, _ f1: Faction, layout: MapLayout, seed: UInt64, diff: [Difficulty], strat: [AIStrategy],
               swap: Bool, limit: Double, verbose: Bool) -> MatchResult {
-    let cfg = MatchConfig(factions: [f0, f1], layout: layout, seed: seed, swapStarts: swap)
-    let m = Match(config: cfg, ai: [(0, diff[0], strat[0]), (1, diff[1], strat[1])])
+    let quick = flag("quick")
+    let cfg = MatchConfig(factions: [f0, f1], layout: layout, seed: seed, mapSize: quick ? GameData.quickMapSize : 112, swapStarts: swap)
+    let m = Match(config: cfg, ai: [(0, diff[0], strat[0]), (1, diff[1], strat[1])], data: quick ? .quick : .shared)
     m.world.tactics = TacticsFlags(disabling: opt("disable", "").split(separator: ",").map(String.init))
     m.timeLimit = limit
     m.world.collectEvents = false

@@ -39,6 +39,8 @@ public final class AIController {
     var siteSquads: [Int: [Int]] = [:]  // site index -> unit ids
     public private(set) var lastPlan = ""
     func setPlan(_ s: String) { lastPlan = s }
+    /// Match time on the AI's clock: Quick Match runs faster, so its plans scale with it.
+    @inline(__always) func clock(_ w: World) -> Double { w.time / (w.data.rules.tempo ?? 1) }
     var armyCount = 0
     var raided = false
     var assembling = false
@@ -71,6 +73,7 @@ public final class AIController {
     // MARK: Main loop
 
     public func update(_ w: World) {
+        // Reaction speed stays in real seconds, whatever the match pace.
         guard w.time >= nextThink, !w.players[player].defeated, w.winner == nil else { return }
         nextThink = w.time + thinkInterval
         let p = w.players[player]
@@ -84,7 +87,7 @@ public final class AIController {
         manageWorkers(w, workers, myBuildings)
         var reserve = manageConstruction(w, p, workers, myBuildings)
         // Units come first until a minimum army exists; only then save up for buildings.
-        let minArmy = Int(3 + w.time / 25)
+        let minArmy = Int(3 + clock(w) / 25)
         if army.count < min(minArmy, 30) { reserve = Cost() }
         armyCount = army.count
         manageResearch(w, p, myBuildings, reserve: reserve)
@@ -143,7 +146,7 @@ public final class AIController {
         let tier2 = p.completedUpgrades.contains(w.data.upgradeIndex["\(prefix(p))_tier2"]!)
         let n = Double(workers.count)
         // Base demand ratios, then shift away from resources we are already stockpiling.
-        var demand = tier2 ? [0.45, 0.2, 0.35] : (w.time < 150 ? [0.62, 0.0, 0.38] : [0.52, 0.13, 0.35])
+        var demand = tier2 ? [0.45, 0.2, 0.35] : (clock(w) < 150 ? [0.62, 0.0, 0.38] : [0.52, 0.13, 0.35])
         for k in 0..<3 { demand[k] /= 1 + Double(max(0, p.res[k] - 150)) / 250 }
         let tot = demand.reduce(0, +)
         let want = demand.map { n * $0 / max(0.001, tot) }
@@ -192,7 +195,7 @@ public final class AIController {
 
     /// Returns the cost the AI is saving for (production avoids dipping into it).
     func manageConstruction(_ w: World, _ p: Player, _ workers: [Entity], _ buildings: [Entity]) -> Cost {
-        let t = w.time
+        let t = clock(w)
         let px = prefix(p)
         let tier2 = p.completedUpgrades.contains(w.data.upgradeIndex["\(px)_tier2"]!)
         let tier3 = p.completedUpgrades.contains(w.data.upgradeIndex["\(px)_tier3"]!)
@@ -371,17 +374,17 @@ public final class AIController {
             prio.insert(contentsOf: [first, "a_roots"], at: 5); prio.append(second)
         }
         if strategy == .tech { prio.swapAt(1, 4) }
-        if difficulty != .hard && w.time < (difficulty == .easy ? 900 : 400) { prio = Array(prio.prefix(3)) }
+        if difficulty != .hard && clock(w) < (difficulty == .easy ? 900 : 400) { prio = Array(prio.prefix(3)) }
         let maxResearch = difficulty == .hard ? 2 : 1
         if p.researching.count >= maxResearch { return }
         let rich = p.res[0] > 400 && p.res[1] > 150
-        if armyCount < min(10, Int(2 + w.time / 30)) && !rich { prio = prio.filter { $0.hasSuffix("tier2") || $0.hasSuffix("tier3") } }
+        if armyCount < min(10, Int(2 + clock(w) / 30)) && !rich { prio = prio.filter { $0.hasSuffix("tier2") || $0.hasSuffix("tier3") } }
         // Tier 2 waits for a minimal army in aggressive mode.
         for id in prio {
             guard let u = w.data.upgradeIndex[id] else { continue }
             if w.upgradeAvailability(player, u) != nil { continue }
             let g = w.data.upgrades[u]
-            if id.hasSuffix("tier2") && w.time < (difficulty == .easy ? 480 : (strategy == .aggressive ? 260 : 150)) { continue }
+            if id.hasSuffix("tier2") && clock(w) < (difficulty == .easy ? 480 : (strategy == .aggressive ? 260 : 150)) { continue }
             guard let b = buildings.first(where: { $0.complete && w.bdef($0).kind == g.researchedAt && $0.queue.isEmpty }) else { continue }
             if p.canAfford(g.cost) {
                 w.commandResearch(b.id, upgrade: u)
@@ -553,15 +556,15 @@ public final class AIController {
             }
         }
         // 2. Attack timing (assemble at the staging point first, then advance in formation).
-        let growth = 1 + w.time / 900          // thresholds grow so late attacks are bigger
+        let growth = 1 + clock(w) / 900          // thresholds grow so late attacks are bigger
         let threshold = attackThreshold * growth
         let capped = p.unitCount >= w.data.rules.combat.unitCap - 10
         let enemyEst = enemySeen.reduce(0.0) { $0 + Double($1.value) * w.data.units[$1.key].cost.value(w.data.rules.economy) * (w.data.units[$1.key].role == "worker" ? 0 : 1) }
         let confident = difficulty != .hard || value > enemyEst * 1.25
         // The attack force: the whole army, or (gentler AIs) only a capped wave while the rest stays home.
         var force = army
-        if attacking && waveCap > 0 { force = army.filter { attackGroup.contains($0.id) }; if force.isEmpty { attacking = false; assembling = false; lastAttackEnd = w.time } }
-        if !attacking && (value >= threshold && confident || capped) && w.time - lastAttackEnd > attackGap && w.time > firstAttack {
+        if attacking && waveCap > 0 { force = army.filter { attackGroup.contains($0.id) }; if force.isEmpty { attacking = false; assembling = false; lastAttackEnd = clock(w) } }
+        if !attacking && (value >= threshold && confident || capped) && clock(w) - lastAttackEnd > attackGap && clock(w) > firstAttack {
             attacking = true
             if waveCap > 0 {
                 attackGroup = Set(army.sorted { $0.id < $1.id }.prefix(waveCap).map { $0.id })
@@ -571,7 +574,7 @@ public final class AIController {
             attackTarget = chooseAttackTarget(w)
             if difficulty == .hard {
                 assembling = true
-                assembleSince = w.time
+                assembleSince = clock(w)
                 let st = stagingPoint(w)
                 w.commandMove(force.map { $0.id }, x: st.0, y: st.1, attack: true, formation: doctrine(w, p))
                 lastPlan = "Assembling"
@@ -582,7 +585,7 @@ public final class AIController {
         if attacking && assembling {
             let st = stagingPoint(w)
             let near = force.filter { dist2($0.x, $0.y, st.0, st.1) < 10 * 10 }.count
-            if Double(near) < Double(force.count) * 0.7 && w.time - assembleSince < 25 { return }
+            if Double(near) < Double(force.count) * 0.7 && clock(w) - assembleSince < 25 { return }
             assembling = false
             guard let t = attackTarget else { attacking = false; return }
             // Main body advances in doctrine formation; fast raiders swing around a flank.
@@ -603,7 +606,7 @@ public final class AIController {
             if armyValue(w, force) < attackStartValue * (1 - retreatAt) && !capped {
                 attacking = false
                 assembling = false
-                lastAttackEnd = w.time
+                lastAttackEnd = clock(w)
                 // Brood fall back into Bloom (owned site or base) to regenerate; others to the staging point.
                 var st = stagingPoint(w)
                 if p.faction == .aliens, let s = w.sites.filter({ $0.owner == player && $0.control >= 1 }).min(by: { dist2($0.x, $0.y, force[0].x, force[0].y) < dist2($1.x, $1.y, force[0].x, force[0].y) }) {
@@ -623,7 +626,7 @@ public final class AIController {
 
         // 3. Expansion: send squads to capture neutral or weakly held sites.
         let (bx, by) = baseCenter(w)
-        let maxSquads = difficulty == .hard ? (strategy == .territorial ? 4 : 3) : (difficulty == .easy && w.time < 480 ? 0 : 1)
+        let maxSquads = difficulty == .hard ? (strategy == .territorial ? 4 : 3) : (difficulty == .easy && clock(w) < 480 ? 0 : 1)
         siteSquads = siteSquads.filter { (k, v) in w.sites[k].owner != player && v.contains { w.entity($0) != nil } }
         let candidates = w.sites.enumerated().filter { $0.element.owner != player }
             .sorted { dist2($0.element.x, $0.element.y, bx, by) < dist2($1.element.x, $1.element.y, bx, by) }
