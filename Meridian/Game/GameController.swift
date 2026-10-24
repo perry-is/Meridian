@@ -284,6 +284,37 @@ final class GameController: ObservableObject {
     /// Development "unit lab" (`-lab`): the player's whole roster beside the HQ facing a held enemy line,
     /// with workers chopping, mining and repairing — for reviewing unit animation up close.
     var labFocus: (Double, Double)? = nil
+    /// Building review (development): every building of the player's faction placed complete around the HQ,
+    /// producers kept busy, and the camera on building number `focus` (the HQ is 0).
+    func setupBuildLab(_ focus: Int) {
+        world.sandbox = true
+        world.unlockAll(me)
+        guard let hq = world.buildings(of: me).first else { return }
+        let f = world.players[me].faction
+        var placed: [Entity] = [hq]
+        let hx = Int(hq.x), hy = Int(hq.y)
+        // Just the building under review (the HQ is always there), placed clear of the base.
+        let ids = data.buildingIDs(f)
+        let pick = ids[min(max(0, focus), ids.count - 1)]
+        for t in [pick] where data.buildings[t].kind != .hq {
+            search: for r in 8...24 {
+                for k in 0..<(r * 6) {
+                    let a = Double(k) / Double(r * 6) * 2 * .pi
+                    let tx = hx + Int((cos(a) * Double(r)).rounded()), ty = hy + Int((sin(a) * Double(r)).rounded())
+                    if world.placementError(me, t, tileX: tx, tileY: ty) == nil {
+                        placed.append(world.spawnBuilding(t, owner: me, tileX: tx, tileY: ty, complete: true))
+                        break search
+                    }
+                }
+            }
+        }
+        for b in placed {
+            for u in data.unitIDs(f) where world.commandTrain(b.id, unitType: u) == nil { break }
+        }
+        let target = placed.last!
+        labFocus = (target.x, target.y)
+    }
+
     func setupLab() {
         world.sandbox = true
         world.unlockAll(0); world.unlockAll(1)

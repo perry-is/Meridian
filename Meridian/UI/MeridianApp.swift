@@ -247,6 +247,7 @@ struct RootView: View {
                 if let w = arg("-warp"), let secs = Double(w) { c.warp(seconds: secs) }
                 if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
                 if a.contains("-lab") { c.setupLab() }
+                if let k = arg("-buildlab").flatMap(Int.init) { c.setupBuildLab(k) }
                 if let u = arg("-portraitdemo") {
                     // Development: spawn a unit by id next to the base, select it and have it talk every few seconds.
                     let hq = c.world.buildings(of: c.me)[0]
