@@ -20,6 +20,7 @@ struct HUDView: View {
             VStack(spacing: 6) {
                 TopBar(controller: controller, compact: compact, showPause: $showPause, accent: accent)
                 ToastStack(controller: controller)
+                if controller.tutorial != nil { TutorialCard(controller: controller, onExit: { controller.exitTutorial?() }) }
                 if let g = controller.hud.guide { GuideCard(text: g, accent: accent) { controller.guideDismissed = true; controller.refreshHUD() } }
                 HStack(alignment: .top) {
                     SideRail(controller: controller, accent: accent)
@@ -147,6 +148,18 @@ struct SiteStrip: View {
     }
 }
 
+/// Pulsing gold frame marking the control the tutorial wants pressed.
+struct GlowFrame: View {
+    var cut: CGFloat
+    @State private var on = false
+    var body: some View {
+        Chamfer(cut: cut).stroke(Theme.gold, lineWidth: on ? 3 : 1.5)
+            .shadow(color: Theme.gold.opacity(on ? 0.9 : 0.3), radius: on ? 8 : 3)
+            .allowsHitTesting(false)
+            .onAppear { withAnimation(.easeInOut(duration: 0.6).repeatForever()) { on = true } }
+    }
+}
+
 /// Commander's guide card: one suggested next step, dismissible.
 struct GuideCard: View {
     let text: String
@@ -206,6 +219,7 @@ struct SideRail: View {
     var body: some View {
         VStack(spacing: 6) {
             railButton("figure.walk.motion", "Army", badge: controller.hud.armyCount) { controller.selectArmy() }
+                .overlay { if controller.hud.tutorialRail == "army" { GlowFrame(cut: 6) } }
             if ProcessInfo.processInfo.arguments.contains("-uitest") {
                 // UI tests cannot perform two-finger drags; this stands in for a box select of the workers.
                 railButton("person.3", "Workers", badge: 0) { controller.selectWorkers() }.accessibilityIdentifier("test_select_workers")
@@ -445,6 +459,7 @@ struct CommandButtonView: View {
         .background(Chamfer(cut: 7).fill(LinearGradient(colors: button.highlighted ? [Color.purple.opacity(0.45), Color.purple.opacity(0.15)]
                                                          : [Color.white.opacity(button.enabled ? 0.13 : 0.04), Color.white.opacity(button.enabled ? 0.04 : 0.02)], startPoint: .top, endPoint: .bottom)))
         .overlay(Chamfer(cut: 7).stroke(button.enabled ? accent.opacity(0.45) : Color.white.opacity(0.06), lineWidth: 1))
+        .overlay { if button.glow { GlowFrame(cut: 7) } }
         .overlay(alignment: .topTrailing) {
             if button.queued > 0 {
                 Text("\(button.queued)").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 4).padding(.vertical, 1).background(Capsule().fill(accent)).foregroundColor(.black).padding(2)

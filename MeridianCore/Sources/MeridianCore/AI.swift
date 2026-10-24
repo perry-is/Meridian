@@ -38,6 +38,7 @@ public final class AIController {
     var enemyCloakSeen = false
     var siteSquads: [Int: [Int]] = [:]  // site index -> unit ids
     public private(set) var lastPlan = ""
+    func setPlan(_ s: String) { lastPlan = s }
     var armyCount = 0
     var raided = false
     var assembling = false

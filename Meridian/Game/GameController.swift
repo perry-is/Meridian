@@ -40,6 +40,8 @@ struct CommandButton: Identifiable {
     var enabled = true
     var reason: String? = nil
     var highlighted = false
+    /// Tutorial: this is the button to press next.
+    var glow = false
     var badge: String? = nil
     var progress: Double? = nil
     var queued = 0
@@ -121,6 +123,8 @@ struct HUDState {
     var tags: [String] = []
     /// Commander's guide: the suggested next step for new players (nil when there is nothing to suggest).
     var guide: String? = nil
+    /// Tutorial: side-rail button to glow.
+    var tutorialRail: String? = nil
     var siteOwners: [Int] = []
     var siteProgress: [Double] = []
     var tileHP: [Int: Double] = [:]
@@ -169,11 +173,72 @@ final class GameController: ObservableObject {
     var cameraWorldRect: (() -> [(Double, Double)])?
     var attackPings: [(x: Double, y: Double, t: Double)] = []
 
-    init(settings: GameSettings, spectate: Bool = false) {
+    /// Resume a saved match exactly where it was left.
+    init(resume m: Match, save: MatchSave) {
+        var st = GameSettings()
+        st.playerFaction = save.factions[0]; st.aiFaction = save.factions[1]; st.layout = save.layout; st.seed = save.seed
+        st.difficulty = save.extras["difficulty"].flatMap { Difficulty(rawValue: $0) } ?? .normal
+        st.strategy = save.extras["strategy"].flatMap { AIStrategy(rawValue: $0) } ?? .balanced
+        settings = st
+        spectating = false
+        match = m
+        if let x = save.extras["camX"].flatMap(Double.init), let y = save.extras["camY"].flatMap(Double.init) {
+            resumeCamera = (x, y, save.extras["zoom"].flatMap(Double.init) ?? 1.35)
+        }
+        if let g = save.extras["groups"]?.data(using: .utf8), let groups = try? JSONDecoder().decode([Int: [Int]].self, from: g) { controlGroups = groups }
+        if let f = save.extras["formation"].flatMap({ Formation(rawValue: $0) }) { formation = f }
+        guideDismissed = save.extras["guideDismissed"] == "1"
+        lastAutosave = world.time
+        refreshHUD()
+        toast("Welcome back, commander")
+    }
+
+    // MARK: Save / resume
+
+    var resumeCamera: (Double, Double, Double)? = nil
+    /// The scene reports the camera (world x, y, zoom) for saves.
+    var cameraState: (() -> (Double, Double, Double))? = nil
+    var lastAutosave = 0.0
+    var canSave: Bool { !spectating && !stressMode && !battleMode && !world.sandbox && gameOver == nil && tutorial == nil }
+
+    func saveNow() {
+        guard canSave else { return }
+        var s = match.save()
+        s.extras["difficulty"] = settings.difficulty.rawValue
+        s.extras["strategy"] = settings.strategy.rawValue
+        if let c = cameraState?() { s.extras["camX"] = String(c.0); s.extras["camY"] = String(c.1); s.extras["zoom"] = String(c.2) }
+        if let g = try? JSONEncoder().encode(controlGroups), let gs = String(data: g, encoding: .utf8) { s.extras["groups"] = gs }
+        s.extras["formation"] = formation.rawValue
+        s.extras["guideDismissed"] = guideDismissed ? "1" : "0"
+        SaveStore.write(s, info: SaveStore.Info(playerFaction: settings.playerFaction, aiFaction: settings.aiFaction, layout: settings.layout,
+                                                difficulty: settings.difficulty.title, gameTime: world.time, savedAt: Date()))
+        lastAutosave = world.time
+    }
+
+    var tutorial: TutorialState? = nil
+    static let tutorialAuto = ProcessInfo.processInfo.arguments.contains("-tutorialauto")
+    var autopilotTime = -10.0
+    /// Leaves the tutorial (set by the app).
+    var exitTutorial: (() -> Void)? = nil
+
+    /// Boot Camp: Concord against a Lattice opponent that never attacks, with a little extra to spend.
+    convenience init(tutorial: Bool) {
+        var st = GameSettings()
+        st.playerFaction = .humans; st.aiFaction = .machines; st.layout = .crossroads; st.seed = 42; st.difficulty = .easy
+        self.init(settings: st, aiPlayers: false)
+        self.tutorial = TutorialState()
+        world.players[me].res[0] += 400; world.players[me].res[2] += 300
+        refreshHUD()
+    }
+
+    convenience init(settings: GameSettings, spectate: Bool = false) { self.init(settings: settings, spectate: spectate, aiPlayers: true) }
+
+    init(settings: GameSettings, spectate: Bool = false, aiPlayers: Bool) {
         self.settings = settings
         let cfg = MatchConfig(factions: [settings.playerFaction, settings.aiFaction], layout: settings.layout, seed: settings.seed)
         var ai: [(player: Int, difficulty: Difficulty, strategy: AIStrategy)] = [(1, settings.difficulty, settings.strategy)]
         if spectate { ai.insert((0, settings.difficulty, .balanced), at: 0) }
+        if !aiPlayers { ai = [] }
         spectating = spectate
         match = Match(config: cfg, ai: ai)
         refreshHUD()
@@ -315,8 +380,10 @@ final class GameController: ObservableObject {
         }
         processEvents()
         if world.time - lastHUD > 0.2 { lastHUD = world.time; refreshHUD() }
+        if canSave && world.time - lastAutosave >= 60 { saveNow() }
         if let w = world.winner, gameOver == nil {
             gameOver = (w == me, world.victoryReason)
+            if !spectating { SaveStore.delete() }
             if w == me { Haptics.success() } else { Haptics.error() }
             SoundEngine.shared?.play(w == me ? "victory" : "defeat", at: nil, minGap: 0)
         }
@@ -674,7 +741,11 @@ final class GameController: ObservableObject {
     func refreshHUD() {
         var h = HUDState()
         let p = world.players[me]
-        h.guide = guideOn && !spectating ? guideStep() : nil
+        h.guide = guideOn && !spectating && tutorial == nil ? guideStep() : nil
+        if tutorial != nil {
+            tutorialTick(); h.tutorialRail = tutorialStep?.rail
+            if GameController.tutorialAuto && world.time - autopilotTime >= 1 { autopilotTime = world.time; tutorialAutopilot() }
+        }
         h.res = p.res
         h.units = p.unitCount
         h.cap = data.rules.combat.unitCap
@@ -709,6 +780,7 @@ final class GameController: ObservableObject {
         h.armyCount = mine.filter { !world.traits[$0.type].worker && !$0.isMine }.count
         describeSelection(&h)
         h.buttons = buildButtons(&h)
+        if let want = tutorialStep?.button(self) { for i in h.buttons.indices where h.buttons[i].id == want { h.buttons[i].glow = true } }
         if case .place(let t) = mode {
             h.placing = data.buildings[t].name
             if let g = ghostTile {

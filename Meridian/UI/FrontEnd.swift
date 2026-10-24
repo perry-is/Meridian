@@ -156,6 +156,10 @@ struct LoadingView: View {
 struct TitleView: View {
     @ObservedObject var backdrop: MenuBackdrop
     var onPlay: () -> Void
+    var onContinue: () -> Void = {}
+    var onTutorial: () -> Void = {}
+    @State private var offerTutorial = false
+    @State private var saved = SaveStore.info
     @State private var showHelp = false
     @State private var showSettings = false
     @State private var appear = false
@@ -180,15 +184,35 @@ struct TitleView: View {
                         .scaleEffect(appear ? 1 : 0.92).opacity(appear ? 1 : 0)
                     Spacer()
                     VStack(spacing: 14) {
-                        Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); onPlay() } label: {
-                            Text("PLAY").font(.system(size: 24, weight: .black)).tracking(10)
+                        if let sv = saved {
+                            Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); onContinue() } label: {
+                                VStack(spacing: 3) {
+                                    Text("CONTINUE").font(.system(size: 22, weight: .black)).tracking(8)
+                                    Text(sv.line).font(.system(size: 10, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7).opacity(0.75)
+                                }
+                                .frame(maxWidth: 300).padding(.vertical, 11)
+                                .background(Chamfer(cut: 14).fill(LinearGradient(colors: [Theme.faction(sv.playerFaction), Theme.faction(sv.playerFaction).opacity(0.65)], startPoint: .top, endPoint: .bottom)))
+                                .overlay(Chamfer(cut: 14).stroke(Color.white.opacity(0.65), lineWidth: 1))
+                                .shadow(color: Theme.faction(sv.playerFaction).opacity(0.55), radius: 14)
+                                .foregroundColor(.black)
+                            }
+                            .buttonStyle(.plain).accessibilityLabel("CONTINUE")
+                        }
+                        Button {
+                            SoundEngine.shared?.play("built", at: nil, minGap: 0)
+                            // First time: offer the tutorial.
+                            if !UserDefaults.standard.bool(forKey: "tutorial.offered") && !ProcessInfo.processInfo.arguments.contains("-uitest") {
+                                UserDefaults.standard.set(true, forKey: "tutorial.offered"); offerTutorial = true
+                            } else { onPlay() }
+                        } label: {
+                            Text(saved == nil ? "PLAY" : "NEW BATTLE").font(.system(size: saved == nil ? 24 : 18, weight: .black)).tracking(saved == nil ? 10 : 6)
                                 .frame(maxWidth: 300).padding(.vertical, 16)
                                 .background(Chamfer(cut: 14).fill(LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.65)], startPoint: .top, endPoint: .bottom)))
                                 .overlay(Chamfer(cut: 14).stroke(Color.white.opacity(0.65), lineWidth: 1))
                                 .shadow(color: Theme.accent.opacity(0.6), radius: 16)
                                 .foregroundColor(.black)
                         }
-                        .buttonStyle(.plain).accessibilityLabel("PLAY")
+                        .buttonStyle(.plain).accessibilityLabel(saved == nil ? "PLAY" : "NEW BATTLE")
                         Button { SoundEngine.shared?.play("click", at: nil); showHelp = true } label: {
                             Text("HOW TO PLAY").font(.system(size: 15, weight: .heavy)).tracking(5)
                                 .frame(maxWidth: 300).padding(.vertical, 13)
@@ -210,11 +234,15 @@ struct TitleView: View {
                 }
             }
         }
-        .sheet(isPresented: $showHelp) { HelpView() }
+        .sheet(isPresented: $showHelp) { HelpView(onTutorial: onTutorial) }
         .sheet(isPresented: $showSettings) {
             VStack(spacing: 16) { Text("Settings").font(.title3.bold()); AudioSettings() }.padding(30).presentationDetents([.medium])
         }
-        .onAppear { withAnimation(.easeOut(duration: 0.9)) { appear = true } }
+        .confirmationDialog("New to Meridian?", isPresented: $offerTutorial, titleVisibility: .visible) {
+            Button("Play the 5-minute tutorial") { onTutorial() }
+            Button("Skip to battle setup") { onPlay() }
+        } message: { Text("Boot Camp teaches the basics by playing a short guided match.") }
+        .onAppear { saved = SaveStore.info; withAnimation(.easeOut(duration: 0.9)) { appear = true } }
     }
 }
 

@@ -129,6 +129,8 @@ final class GameScene: SKScene {
     var siteGlows: [SKSpriteNode] = []
     var labelPool: [SKLabelNode] = []
     var patrolMark: SKSpriteNode?
+    var tutorialArrow: SKLabelNode?
+    var tutorialRing: SKSpriteNode?
     var combatHeat = 0.0
     var tensionTimer = 0.0
     var tensionLevel: Float = 0
@@ -187,6 +189,12 @@ final class GameScene: SKScene {
         if let z = ProcessInfo.processInfo.arguments.firstIndex(of: "-zoom").flatMap({ Double(ProcessInfo.processInfo.arguments[$0 + 1]) }) { zoom = CGFloat(z) }
         if !ctl.stressMode && !ctl.battleMode, let hq = world.buildings(of: ctl.me).first { focus(hq.x + 3, hq.y - 3) }
         if let f = ctl.labFocus { focus(f.0, f.1) }
+        if let rc = ctl.resumeCamera { focus(rc.0, rc.1); zoom = CGFloat(rc.2) }
+        ctl.cameraState = { [weak self] in
+            guard let self = self else { return (0, 0, 1.35) }
+            let w = Iso.world(self.cam.position)
+            return (w.0, w.1, Double(self.zoom))
+        }
         // `-camhq <player>`: frame that player's base and hold the camera there (captures).
         if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-camhq"), let pl = Int(ProcessInfo.processInfo.arguments[i + 1]),
            let hq = world.buildings(of: pl).first {
@@ -327,6 +335,7 @@ final class GameScene: SKScene {
         syncProjectiles()
         syncSelectionOverlays()
         syncPatrolMarker()
+        syncTutorialMarker()
         applyShake(dt)
         syncSites()
         syncGhost()

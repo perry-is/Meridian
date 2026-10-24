@@ -1094,6 +1094,28 @@ extension GameScene {
         } else { rangeRing.isHidden = true }
     }
 
+    /// Tutorial: a bouncing arrow and a pulsing ring on whatever to tap next.
+    func syncTutorialMarker() {
+        guard let p = ctl.tutorialMarker else { tutorialArrow?.isHidden = true; tutorialRing?.isHidden = true; return }
+        if tutorialArrow == nil {
+            let a = SKLabelNode(text: "▼"); a.fontSize = 34; a.fontColor = SKColor(red: 1, green: 0.82, blue: 0.3, alpha: 1); a.zPosition = 590
+            a.verticalAlignmentMode = .bottom
+            let sh = SKLabelNode(text: "▼"); sh.fontSize = 34; sh.fontColor = SKColor(white: 0, alpha: 0.6); sh.position = CGPoint(x: 2, y: -2); sh.zPosition = -0.1; sh.verticalAlignmentMode = .bottom
+            a.addChild(sh)
+            worldNode.addChild(a); tutorialArrow = a
+            let r = SKSpriteNode(texture: bank.fx["selectring"], size: CGSize(width: 90, height: 45))
+            r.color = SKColor(red: 1, green: 0.82, blue: 0.3, alpha: 1); r.colorBlendFactor = 1; r.zPosition = 452
+            r.run(.repeatForever(.sequence([.group([.scale(to: 1.25, duration: 0.6), .fadeAlpha(to: 0.4, duration: 0.6)]), .group([.scale(to: 0.9, duration: 0.6), .fadeAlpha(to: 1, duration: 0.6)])])))
+            worldNode.addChild(r); tutorialRing = r
+        }
+        let base = Iso.scene(p.0, p.1)
+        let t = CACurrentMediaTime()
+        tutorialArrow!.isHidden = false; tutorialRing!.isHidden = false
+        tutorialArrow!.position = CGPoint(x: base.x, y: base.y + 56 + CGFloat(abs(sin(t * 3.2))) * 14)
+        tutorialArrow!.setScale(min(1.8, max(1, zoom)))
+        tutorialRing!.position = base
+    }
+
     /// Marker on the first patrol point while waiting for the second tap.
     func syncPatrolMarker() {
         if let p = ctl.patrolFirst, ctl.mode == .patrol {

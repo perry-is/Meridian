@@ -476,6 +476,14 @@ public final class World {
     // MARK: Queries for UI/AI
 
     /// Remove every entity (used by sandbox tools).
+    /// Re-inserts a restored entity (save/resume): registers it and re-occupies its tiles.
+    func adopt(_ e: Entity) {
+        entities.append(e)
+        if byID.count <= e.id { byID += Array(repeating: nil, count: e.id - byID.count + 1) }
+        byID[e.id] = e
+        if e.alive && (e.isBuilding || e.isResource) { occupy(e, true) }
+    }
+
     public func clearAll() {
         for e in entities where e.alive {
             if e.isBuilding || e.isResource { occupy(e, false) }

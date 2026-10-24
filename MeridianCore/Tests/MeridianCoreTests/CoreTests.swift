@@ -54,6 +54,54 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(ids.allSatisfy { w.entity($0)?.order == .patrol }, "units keep patrolling")
     }
 
+    /// Save mid-match, write and read the file, restore, then both copies must play on identically.
+    func testSaveRoundTripPlaysOnIdentically() throws {
+        let cfg = MatchConfig(factions: [.humans, .aliens], layout: .riverbend, seed: 77)
+        let a = Match(config: cfg, ai: [(0, .normal, .balanced), (1, .hard, .aggressive)])
+        for _ in 0..<(20 * 300) { a.step() }
+        var save = a.save()
+        save.savedAt = Date(timeIntervalSince1970: 0)
+        let data = try JSONEncoder().encode(save)
+        let decoded = try JSONDecoder().decode(MatchSave.self, from: data)
+        let b = Match.load(decoded)
+        a.world.nav.invalidate()   // the restored match rebuilds its path cache; do the same here
+        func diff(_ x: Any, _ y: Any, _ path: String) -> String? {
+            if let dx = x as? [String: Any], let dy = y as? [String: Any] {
+                for k in Set(dx.keys).union(dy.keys).sorted() { if let r = diff(dx[k] ?? "nil", dy[k] ?? "nil", path + "." + k) { return r } }
+                return nil
+            }
+            if let ax = x as? [Any], let ay = y as? [Any] {
+                if ax.count != ay.count { return path + " count \(ax.count) vs \(ay.count)" }
+                // Sets and integer-keyed dictionaries encode in no particular order: compare their contents.
+                let unordered = ["completeBuildingIDs", "completedUpgrades", "researching", "attackGroup", "enemySeen", "siteSquads",
+                                 "groupRemaining", "producedByType", "lostByType", "damageByType", "completeBuildings"]
+                if unordered.contains(where: { path.hasSuffix("." + $0) }) {
+                    return ax.map { "\($0)" }.sorted() == ay.map { "\($0)" }.sorted() ? nil : path + " contents differ"
+                }
+                for i in ax.indices { if let r = diff(ax[i], ay[i], path + "[\(i)]") { return r } }
+                return nil
+            }
+            return "\(x)" == "\(y)" ? nil : path + ": \(x) vs \(y)"
+        }
+        func firstDiff() -> String? {
+            var sa = a.save(), sb = b.save(); sa.savedAt = Date(timeIntervalSince1970: 0); sb.savedAt = sa.savedAt
+            let ja = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(sa)), jb = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(sb))
+            return diff(ja, jb, "")
+        }
+        XCTAssertNil(firstDiff(), "snapshot did not round-trip")
+        for _ in 0..<(20 * 120) { a.step(); b.step() }
+        XCTAssertNil(firstDiff(), "restored match diverged from the original")
+        XCTAssertGreaterThan(b.world.entities.filter { $0.isUnit && $0.alive }.count, 10)
+    }
+
+    /// The save format must cover every stored field of an entity.
+    func testSnapshotCoversEveryEntityField() {
+        let e = Entity(id: 1, kind: .unit, type: 0, owner: 0, x: 0, y: 0, hp: 1, radius: 0.3)
+        let fields = Set(Mirror(reflecting: e).children.compactMap { $0.label })
+        let saved = Set(Mirror(reflecting: e.snapshot()).children.compactMap { $0.label })
+        XCTAssertEqual(fields.subtracting(saved), [], "Entity fields missing from EntitySnapshot (update SaveEntity.swift)")
+    }
+
     func testStartsHaveNearbyResources() {
         for layout in MapLayout.playable {
             for seed in [1, 42, 99999] as [UInt64] {

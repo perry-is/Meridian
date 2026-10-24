@@ -6,7 +6,7 @@ public enum OrderKind: UInt8, Sendable {
     case idle, move, attackMove, attack, gather, returnCargo, build, repair, hold, load, unload, patrol
 }
 
-public struct ProdItem: Sendable {
+public struct ProdItem: Sendable, Codable {
     public var isUpgrade: Bool
     public var index: Int
     public var remaining: Double
@@ -122,7 +122,7 @@ public final class Entity {
     public var onMap: Bool { alive && carriedBy < 0 }
 }
 
-public struct Projectile: Sendable {
+public struct Projectile: Sendable, Codable {
     public var x: Double, y: Double
     public var tx: Double, ty: Double
     public var sx: Double, sy: Double
@@ -141,7 +141,7 @@ public struct Projectile: Sendable {
     public var total: Double = 0
 }
 
-public struct Cloud: Sendable {
+public struct Cloud: Sendable, Codable {
     public var x: Double, y: Double
     public var radius: Double
     public var dps: Double
@@ -150,7 +150,7 @@ public struct Cloud: Sendable {
     public var owner: Int
 }
 
-public struct Site: Sendable {
+public struct Site: Sendable, Codable {
     public var x: Double, y: Double
     public var owner: Int = -1
     /// 0...1 control strength of `owner` (or of `capturer` while neutral).

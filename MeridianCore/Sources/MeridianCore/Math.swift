@@ -1,7 +1,7 @@
 import Foundation
 
 /// Small deterministic PRNG (SplitMix64). All gameplay randomness goes through this so matches replay identically.
-public struct RNG: Sendable {
+public struct RNG: Sendable, Codable {
     public var state: UInt64
     public init(seed: UInt64) { state = seed &+ 0x9E3779B97F4A7C15 }
     public mutating func next() -> UInt64 {

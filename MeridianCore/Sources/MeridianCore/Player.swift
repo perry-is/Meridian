@@ -1,6 +1,6 @@
 import Foundation
 
-public struct StatMods: Sendable {
+public struct StatMods: Sendable, Codable {
     public var damage = 1.0
     public var armor = 0.0
     public var hp = 1.0
@@ -12,7 +12,7 @@ public struct StatMods: Sendable {
 }
 
 /// Aggregated upgrade effects for one player. Recomputed whenever research completes.
-public struct PlayerMods: Sendable {
+public struct PlayerMods: Sendable, Codable {
     public var unit: [StatMods]
     public var building: [StatMods]
     public var gather = 1.0
@@ -83,7 +83,7 @@ public struct PlayerMods: Sendable {
     }
 }
 
-public struct PlayerStats: Sendable {
+public struct PlayerStats: Sendable, Codable {
     public var gathered: [Int] = [0, 0, 0]
     public var territoryIncome: [Double] = [0, 0, 0]
     public var unitsProduced = 0

@@ -79,10 +79,29 @@ final class MenuBackdrop: ObservableObject {
 
 struct HelpView: View {
     @Environment(\.dismiss) var dismiss
+    var onTutorial: (() -> Void)? = nil
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    if let start = onTutorial {
+                        Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { start() } } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "graduationcap.fill").font(.system(size: 20))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Play the Boot Camp tutorial").font(.headline)
+                                    Text("A guided 5-minute match that teaches the basics by doing.").font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                            }
+                            .padding(12)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.gold.opacity(0.18)))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.gold.opacity(0.6)))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Start tutorial")
+                    }
                     group("Goal", [
                         "Destroy every enemy structure, or",
                         "Hold \(Int((7 * GameData.shared.rules.territory.dominanceFraction).rounded(.up))) of 7 strategic sites for \(Int(GameData.shared.rules.territory.dominanceSeconds / 60)) min \(Int(GameData.shared.rules.territory.dominanceSeconds) % 60) s once the dominance protocol activates at \(Int(GameData.shared.rules.territory.dominanceStart / 60)):00.",
@@ -151,7 +170,12 @@ struct PauseView: View {
                         Button("Tech tree") { controller.showTech = true }.buttonStyle(.bordered)
                         Button("Resume", action: onResume).buttonStyle(.borderedProminent).tint(Theme.faction(controller.hud.faction)).foregroundColor(.black)
                     }
-                    Button("Surrender & quit", role: .destructive, action: onQuit).buttonStyle(.bordered)
+                    HStack(spacing: 10) {
+                        if controller.canSave {
+                            Button("Save & quit") { controller.saveNow(); onQuit() }.buttonStyle(.bordered).tint(.white)
+                        }
+                        Button("Surrender", role: .destructive) { if !controller.spectating { SaveStore.delete() }; onQuit() }.buttonStyle(.bordered)
+                    }
                 }
                 .foregroundColor(.white)
             }

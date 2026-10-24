@@ -111,9 +111,54 @@ struct RootView: View {
         }
     }
 
+    /// Continue the saved match: read and rebuild it off the main thread behind the loading screen.
+    func resumeMatch() {
+        tip = Tips.all.randomElement()!
+        step = "Recovering your battlefield…"; progress = 0.08
+        screen = .loading
+        let t0 = Date()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { backdrop.stop() }
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let save = SaveStore.read() else { DispatchQueue.main.async { screen = .title }; return }
+            let m = Match.load(save)
+            DispatchQueue.main.async {
+                step = "Assembling the armies…"; progress = 0.55
+                let c = GameController(resume: m, save: save)
+                settings.playerFaction = c.settings.playerFaction
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    _ = TextureBank.make(data: GameData.shared, factions: c.world.players.map { $0.faction })
+                    step = "Final preparations…"; progress = 0.9
+                    let wait = max(0.15, 1.4 - Date().timeIntervalSince(t0))
+                    DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+                        progress = 1; watch = false; controller = c
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { screen = .game }
+                    }
+                }
+            }
+        }
+    }
+
+    func startTutorial() {
+        tip = "Boot Camp: follow the gold markers. You can skip at any time."
+        step = "Preparing Boot Camp…"; progress = 0.1
+        screen = .loading
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            backdrop.stop()
+            let c = GameController(tutorial: true)
+            c.exitTutorial = { backToMenu() }
+            step = "Assembling the armies…"; progress = 0.5
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                _ = TextureBank.make(data: GameData.shared, factions: c.world.players.map { $0.faction })
+                progress = 1; watch = false; controller = c
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { screen = .game }
+            }
+        }
+    }
+
     func backToMenu() {
+        let wasTutorial = controller?.tutorial != nil
         controller = nil
-        screen = .setup
+        screen = SaveStore.info != nil || wasTutorial ? .title : .setup
         DispatchQueue.main.async { backdrop.start() }
     }
 
@@ -132,7 +177,7 @@ struct RootView: View {
             case .boot:
                 LoadingView(title: "Preparing the frontier", step: step, progress: progress).transition(.opacity)
             case .title:
-                TitleView(backdrop: backdrop, onPlay: { screen = .setup }).transition(.opacity)
+                TitleView(backdrop: backdrop, onPlay: { screen = .setup }, onContinue: resumeMatch, onTutorial: startTutorial).transition(.opacity)
             case .setup:
                 SetupView(settings: $settings, watch: $watch, backdrop: backdrop, onBack: { screen = .title }, onDeploy: startMatch).transition(.opacity)
             case .loading:
@@ -149,6 +194,11 @@ struct RootView: View {
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
             if let d = arg("-difficulty"), let v = Difficulty(rawValue: d) { settings.difficulty = v }
+            if a.contains("-uitest") || a.contains("-nosave") { SaveStore.delete() }
+            if a.contains("-tutorial") && controller == nil {
+                let c = GameController(tutorial: true); c.exitTutorial = { backToMenu() }
+                controller = c; screen = .game; return
+            }
             if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
             if let sc = arg("-scenario").flatMap({ TacticalScenario(rawValue: $0) }), controller == nil {
                 var st = settings
@@ -253,7 +303,10 @@ struct GameView: View {
             }
             .onChange(of: phase) { _, p in
                 // Leaving the app (call, notification, home) pauses the match instead of letting it run on.
-                if p != .active && !controller.spectating && controller.gameOver == nil { controller.paused = true; showPause = true }
+                if p != .active && !controller.spectating && controller.gameOver == nil {
+                    controller.paused = true; showPause = true
+                    controller.saveNow()   // in case the system closes the app while it's away
+                }
             }
             .sheet(isPresented: $controller.showTech) {
                 TechTreeView(controller: controller)
