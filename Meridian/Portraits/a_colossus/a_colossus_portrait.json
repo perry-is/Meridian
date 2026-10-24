@@ -1,0 +1,6 @@
+{
+  "eyes": { "pupilTravel": [18, 11], "halfAt": 0.25, "closedAt": 0.6 },
+  "mouth": { "thresholds": [0.15, 0.6] },
+  "fx": [ { "layer": "fx_eyeglow", "blend": "add", "driver": "pulse", "rate": 0.35, "min": 0.15, "max": 0.55 } ],
+  "motion": { "sway": 1, "breathe": 1, "lookShift": 1 }
+}

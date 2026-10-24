@@ -66,11 +66,7 @@ extension PortraitArt {
         p.fill(glass, RGB(0.02, 0.03, 0.05))
         p.ctx.saveGState(); p.ctx.addPath(glass); p.ctx.clip()
         let ix = x + f.look.x * r * 0.32, iy = y + f.look.y * r * 0.25
-        let flare = 1 + f.mouth * 0.35
-        p.glow(ix, iy, r * 1.4 * flare, color.alpha(0.55))
-        p.stroke(p.ellipsePath(ix, iy, r * 0.62, r * 0.62), color.alpha(0.6), max(0.25, r * 0.08))
-        p.dot(ix, iy, r * 0.38 * flare, color.light(0.4))
-        p.dot(ix, iy, r * 0.16, RGB(1, 1, 1, 0.95))
+        if !PortraitArt.hidePupils { lensIris(p, ix, iy, r, flare: 1 + f.mouth * 0.35, color: color) }
         // Aperture blades.
         let open = r * (1.05 - f.blink * 1.05)
         if open < r {
@@ -84,6 +80,14 @@ extension PortraitArt {
         p.fill(p.ellipsePath(x - r * 0.35, y + r * 0.42, r * 0.34, r * 0.18), RGB(1, 1, 1, 0.35))
         p.ctx.restoreGState()
         p.stroke(glass, RGB(0.02, 0.02, 0.03), 0.5)
+    }
+
+    /// The moving light inside a lens (its "pupil").
+    static func lensIris(_ p: Pen, _ ix: CGFloat, _ iy: CGFloat, _ r: CGFloat, flare: CGFloat, color: RGB) {
+        p.glow(ix, iy, r * 1.4 * flare, color.alpha(0.55))
+        p.stroke(p.ellipsePath(ix, iy, r * 0.62, r * 0.62), color.alpha(0.6), max(0.25, r * 0.08))
+        p.dot(ix, iy, r * 0.38 * flare, color.light(0.4))
+        p.dot(ix, iy, r * 0.16, RGB(1, 1, 1, 0.95))
     }
 
     /// LED vox strip: bars that jump with speech, a low idle shimmer otherwise.

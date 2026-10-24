@@ -24,6 +24,19 @@ struct MeridianApp: App {
             ArtSheet.writePoses(f, to: URL(fileURLWithPath: args[i + 2]))
             exit(0)
         }
+        if let i = args.firstIndex(of: "--portrait-template"), i + 1 < args.count {
+            PortraitPipeline.writeTemplate(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
+        if let i = args.firstIndex(of: "--portrait-fixtures"), i + 1 < args.count {
+            PortraitPipeline.writeFixtures(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
+        if let i = args.firstIndex(of: "--validate-portraits"), i + 1 < args.count {
+            let folder = i + 2 < args.count && !args[i + 2].hasPrefix("-") ? URL(fileURLWithPath: args[i + 2]) : nil
+            PortraitPipeline.validate(out: URL(fileURLWithPath: args[i + 1]), folder: folder)
+            exit(0)
+        }
         if let i = args.firstIndex(of: "--radio"), i + 1 < args.count {
             RadioVoice.writeSamples(to: URL(fileURLWithPath: args[i + 1]))
             exit(0)

@@ -17,6 +17,9 @@ enum PortraitArt {
         var t: Double = 0
     }
 
+    /// Development (layer fixtures): draw eyes without their moving pupils.
+    nonisolated(unsafe) static var hidePupils = false
+
     static func draw(_ p: Pen, unit id: String, team: RGB, pose: Pose) {
         switch id.first {
         case "m": lattice(p, id, team, pose)

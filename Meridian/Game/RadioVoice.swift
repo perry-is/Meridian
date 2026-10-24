@@ -26,6 +26,9 @@ final class Radio: ObservableObject {
     enum Kind { case select, move, attack, hurt, poke }
 
     @Published private(set) var line: Line? = nil
+    /// Units are quiet for now (the radio babble broke the game's calm); lines still show as subtitles
+    /// and still drive the portrait's mouth. Set true to hear the synthesized chatter again.
+    static var voiceEnabled = false
     private var lastSpoke = -100.0
     private var lastSelectType = -1
     private var lastSelectAt = -100.0
@@ -74,7 +77,7 @@ final class Radio: ObservableObject {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let start = CACurrentMediaTime() + 0.03
-                SoundEngine.shared?.playRadio(v.samples)
+                if Radio.voiceEnabled { SoundEngine.shared?.playRadio(v.samples) }
                 let l = Line(unitType: type, speaker: d.name, text: text, faction: faction, start: start, duration: v.duration, syllables: v.syllables)
                 self.line = l
                 DispatchQueue.main.asyncAfter(deadline: .now() + v.duration + 1.8) { [weak self] in

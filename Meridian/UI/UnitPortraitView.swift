@@ -9,6 +9,9 @@ struct UnitPortraitView: View {
     let owner: Int
     var size: CGFloat = 72
     @ObservedObject var radio: Radio
+    /// Bumped by the long-press toggle so the view redraws with the other portrait style at once.
+    @State private var styleFlip = false
+    @State private var flash: String? = nil
 
     var body: some View {
         let team = TeamColor.rgb(owner)
@@ -24,7 +27,12 @@ struct UnitPortraitView: View {
                                                 blink: PortraitArt.blink(t, seed: seed),
                                                 mouth: radio.mouth(at: CACurrentMediaTime(), unitType: unitType),
                                                 t: t)
-                    PortraitArt.draw(Pen(cg, 40, 40), unit: unitID, team: team, pose: pose)
+                    // Painted layers when this unit has them, otherwise the Swift-drawn portrait.
+                    if !LayeredPortrait.preferOriginal, let lp = LayeredPortrait.portrait(for: unitID) {
+                        lp.draw(cg, pose: pose, team: team)
+                    } else {
+                        PortraitArt.draw(Pen(cg, 40, 40), unit: unitID, team: team, pose: pose)
+                    }
                 }
             }
         }
@@ -37,6 +45,21 @@ struct UnitPortraitView: View {
                     .shadow(color: .green, radius: 3)
             }
         }
+        .overlay(alignment: .bottom) {
+            if let f = flash {
+                Text(f).font(.system(size: 8, weight: .heavy)).tracking(1).foregroundColor(.white)
+                    .padding(.horizontal, 4).padding(.vertical, 2).background(Color.black.opacity(0.7)).padding(.bottom, 3)
+            }
+        }
+        // Long-press compares the painted portrait with the original (only for units that have painted layers).
+        .onLongPressGesture(minimumDuration: 0.8) {
+            guard LayeredPortrait.portrait(for: unitID) != nil else { return }
+            LayeredPortrait.preferOriginal.toggle()
+            styleFlip.toggle()
+            flash = LayeredPortrait.preferOriginal ? "ORIGINAL" : "PAINTED"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { flash = nil }
+        }
+        .id(styleFlip)
         .accessibilityHidden(true)
     }
 }

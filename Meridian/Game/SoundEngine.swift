@@ -20,11 +20,11 @@ final class SoundEngine {
     private var moodTarget = (tension: Float(0), combat: Float(0))
     private var mood = (tension: Float(0), combat: Float(0))
     private var musicFade: Float = 0
-    /// Silent when the simulator is driven by the development / test tools (captures, labs, UI tests).
+    /// Silent in the simulator (captures, labs, UI tests) unless launched with -sound, and whenever -mute is passed.
     static let muted: Bool = {
         #if targetEnvironment(simulator)
-        let a = ProcessInfo.processInfo.arguments
-        return ["-autostart", "-battle", "-lab", "-spectate", "-uitest", "-stress", "-scenario", "-mute", "-artsheet"].contains { a.contains($0) }
+        // The simulator is used for automated captures and tests: silent unless asked for sound.
+        return !ProcessInfo.processInfo.arguments.contains("-sound")
         #else
         return ProcessInfo.processInfo.arguments.contains("-mute")
         #endif

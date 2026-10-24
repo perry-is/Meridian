@@ -72,15 +72,20 @@ extension PortraitArt {
         p.ball(x, y, r, r * 0.9, RGB(0.05, 0.02, 0.07), lw: 0.5, shine: 0)
         p.ctx.saveGState(); p.ctx.addPath(path); p.ctx.clip()
         let ix = x + f.look.x * r * 0.3, iy = y + f.look.y * r * 0.2
-        p.fill(p.ellipsePath(ix, iy, r * 0.66, r * 0.62), glow.dark(0.1))
-        p.fill(p.ellipsePath(ix - r * 0.1, iy + r * 0.1, r * 0.4, r * 0.36), glow.light(0.3))
-        p.fill(p.ellipsePath(ix, iy, r * 0.13, r * 0.52), RGB(0.02, 0.01, 0.03))
+        if !PortraitArt.hidePupils { beadIris(p, ix, iy, r, glow: glow) }
         p.dot(x - r * 0.38, y + r * 0.36, r * 0.17, RGB(1, 1, 1, 0.9))
         if f.blink > 0.02 {
             let edge = y + r - 2 * r * f.blink
             p.fill(p.poly([(x - r, y + r), (x + r, y + r), (x + r, edge), (x - r, edge - r * 0.2)]), membrane.mix(RGB(0.9, 0.85, 0.8), 0.4).alpha(0.82))
         }
         p.ctx.restoreGState()
+    }
+
+    /// Iris and slit pupil of a bead eye.
+    static func beadIris(_ p: Pen, _ ix: CGFloat, _ iy: CGFloat, _ r: CGFloat, glow: RGB) {
+        p.fill(p.ellipsePath(ix, iy, r * 0.66, r * 0.62), glow.dark(0.1))
+        p.fill(p.ellipsePath(ix - r * 0.1, iy + r * 0.1, r * 0.4, r * 0.36), glow.light(0.3))
+        p.fill(p.ellipsePath(ix, iy, r * 0.13, r * 0.52), RGB(0.02, 0.01, 0.03))
     }
 
     /// Big faceted insect eye: a hex lattice of facets, a glow that follows the gaze, membrane blink.
