@@ -132,7 +132,7 @@ extension GameController {
                              return c.selectedEntities.contains { $0.isUnit && c.world.traits[$0.type].worker } ? "build" : nil
                          },
                          done: { c in c.barracks != nil }),
-            TutorialStep(title: "Construction", text: "Your \(wName) is building it. Construction takes a little while — the bar shows progress.",
+            TutorialStep(title: "Construction", text: "Your \(wName) is building it — the bar shows progress. Tip: select more \(wName)s and tap the building site to help; more builders finish it faster.",
                          target: { c in c.barracks.map { ($0.x, $0.y) } },
                          enter: { c in c.speed = 2 },
                          done: { c in c.barracks?.complete == true }),
@@ -147,7 +147,11 @@ extension GameController {
                          done: { c in c.selectedEntities.filter { $0.isUnit && !c.world.traits[$0.type].worker }.count >= 3 }),
             TutorialStep(title: "Attack!", text: "Enemy scouts spotted! With your army selected, tap one of the red units to attack.",
                          target: { c in c.tutorial?.spawned.compactMap { c.world.entity($0) }.first.map { ($0.x, $0.y) } },
-                         enter: { c in c.tutorial?.spawned = c.spawnEnemies("m_runner", count: 2, near: c.ahead(11)) },
+                         enter: { c in
+                             // Practice targets: they fire back but do no damage, so a first fight is never lost.
+                             if let u = c.data.unitIndex["m_runner"] { c.world.players[1 - c.me].mods.unit[u].damage = 0 }
+                             c.tutorial?.spawned = c.spawnEnemies("m_runner", count: 2, near: c.ahead(11))
+                         },
                          done: { c in (c.tutorial?.spawned ?? []).allSatisfy { c.world.entity($0) == nil } }),
             TutorialStep(title: "Capture a site", text: "Glowing platforms are strategic sites: they give resources and win the game if you hold enough. Select your army and tap the platform to capture it.",
                          target: { c in c.tutorialSite.map { (c.world.sites[$0].x, c.world.sites[$0].y) } },
