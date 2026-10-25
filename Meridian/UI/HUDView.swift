@@ -229,7 +229,7 @@ struct SideRail: View {
                 let g = controller.controlGroups[n]?.compactMap { controller.world.entity($0) } ?? []
                 ZStack(alignment: .topTrailing) {
                     VStack(spacing: 0) {
-                        if let f = g.first, f.isUnit, let img = TextureBank.cache.values.first?.unitIcons[f.type] {
+                        if let f = g.first, f.isUnit, let img = IconCache.unit(f.type) {
                             Image(decorative: img, scale: 2).resizable().scaledToFit().frame(width: 22, height: 18)
                         }
                         Text("\(n)").font(.system(size: g.isEmpty ? 14 : 10, weight: .heavy, design: .rounded))
@@ -409,6 +409,7 @@ struct CommandCard: View {
                         if let c = b.cost { CostLine(cost: c) }
                     }
                     if let r = b.reason { Text(r).font(.system(size: 9.5)).foregroundColor(.orange).lineLimit(2) }
+                    else if let d = b.detail { Text(d).font(.system(size: 9.5)).foregroundColor(.white.opacity(0.7)).lineLimit(2) }
                 }
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVGrid(columns: Array(repeating: GridItem(.fixed(56), spacing: 4), count: columns), spacing: 4) {
@@ -455,10 +456,12 @@ struct CommandButtonView: View {
             }
             Text(button.title).font(.system(size: 7.5, weight: .bold)).lineLimit(1).minimumScaleFactor(0.6)
             if let c = button.cost, !c.isZero {
+                // Costs you can't cover yet show in red.
+                let short = button.reason?.hasPrefix("Need ") == true ? button.reason! : ""
                 HStack(spacing: 2) {
-                    if c.iron > 0 { Text("\(c.iron)").foregroundColor(Theme.iron) }
-                    if c.wood > 0 { Text("\(c.wood)").foregroundColor(Theme.wood) }
-                    if c.gold > 0 { Text("\(c.gold)").foregroundColor(Theme.gold) }
+                    if c.iron > 0 { Text("\(c.iron)").foregroundColor(short.contains("iron") ? .red : Theme.iron) }
+                    if c.wood > 0 { Text("\(c.wood)").foregroundColor(short.contains("wood") ? .red : Theme.wood) }
+                    if c.gold > 0 { Text("\(c.gold)").foregroundColor(short.contains("gold") ? .red : Theme.gold) }
                 }.font(.system(size: 7, weight: .semibold, design: .monospaced)).lineLimit(1).minimumScaleFactor(0.7)
             }
         }
@@ -477,7 +480,7 @@ struct CommandButtonView: View {
         .overlay(alignment: .topLeading) {
             if !button.enabled && button.reason?.hasPrefix("Requires") == true {
                 Image(systemName: "lock.fill").font(.system(size: 8)).foregroundColor(.white.opacity(0.5)).padding(4)
-            } else if let k = button.hotkey, k.isLetter {
+            } else if Self.showHotkeys, let k = button.hotkey, k.isLetter {
                 Text(String(k).uppercased()).font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(.white.opacity(0.35)).padding(4)
             }
         }
@@ -489,22 +492,21 @@ struct CommandButtonView: View {
         .accessibilityAddTraits(.isButton)
     }
 
+    /// Keyboard letters only matter with a hardware keyboard (Mac); on a touch screen they're clutter.
+    #if os(iOS)
+    static let showHotkeys = ProcessInfo.processInfo.isiOSAppOnMac
+    #else
+    static let showHotkeys = true
+    #endif
+
     @ViewBuilder var icon: some View {
         let s = button.symbol
-        if s.hasPrefix("unit:"), let i = Int(s.dropFirst(5)), let img = TextureBank.cache.values.first?.unitIcons[i] {
+        if s.hasPrefix("unit:"), let i = Int(s.dropFirst(5)), let img = IconCache.unit(i) {
             Image(decorative: img, scale: 2).resizable().scaledToFit()
-        } else if s.hasPrefix("building:"), let i = Int(s.dropFirst(9)), let img = TextureBank.cache.values.first?.buildingIcons[i] {
+        } else if s.hasPrefix("building:"), let i = Int(s.dropFirst(9)), let img = IconCache.building(i) {
             Image(decorative: img, scale: 2).resizable().scaledToFit()
         } else if s.hasPrefix("upgrade:") {
-            let tier = Int(s.dropFirst(8)) ?? 1
-            ZStack {
-                Chamfer(cut: 5).fill(LinearGradient(colors: [Color.purple.opacity(0.5), Color.indigo.opacity(0.3)], startPoint: .top, endPoint: .bottom))
-                Chamfer(cut: 5).stroke(Color.purple.opacity(0.9), lineWidth: 1)
-                VStack(spacing: 0) {
-                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 13))
-                    Text(String(repeating: "I", count: max(1, tier))).font(.system(size: 7, weight: .heavy))
-                }.foregroundColor(.white)
-            }.frame(width: 28, height: 28)
+            UpgradeGlyph(tier: Int(s.dropFirst(8)) ?? 1, size: 28)
         } else {
             Image(systemName: s).font(.system(size: 19, weight: .semibold)).foregroundColor(accent)
         }

@@ -63,6 +63,7 @@ final class TextureBank {
         let key = factions.map { $0.rawValue }.joined(separator: "-")
         if let c = cache[key] { return c }
         let b = TextureBank(data: data, factions: factions)
+        IconCache.seed(units: b.unitIcons, buildings: b.buildingIcons)
         cache = [key: b]
         return b
     }

@@ -105,7 +105,7 @@ struct Portrait: View {
     var body: some View {
         ZStack {
             Chamfer(cut: 8).fill(RadialGradient(colors: [Theme.team(owner).opacity(0.35), Color.black.opacity(0.6)], center: .center, startRadius: 2, endRadius: size * 0.7))
-            if let img = building ? TextureBank.cache.values.first?.buildingIcons[type] : TextureBank.cache.values.first?.unitIcons[type] {
+            if let img = building ? IconCache.building(type) : IconCache.unit(type) {
                 Image(decorative: img, scale: 2).resizable().scaledToFit().padding(building ? 2 : 4)
             }
             Chamfer(cut: 8).stroke(Theme.team(owner).opacity(0.8), lineWidth: 1.2)

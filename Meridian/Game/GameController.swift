@@ -48,6 +48,8 @@ struct CommandButton: Identifiable {
     var progress: Double? = nil
     var queued = 0
     var hotkey: Character? = nil
+    /// One line shown above the card when the button is tapped or held (role, strengths, what it does).
+    var detail: String? = nil
     var action: () -> Void
 }
 
@@ -843,7 +845,7 @@ final class GameController: ObservableObject {
             h.placing = data.buildings[t].name
             if let g = ghostTile {
                 h.placementReason = world.placementError(me, t, tileX: g.0, tileY: g.1)
-                if h.placementReason == nil && !p.canAfford(world.buildingCost(me, t)) { h.placementReason = "Not enough resources" }
+                if h.placementReason == nil { h.placementReason = shortfall(world.buildingCost(me, t)) }
                 h.placementValid = h.placementReason == nil
             } else { h.placementReason = "Tap the map to position" }
         }
@@ -940,6 +942,16 @@ final class GameController: ObservableObject {
         }
     }
 
+    /// What's missing to afford something, e.g. "Need 30 more iron, 20 wood"; nil when affordable.
+    func shortfall(_ c: Cost) -> String? {
+        let r = world.players[me].res
+        var parts: [String] = []
+        if c.iron > r[0] { parts.append("\(c.iron - r[0]) more iron") }
+        if c.wood > r[2] { parts.append("\(c.wood - r[2]) wood") }
+        if c.gold > r[1] { parts.append("\(c.gold - r[1]) gold") }
+        return parts.isEmpty ? nil : "Need " + parts.joined(separator: ", ")
+    }
+
     func fmt(_ v: Double) -> String { v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v) }
 
     func buildButtons(_ h: inout HUDState) -> [CommandButton] {
@@ -963,7 +975,7 @@ final class GameController: ObservableObject {
                 let c = data.rules.territory.installCost
                 let items: [(Installation, String, String)] = [(.extractor, "Extractor", "shippingbox.fill"), (.watchpost, "Watchpost", "eye.fill"), (.bulwark, "Bulwark", "shield.lefthalf.filled")]
                 for (inst, title, sym) in items {
-                    b.append(CommandButton(id: "inst\(inst.rawValue)", title: title, symbol: sym, cost: c, enabled: p.canAfford(c), reason: p.canAfford(c) ? nil : "Not enough resources") { [weak self] in
+                    b.append(CommandButton(id: "inst\(inst.rawValue)", title: title, symbol: sym, cost: c, enabled: p.canAfford(c), reason: shortfall(c)) { [weak self] in
                         guard let self = self else { return }
                         if let err = self.world.configureSite(si, player: self.me, installation: inst) { self.toast(err, warning: true) }
                         self.refreshHUD()
@@ -985,11 +997,12 @@ final class GameController: ObservableObject {
             }
             for u in data.unitIDs(p.faction) where data.units[u].producedAt == d.kind {
                 let ud = data.units[u]
-                let reason = world.unitAvailability(me, u) ?? (p.canAfford(ud.cost) ? nil : "Not enough resources")
+                let reason = world.unitAvailability(me, u) ?? shortfall(ud.cost)
                 let q = e.queue.filter { !$0.isUpgrade && $0.index == u }.count
                 let prog: Double? = e.queue.first.flatMap { !$0.isUpgrade && $0.index == u ? 1 - $0.remaining / $0.total : nil }
                 b.append(CommandButton(id: "u\(u)", title: ud.name, symbol: "unit:\(u)", cost: ud.cost, enabled: reason == nil, reason: reason,
-                                       badge: ud.batch.map { "×\($0)" }, progress: prog, queued: q) { [weak self] in
+                                       badge: ud.batch.map { "×\($0)" }, progress: prog, queued: q,
+                                       detail: "\(ud.role.capitalized) · strong vs \(ud.strongVs)") { [weak self] in
                     guard let self = self else { return }
                     if let err = self.world.commandTrain(e.id, unitType: u) { self.toast(err, warning: true) }
                     self.refreshHUD()
@@ -998,10 +1011,10 @@ final class GameController: ObservableObject {
             for g in data.upgradeIDs(p.faction) where data.upgrades[g].researchedAt == d.kind {
                 let gd = data.upgrades[g]
                 if p.completedUpgrades.contains(g) { continue }
-                let reason = world.upgradeAvailability(me, g) ?? (p.canAfford(gd.cost) ? nil : "Not enough resources")
+                let reason = world.upgradeAvailability(me, g) ?? shortfall(gd.cost)
                 let gp: Double? = e.queue.first.flatMap { $0.isUpgrade && $0.index == g ? 1 - $0.remaining / $0.total : nil }
                 b.append(CommandButton(id: "g\(g)", title: gd.name, symbol: "upgrade:\(gd.tier)", cost: gd.cost, enabled: reason == nil, reason: reason,
-                                       highlighted: p.researching.contains(g), progress: gp) { [weak self] in
+                                       highlighted: p.researching.contains(g), progress: gp, detail: gd.description) { [weak self] in
                     guard let self = self else { return }
                     if let err = self.world.commandResearch(e.id, upgrade: g) { self.toast(err, warning: true) }
                     self.refreshHUD()
@@ -1025,8 +1038,9 @@ final class GameController: ObservableObject {
                 let bd = data.buildings[t]
                 let cost = world.buildingCost(me, t)
                 let miss = p.missing(bd.requires, data)
-                let reason = !miss.isEmpty ? "Requires " + miss.joined(separator: ", ") : (p.canAfford(cost) ? nil : "Not enough resources")
-                b.append(CommandButton(id: "b\(t)", title: bd.name, symbol: "building:\(t)", cost: cost, enabled: reason == nil, reason: reason) { [weak self] in
+                let reason = !miss.isEmpty ? "Requires " + miss.joined(separator: ", ") : shortfall(cost)
+                b.append(CommandButton(id: "b\(t)", title: bd.name, symbol: "building:\(t)", cost: cost, enabled: reason == nil, reason: reason,
+                                       detail: bd.description) { [weak self] in
                     guard let self = self else { return }
                     self.mode = .place(t)
                     // Start the ghost in front of the camera centre.

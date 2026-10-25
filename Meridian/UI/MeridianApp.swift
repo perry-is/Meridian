@@ -24,6 +24,11 @@ struct MeridianApp: App {
             ArtSheet.writePoses(f, to: URL(fileURLWithPath: args[i + 2]))
             exit(0)
         }
+        if let i = args.firstIndex(of: "--render-tech"), i + 1 < args.count {
+            let f = i + 2 < args.count ? Faction(rawValue: args[i + 2]) ?? .humans : .humans
+            MainActor.assumeIsolated { TechSheet.write(to: URL(fileURLWithPath: args[i + 1]), faction: f) }
+            exit(0)
+        }
         if let i = args.firstIndex(of: "--portrait-template"), i + 1 < args.count {
             PortraitPipeline.writeTemplate(to: URL(fileURLWithPath: args[i + 1]))
             exit(0)
@@ -261,6 +266,7 @@ struct RootView: View {
                 if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
                 if a.contains("-lab") { c.setupLab() }
                 if let k = arg("-buildlab").flatMap(Int.init) { c.setupBuildLab(k) }
+                if a.contains("-showtech") { DispatchQueue.main.asyncAfter(deadline: .now() + 2) { c.showTech = true } }
                 if let u = arg("-portraitdemo") {
                     // Development: spawn a unit by id next to the base, select it and have it talk every few seconds.
                     let hq = c.world.buildings(of: c.me)[0]
