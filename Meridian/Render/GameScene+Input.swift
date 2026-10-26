@@ -56,6 +56,28 @@ extension GameScene {
     }
 
     var placing: Bool { if case .place = ctl.mode { return true }; return false }
+
+    /// Drag the building ghost and remember where it is held, so holding it near a screen edge scrolls the map.
+    func dragGhost(_ p: CGPoint, held: Bool = true) {
+        placeDragPoint = held ? p : nil
+        let (x, y) = worldPoint(fromView: p)
+        ctl.moveGhost(worldX: x, y: y)
+    }
+
+    /// While a building ghost is held near a screen edge, pan the camera that way (faster nearer the edge)
+    /// and keep the ghost under the finger.
+    func edgeScrollWhilePlacing(_ dt: Double) {
+        if !placing { placeDragPoint = nil }
+        guard let p = placeDragPoint, let v = view else { return }
+        let w = v.bounds.width, h = v.bounds.height
+        let margin = min(70, min(w, h) * 0.12), speed: CGFloat = 900   // view points per second at the very edge
+        func push(_ d: CGFloat) -> CGFloat { d < margin ? (1 - max(d, 0) / margin) : 0 }
+        let ex = push(w - p.x) - push(p.x), ey = push(p.y) - push(h - p.y)
+        guard ex != 0 || ey != 0 else { return }
+        pan(by: CGPoint(x: -ex * speed * CGFloat(dt), y: ey * speed * CGFloat(dt)))
+        let (x, y) = worldPoint(fromView: p)
+        ctl.moveGhost(worldX: x, y: y)
+    }
 }
 
 #if os(iOS)
@@ -118,14 +140,14 @@ extension GameScene: UIGestureRecognizerDelegate {
     /// One finger, moving right away.
     @objc func onDrag(_ g: UIPanGestureRecognizer) {
         let p = g.location(in: view)
-        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(p, held: g.state == .began || g.state == .changed); return }
         if dragSelects { boxGesture(g.state, p) } else { panGesture(g.state, p) }
     }
 
     /// One finger, held still first, then moving.
     @objc func onLong(_ g: UILongPressGestureRecognizer) {
         let p = g.location(in: view)
-        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(p, held: g.state == .began || g.state == .changed); return }
         if g.state == .began { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
         if dragSelects { panGesture(g.state, p) } else { boxGesture(g.state, p) }
     }
@@ -149,7 +171,7 @@ extension GameScene {
         guard let v = view else { return }
         let p = v.convert(e.locationInWindow, from: nil)
         let vp = CGPoint(x: p.x, y: v.bounds.height - p.y)
-        if placing { let (x, y) = worldPoint(fromView: vp); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(vp); return }
         if e.clickCount == 2 { handleDoubleTap(vp); return }
         boxStart = vp
     }
@@ -158,7 +180,7 @@ extension GameScene {
         guard let v = view else { return }
         let p = v.convert(e.locationInWindow, from: nil)
         let vp = CGPoint(x: p.x, y: v.bounds.height - p.y)
-        if placing { let (x, y) = worldPoint(fromView: vp); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(vp); return }
         if let s = boxStart { updateBox(s, vp) }
     }
 
@@ -166,7 +188,7 @@ extension GameScene {
         guard let v = view else { return }
         let p = v.convert(e.locationInWindow, from: nil)
         let vp = CGPoint(x: p.x, y: v.bounds.height - p.y)
-        if placing { ctl.confirmPlacement(); return }
+        if placing { placeDragPoint = nil; ctl.confirmPlacement(); return }
         if let s = boxStart {
             if hypot(s.x - vp.x, s.y - vp.y) < 6 {
                 // Left click selects (never commands) on desktop.

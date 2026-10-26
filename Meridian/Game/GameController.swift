@@ -478,10 +478,9 @@ final class GameController: ObservableObject {
 
     func confirmPlacement() {
         guard case .place(let type) = mode, let g = ghostTile else { return }
-        let workers = selectedEntities.filter { $0.isUnit && world.traits[$0.type].worker }
-        // Use the closest selected worker (others keep working).
-        let w = workers.min { dist2($0.x, $0.y, Double(g.0), Double(g.1)) < dist2($1.x, $1.y, Double(g.0), Double(g.1)) }
-        if let err = world.commandBuild(w.map { [$0.id] } ?? [], type: type, tileX: g.0, tileY: g.1) {
+        // Every selected worker goes to help build it.
+        let workers = selectedEntities.filter { $0.isUnit && $0.owner == me && world.traits[$0.type].worker }
+        if let err = world.commandBuild(workers.map { $0.id }, type: type, tileX: g.0, tileY: g.1) {
             toast(err, warning: true)
         } else {
             mode = .normal

@@ -76,6 +76,8 @@ final class GameScene: SKScene {
     var fxBudget = 0
     var boxStart: CGPoint?
     var lastPanPoint: CGPoint?
+    /// Where the finger/mouse is holding a building ghost (view coordinates); drives edge scrolling.
+    var placeDragPoint: CGPoint?
     var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
     let battleCam = BattleCamera()
@@ -308,6 +310,7 @@ final class GameScene: SKScene {
         syncSelectionOverlays()
         applyShake(dt)
         syncSites()
+        edgeScrollWhilePlacing(min(dt, 0.05))
         syncGhost()
         fogTimer -= dt
         if fogTimer <= 0 {
