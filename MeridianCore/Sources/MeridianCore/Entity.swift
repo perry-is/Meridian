@@ -35,6 +35,10 @@ public final class Entity {
     public var ox: Double = 0
     public var oy: Double = 0
     public var orderTarget: Int = -1
+    /// Construction: workers building this tick and last tick (for diminishing returns on extra builders).
+    var builderStamp: Double = -1
+    var buildersNow = 0
+    var buildersLast = 1
     /// Follow-up order after the current one completes (patrol / queued move).
     public var px2: Double = 0
     public var py2: Double = 0

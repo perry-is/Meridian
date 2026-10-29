@@ -19,12 +19,14 @@ struct HUDView: View {
             let mini = min(landscape ? h * 0.30 : w * (compact ? 0.30 : 0.26), 210)
             VStack(spacing: 6) {
                 TopBar(controller: controller, compact: compact, showPause: $showPause, accent: accent)
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { scene.hudTopY = $0 }
                 ToastStack(controller: controller)
                 HStack(alignment: .top) {
                     SideRail(controller: controller, accent: accent)
                     Spacer()
                 }
                 Spacer(minLength: 0)
+                VStack(spacing: 6) {
                 if let placing = controller.hud.placing {
                     PlacementBar(controller: controller, title: placing, accent: accent)
                 }
@@ -44,6 +46,9 @@ struct HUDView: View {
                         }
                     }
                 }
+                }
+                // The scene edge-scrolls from where the HUD ends, not from the screen edge.
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { scene.hudBottomY = $0 }
             }
             .padding(.horizontal, 6)
             .padding(.top, 4)

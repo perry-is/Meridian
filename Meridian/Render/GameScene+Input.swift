@@ -64,15 +64,15 @@ extension GameScene {
         ctl.moveGhost(worldX: x, y: y)
     }
 
-    /// While a building ghost is held near a screen edge, pan the camera that way (faster nearer the edge)
-    /// and keep the ghost under the finger.
+    /// While a building ghost is held near an edge of the visible map (inside the HUD), pan the camera that way
+    /// (faster nearer the edge, full speed once over the HUD) and keep the ghost under the finger.
     func edgeScrollWhilePlacing(_ dt: Double) {
         if !placing { placeDragPoint = nil }
         guard let p = placeDragPoint, let v = view else { return }
-        let w = v.bounds.width, h = v.bounds.height
-        let margin = min(70, min(w, h) * 0.12), speed: CGFloat = 900   // view points per second at the very edge
+        let w = v.bounds.width, top = max(0, hudTopY), bottom = min(v.bounds.height, hudBottomY)
+        let margin = max(24, min(70, min(w, bottom - top) * 0.12)), speed: CGFloat = 900   // view points per second at the very edge
         func push(_ d: CGFloat) -> CGFloat { d < margin ? (1 - max(d, 0) / margin) : 0 }
-        let ex = push(w - p.x) - push(p.x), ey = push(p.y) - push(h - p.y)
+        let ex = push(w - p.x) - push(p.x), ey = push(p.y - top) - push(bottom - p.y)
         guard ex != 0 || ey != 0 else { return }
         pan(by: CGPoint(x: -ex * speed * CGFloat(dt), y: ey * speed * CGFloat(dt)))
         let (x, y) = worldPoint(fromView: p)

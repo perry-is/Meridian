@@ -141,6 +141,8 @@ public struct EconomyRules: Codable, Sendable {
     public var ironNodeAmount: Int
     public var goldNodeAmount: Int
     public var treeAmount: Int
+    /// Build speed each worker after the first adds (1 = full speed, so builders stack linearly).
+    public var extraBuilderRate: Double?
 }
 
 public struct TerritoryRules: Codable, Sendable {

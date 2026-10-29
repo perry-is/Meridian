@@ -78,6 +78,9 @@ final class GameScene: SKScene {
     var lastPanPoint: CGPoint?
     /// Where the finger/mouse is holding a building ghost (view coordinates); drives edge scrolling.
     var placeDragPoint: CGPoint?
+    /// Where the HUD's top bar ends and its bottom panels begin (view y), bounding the visible map.
+    var hudTopY: CGFloat = 0
+    var hudBottomY: CGFloat = .infinity
     var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
     let battleCam = BattleCamera()

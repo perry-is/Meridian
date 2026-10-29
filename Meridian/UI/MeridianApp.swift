@@ -12,6 +12,10 @@ struct MeridianApp: App {
             ArtSheet.write(to: URL(fileURLWithPath: args[i + 1]))
             exit(0)
         }
+        if let i = args.firstIndex(of: "--building-art"), i + 1 < args.count {
+            ArtSheet.writeBuildings(to: URL(fileURLWithPath: args[i + 1]))
+            exit(0)
+        }
         #endif
     }
 
