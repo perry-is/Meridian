@@ -247,7 +247,7 @@ private struct Generator {
             let a = atan2(s.1 - center.1, s.0 - center.0) + (i % 2 == 0 ? 0.6 : -0.6)
             resourceArc(.iron, s.0, s.1, angle: a, radius: 5, count: 5, spread: 1.2)
             resourceArc(.wood, s.0, s.1, angle: a + 2.2, radius: 5.5, count: 4, spread: 0.8)
-            if i == 2 { resourceArc(.gold, s.0, s.1, angle: a - 1.9, radius: 5, count: 2, spread: 0.4) }
+            resourceArc(.gold, s.0, s.1, angle: a - 1.9, radius: 5, count: 2, spread: 0.4)   // every site has gold worth taking
         }
         // Contested gold in the center.
         for k in 0..<4 {
