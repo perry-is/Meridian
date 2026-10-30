@@ -1,11 +1,50 @@
 # Meridian: Three Fronts
 
-An original isometric sci-fi real-time strategy game for iPhone (designed around the foldable **iPhone Duo**), built with Swift, SpriteKit and SwiftUI. Three factions: the Terran Concord, the Lattice and the Verdant Brood. 45 units, Iron/Gold/Wood economy, contested territory and a full computer opponent. Everything, including the art, is generated in code.
+An original isometric sci-fi real-time strategy game for iPhone and Mac, built with Swift, SpriteKit and SwiftUI. Three asymmetric factions fight over contested territory with a full economy, tech tree and computer opponent.
 
-![Before and after](docs/screenshots/compare/04_battle.jpg)
+![Lattice and Brood armies clash](docs/showcase/battle_lattice_brood.jpg)
 
+## Highlights
+
+- **Three asymmetric factions:** the Terran Concord (military infantry and armour), the Lattice (hovering machines and energy weapons) and the Verdant Brood (organic swarm creatures). 44 units and 24 buildings.
+- **Real-time strategy systems:** Iron, Gold and Wood economy; construction crews with diminishing returns; flow-field pathfinding and formations; contested strategic sites; fog of war; upgrades and a tech tree.
+- **Computer opponent:** a strategic AI that scouts, expands, builds counters and attacks, with difficulty levels and a headless tournament harness used to balance the factions.
+- **3D art pipeline:** characters modelled in Tripo, buildings and vehicles modelled procedurally in Blender Python, then all rendered into animated isometric sprites with 8 facings and team-colour masks. See [the art pipeline write-up](docs/ART_PIPELINE.md).
+- **Built for touch:** tap to command, hold-then-drag to box-select, pinch to zoom, drag a building to the screen edge to scroll while placing.
+- **Complete game loop:** Boot Camp tutorial, Quick Match (~10 minutes), save and resume, unit portraits with radio chatter, generated music and sound.
+- **Tested simulation:** the game rules live in a platform-independent Swift package (`MeridianCore`) with unit tests, including a save/load round trip that proves a restored match plays on identically.
+
+| | |
+|---|---|
+| ![Concord and Lattice battle](docs/showcase/battle_concord_lattice.jpg) | ![A Concord base](docs/showcase/base.jpg) |
+
+### Units
+
+Rows: Verdant Brood, Terran Concord, Lattice.
+
+![All units](docs/showcase/units.jpg)
+
+### Buildings
+
+Rows: Terran Concord, Lattice, Verdant Brood.
+
+![All buildings](docs/showcase/buildings.jpg)
+
+## Tech
+
+| Area | What's used |
+|---|---|
+| Game | Swift, SpriteKit (rendering, custom terrain shader), SwiftUI (HUD and menus) |
+| Simulation | `MeridianCore` Swift package: deterministic fixed-step world, pathfinding, combat, economy, AI, save games |
+| Art | Tripo (AI 3D models), Blender 5 with Cycles, driven entirely by Python scripts in `tools/blender/` |
+| Tooling | Headless simulator CLI (`meridian-sim`) for matches, tournaments and stress tests; capture scripts for screenshots |
+
+About 20,000 lines of Swift and 1,800 lines of Python tooling.
+
+More detail:
 - Project status, test results and known issues: [STATUS.md](STATUS.md)
 - Art direction: [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)
+- Art pipeline: [docs/ART_PIPELINE.md](docs/ART_PIPELINE.md)
 - Unit, building and upgrade reference: [docs/UNITS.md](docs/UNITS.md)
 
 ## Requirements
