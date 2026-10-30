@@ -7,4 +7,4 @@ build/
 .swiftpm/
 
 # Tripo source models (~65 MB each); kept locally and in Tripo, not in git
-art/tripo/*.glb
+art/tripo/**/*.glb
