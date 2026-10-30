@@ -1,4 +1,5 @@
 import SpriteKit
+import ImageIO
 import MeridianCore
 
 /// Visual node for one simulation entity.
@@ -11,6 +12,8 @@ final class EntityView {
     var lastHP: Double = 0
     var baseScale: CGFloat = 1
     var frames: [SKTexture] = []
+    /// 3D-rendered units: [facing][pose] (they turn instead of mirroring).
+    var facings: [[SKTexture]] = []
     var teamRing: SKSpriteNode?
     var lastFire: Double = -1
     var bodyY: CGFloat = 0
@@ -90,6 +93,12 @@ final class GameScene: SKScene {
     var twoSpread: CGFloat = 0
     /// 0 undecided, 1 selection box, 2 pinch zoom.
     var twoMode = 0
+    /// Where the finger/mouse is holding a building ghost (view coordinates); drives edge scrolling.
+    var placeDragPoint: CGPoint?
+    var snapStart: TimeInterval = 0
+    /// Where the HUD's top bar ends and its bottom panels begin (view y), bounding the visible map.
+    var hudTopY: CGFloat = 0
+    var hudBottomY: CGFloat = .infinity
     var vignette: SKSpriteNode?
     var hotspot: [(Double, Double)] = []
     let battleCam = BattleCamera()
@@ -337,7 +346,9 @@ final class GameScene: SKScene {
         syncPatrolMarker()
         syncTutorialMarker()
         applyShake(dt)
+        snapIfRequested(currentTime)
         syncSites()
+        edgeScrollWhilePlacing(min(dt, 0.05))
         syncGhost()
         fogTimer -= dt
         if fogTimer <= 0 {
@@ -346,6 +357,30 @@ final class GameScene: SKScene {
             fogShader.uniformNamed("u_fog")?.textureValue = fogTexture()
             ctl.minimapVersion &+= 1
         }
+    }
+
+    /// Development capture: `-snap <png> [-snapAt seconds] [-snapUnit id] [-snapZoom z]` saves one frame (optionally
+    /// zoomed onto the first unit of that type) and quits. Works without screen-recording permission.
+    func snapIfRequested(_ now: TimeInterval) {
+        let a = ProcessInfo.processInfo.arguments
+        func arg(_ k: String) -> String? { a.firstIndex(of: k).flatMap { $0 + 1 < a.count ? a[$0 + 1] : nil } }
+        guard let path = arg("-snap"), let v = view else { return }
+        if snapStart == 0 { snapStart = now }
+        let at = Double(arg("-snapAt") ?? "") ?? 8
+        // -snapUnit takes a unit or building id; -snapZoom sets the zoom (default 0.45).
+        if let id = arg("-snapUnit"), now - snapStart > at - 1.5,
+           let e = world.entities.first(where: { e in
+               e.alive && (e.isUnit ? world.data.unitIndex[id] == e.type : e.isBuilding && world.data.buildingIndex[id] == e.type) }) {
+            zoom = CGFloat(Double(arg("-snapZoom") ?? "") ?? 0.45); applyZoom()
+            cam.position = Iso.scene(e.x, e.y)
+        }
+        guard now - snapStart > at, let tex = v.texture(from: self) else { return }
+        let img = tex.cgImage()
+        if let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil) {
+            CGImageDestinationAddImage(dest, img, nil); CGImageDestinationFinalize(dest)
+        }
+        print("SNAP \(path)")
+        exit(0)
     }
 
     /// Frame-time log for stress runs (printed to stdout; read with `simctl launch --console`).
@@ -386,8 +421,8 @@ final class GameScene: SKScene {
                 return EntityView(body: s, shadow: nil)
             }
             let d = world.udef(e)
-            let frames = bank.unit[owner][e.type]
-            let s = SKSpriteNode(texture: frames[0])
+            let frames = bank.unit[owner][e.type], facings = bank.unitFacings[owner][e.type]
+            let s = SKSpriteNode(texture: facings.isEmpty ? frames[0] : facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))][UnitModels.idle])
             let sz = UnitArt.canvasSize(d)
             s.size = CGSize(width: sz, height: sz)
             let sh = SKSpriteNode(texture: bank.fx["shadow"], size: CGSize(width: sz * 0.8, height: sz * 0.4))
@@ -401,18 +436,20 @@ final class GameScene: SKScene {
                 sh.position = CGPoint(x: 3, y: 1)
             }
             let v = EntityView(body: s, shadow: sh)
-            v.frames = frames
-            v.rig = UnitArt.rig(d.id)
-            v.canvas = sz
-            v.gait = Double(e.id % 8) / 8
-            if !e.isAir, let ut = bank.upper[owner][e.type][""] {
-                // The acting part of the rig: rotates about its pivot to aim, recoil, strike and work.
-                let u = SKSpriteNode(texture: ut, size: CGSize(width: sz, height: sz))
-                u.anchorPoint = CGPoint(x: v.rig.pivot.x / 40, y: v.rig.pivot.y / 40)
-                u.position = CGPoint(x: (v.rig.pivot.x / 40 - 0.5) * sz, y: (v.rig.pivot.y / 40 - 0.12) * sz)
-                u.zPosition = 0.01
-                v.aim = v.rig.rest
-                s.addChild(u); v.upper = u
+            if !facings.isEmpty { v.facings = facings } else {
+                v.frames = frames
+                v.rig = UnitArt.rig(d.id)
+                v.canvas = sz
+                v.gait = Double(e.id % 8) / 8
+                if !e.isAir, let ut = bank.upper[owner][e.type][""] {
+                    // The acting part of the rig: rotates about its pivot to aim, recoil, strike and work.
+                    let u = SKSpriteNode(texture: ut, size: CGSize(width: sz, height: sz))
+                    u.anchorPoint = CGPoint(x: v.rig.pivot.x / 40, y: v.rig.pivot.y / 40)
+                    u.position = CGPoint(x: (v.rig.pivot.x / 40 - 0.5) * sz, y: (v.rig.pivot.y / 40 - 0.12) * sz)
+                    u.zPosition = 0.01
+                    v.aim = v.rig.rest
+                    s.addChild(u); v.upper = u
+                }
             }
             v.bodyY = s.position.y
             // Team ring: the primary readability cue in big battles. Shape encodes class.
@@ -449,7 +486,8 @@ final class GameScene: SKScene {
             let k = ResourceKind(rawValue: e.type)!
             let v = e.id % 3
             let s = SKSpriteNode(texture: bank.resource[k.rawValue][v])
-            s.anchorPoint = CGPoint(x: 0.5, y: k == .wood ? 0.08 : (k == .iron ? 0.22 : 0.16))
+            let names: [ResourceKind: String] = [.iron: "iron", .gold: "gold", .wood: "tree"]
+            s.anchorPoint = CGPoint(x: 0.5, y: PropModels.anchorY("\(names[k]!)\(v)", k == .wood ? 0.08 : (k == .iron ? 0.22 : 0.16)))
             if k == .wood {
                 s.setScale(0.8 + CGFloat(e.id % 5) * 0.06); s.xScale *= e.id % 2 == 0 ? 1 : -1
                 s.color = biome.treeTint; s.colorBlendFactor = biome.treeTintAmount * CGFloat(0.6 + 0.4 * hnoise(e.id, 3, 5))

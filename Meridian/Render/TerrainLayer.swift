@@ -81,6 +81,7 @@ enum TerrainLayer {
         return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y);
     }
     float fbm(vec2 p) { float v = 0.0; float a = 0.5; for (int k = 0; k < 4; k++) { v += a * vnoise(p); p = p * 2.07 + 13.1; a *= 0.5; } return v; }
+    float bumpH(vec2 q) { return vnoise(q * 4.0) * 0.6 + vnoise(q * 11.0) * 0.4; }
 
     void main() {
         vec2 p = u_origin + v_tex_coord * u_size;
@@ -154,6 +155,16 @@ enum TerrainLayer {
         emis += vec3(1.0, 0.75, 0.3) * (glint * 0.6 + e.b * 0.12);
         col *= 1.0 - e.a * 0.28;
 
+        // Surface micro-relief, lit like the 3D models (key light from world -x, the upper left of the screen):
+        // stones and clods on dirt and rock, a softer tussock texture on grass, none on water.
+        float be = 0.04;
+        float bx = bumpH(w + vec2(be, 0.0)) - bumpH(w - vec2(be, 0.0));
+        float by = bumpH(w + vec2(0.0, be)) - bumpH(w - vec2(0.0, be));
+        float relief = mix(0.55, 1.0, dirt);
+        relief = mix(relief, 1.5, rock) * (1.0 - water);
+        col *= 1.0 + (bx * 1.6 - by * 0.4) * relief;
+        col *= 0.93 + 0.14 * vnoise(w * 23.0);
+
         // Fake relief lighting from the elevation field (light from the upper left of the screen).
         float d = 1.0 / u_n;
         float hx = texture2D(u_extra, uv + vec2(d, 0.0)).r - texture2D(u_extra, uv - vec2(d, 0.0)).r;
@@ -182,6 +193,8 @@ enum TerrainLayer {
             col *= 1.0 - smoothstep(0.15, 0.38, t.a) * 0.25;
         }
 
+        // Slightly desaturated so the painted ground sits with the rendered 3D props and units.
+        col = mix(vec3(dot(col, vec3(0.3, 0.55, 0.15))), col, 0.85);
         // Warm dusk grade: lift reds slightly, cool the darks.
         col = col * u_grade + u_lift * (1.0 - col);
         col += emis * u_night * 0.7;
@@ -235,9 +248,9 @@ enum TerrainLayer {
                     var neighbors = 0
                     for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] where isRock(x + dx, y + dy) { neighbors += 1 }
                     let interior = neighbors >= 3
-                    let tex = bank.cliffs[(interior ? 3 : 0) + Int(hnoise(x, y, 6) * 3) % 3]
-                    let s = SKSpriteNode(texture: tex)
-                    s.anchorPoint = CGPoint(x: 0.5, y: 0.2)
+                    let variant = (interior ? 3 : 0) + Int(hnoise(x, y, 6) * 3) % 3
+                    let s = SKSpriteNode(texture: bank.cliffs[variant])
+                    s.anchorPoint = CGPoint(x: 0.5, y: PropModels.anchorY("cliff\(variant)", 0.2))
                     let jx = Double(hnoise(x, y, 8) - 0.5) * 0.4, jy = Double(hnoise(x, y, 9) - 0.5) * 0.4
                     s.position = Iso.scene(Double(x) + 0.5 + jx, Double(y) + 0.5 + jy)
                     let sc = (interior ? 0.75 : 0.6) + hnoise(x, y, 10) * 0.25

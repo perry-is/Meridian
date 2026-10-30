@@ -20,6 +20,7 @@ enum BuildingArt {
 
     /// Approximate height of the artwork above the footprint centre (for health bars and effects).
     static func visualHeight(_ d: BuildingDef) -> CGFloat {
+        if let m = BuildingModels.meta(d.id) { return m.height }
         let table: [Faction: [BuildingKind: CGFloat]] = [
             .humans: [.hq: 120, .depot: 52, .infantry: 64, .heavy: 72, .air: 64, .research: 62, .tower: 100, .forward: 80],
             .machines: [.hq: 140, .depot: 50, .infantry: 44, .heavy: 72, .air: 96, .research: 72, .tower: 112, .forward: 112],
@@ -30,6 +31,7 @@ enum BuildingArt {
 
     /// Light points (offset from footprint centre) that pulse at runtime: beacons, cores, glowing pores.
     static func lights(_ d: BuildingDef) -> [CGPoint] {
+        if let m = BuildingModels.meta(d.id) { return m.lights.map { CGPoint(x: $0[0], y: $0[1]) } }
         switch (d.faction, d.kind) {
         case (.humans, .hq): return [CGPoint(x: -6, y: 120)]
         case (.humans, .tower): return [CGPoint(x: -14, y: 84)]

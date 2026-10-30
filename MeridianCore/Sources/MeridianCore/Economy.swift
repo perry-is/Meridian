@@ -103,7 +103,11 @@ extension World {
         e.lastFireTime = time
         let d = bdef(b)
         let bt = d.buildTime * players[e.owner].mods.building[b.type].buildTime
-        let inc = dt / bt
+        // The first builder works at full speed; each extra one adds extraBuilderRate, shared evenly.
+        if b.builderStamp != time { b.buildersLast = max(1, b.buildersNow); b.buildersNow = 0; b.builderStamp = time }
+        b.buildersNow += 1
+        let n = Double(b.buildersLast), extra = data.rules.economy.extraBuilderRate ?? 1
+        let inc = dt / bt * (1 + extra * (n - 1)) / n
         b.buildProgress += inc
         b.hp = min(b.maxHp, b.hp + b.maxHp * 0.9 * inc)
         if b.buildProgress >= 1 {

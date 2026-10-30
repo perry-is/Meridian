@@ -195,6 +195,26 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(w.sites[0].contested || !h.alive)
     }
 
+    func testExtraBuildersHaveDiminishingReturns() {
+        func progress(builders: Int) -> Double {
+            let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .arena, seed: 1, mapSize: 48))
+            w.sandbox = true
+            w.clearAll()
+            let b = w.spawnBuilding(data.building(.humans, .tower), owner: 0, tileX: 20, tileY: 20, complete: false)
+            b.buildProgress = 0
+            for k in 0..<builders {
+                let u = w.spawnUnit(data.worker(.humans), owner: 0, x: 19.5, y: 20.5 + Double(k) * 0.3)
+                u.order = .build; u.orderTarget = b.id
+            }
+            for _ in 0..<(20 * 3) { w.step() }   // everyone arrives
+            let p0 = b.buildProgress
+            for _ in 0..<20 { w.step() }
+            return b.buildProgress - p0
+        }
+        let one = progress(builders: 1), three = progress(builders: 3)
+        XCTAssertEqual(three / one, 1 + 2 * (data.rules.economy.extraBuilderRate ?? 1), accuracy: 0.05)
+    }
+
     func testTowerCostEscalates() {
         let w = World(config: MatchConfig(factions: [.humans, .aliens], seed: 1))
         let t = data.building(.humans, .tower)

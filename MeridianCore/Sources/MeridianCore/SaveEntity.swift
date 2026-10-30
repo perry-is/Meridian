@@ -79,6 +79,10 @@ public struct EntitySnapshot: Codable {
     public var isMine: Bool
     public var lastFireTime: Double
     public var lastHitTime: Double
+    /// Construction crew bookkeeping (optional so older saves still load).
+    public var builderStamp: Double?
+    public var buildersNow: Int?
+    public var buildersLast: Int?
     public var moving: Bool
     init() { id = 0; kind = .unit; type = 0; owner = 0; x = 0; y = 0; px = 0; py = 0; hp = 0; maxHp = 0; alive = true; radius = 0; isAir = false; order = .idle; ox = 0; oy = 0; orderTarget = -1; px2 = 0; py2 = 0; formationDX = 0; formationDY = 0; groupID = 0; groupSpeed = 0; hx = 0; hy = 0; losTimer = 0; losClear = false; sidestepUntil = 0; sidestepSign = 1; attackerCount = 0; target = -1; cooldown = 0; facing = 0; lastDamagedTime = 0; lastAttackTime = 0; retargetTimer = 0; mode = 0; setupTimer = 0; abilityCooldown = 0; mineTimer = 0; disruptedUntil = 0; shredUntil = 0; shredAmount = 0; slowMult = 1; jammedMult = 1; linked = false; supplied = false; inBloom = false; revealedUntil = 0; stuckTimer = 0; lastProgressX = 0; lastProgressY = 0; cargo = []; carriedBy = -1; carryKind = .iron; gatherKind = .iron; fleeing = false; carryAmount = 0; gatherNode = -1; gatherTimer = 0; amount = 0; tileX = 0; tileY = 0; size = 0; buildProgress = 1; complete = true; queue = []; rallyX = 0; rallyY = 0; hasRally = false; siteIndex = -1; isMine = false; lastFireTime = 0; lastHitTime = 0; moving = false }
 }
@@ -160,6 +164,7 @@ extension Entity {
         s.isMine = isMine
         s.lastFireTime = lastFireTime
         s.lastHitTime = lastHitTime
+        s.builderStamp = builderStamp; s.buildersNow = buildersNow; s.buildersLast = buildersLast
         s.moving = moving
         return s
     }
@@ -237,6 +242,7 @@ extension Entity {
         e.isMine = s.isMine
         e.lastFireTime = s.lastFireTime
         e.lastHitTime = s.lastHitTime
+        e.builderStamp = s.builderStamp ?? -1; e.buildersNow = s.buildersNow ?? 0; e.buildersLast = s.buildersLast ?? 1
         e.moving = s.moving
         return e
     }

@@ -58,6 +58,28 @@ extension GameScene {
     }
 
     var placing: Bool { if case .place = ctl.mode { return true }; return false }
+
+    /// Drag the building ghost and remember where it is held, so holding it near a screen edge scrolls the map.
+    func dragGhost(_ p: CGPoint, held: Bool = true) {
+        placeDragPoint = held ? p : nil
+        let (x, y) = worldPoint(fromView: p)
+        ctl.moveGhost(worldX: x, y: y)
+    }
+
+    /// While a building ghost is held near an edge of the visible map (inside the HUD), pan the camera that way
+    /// (faster nearer the edge, full speed once over the HUD) and keep the ghost under the finger.
+    func edgeScrollWhilePlacing(_ dt: Double) {
+        if !placing { placeDragPoint = nil }
+        guard let p = placeDragPoint, let v = view else { return }
+        let w = v.bounds.width, top = max(0, hudTopY), bottom = min(v.bounds.height, hudBottomY)
+        let margin = max(24, min(70, min(w, bottom - top) * 0.12)), speed: CGFloat = 900   // view points per second at the very edge
+        func push(_ d: CGFloat) -> CGFloat { d < margin ? (1 - max(d, 0) / margin) : 0 }
+        let ex = push(w - p.x) - push(p.x), ey = push(p.y - top) - push(bottom - p.y)
+        guard ex != 0 || ey != 0 else { return }
+        pan(by: CGPoint(x: -ex * speed * CGFloat(dt), y: ey * speed * CGFloat(dt)))
+        let (x, y) = worldPoint(fromView: p)
+        ctl.moveGhost(worldX: x, y: y)
+    }
 }
 
 #if os(iOS)
@@ -93,7 +115,7 @@ extension GameScene: UIGestureRecognizerDelegate {
     /// One finger: move the camera (or the placement ghost).
     @objc func onDrag(_ g: UIPanGestureRecognizer) {
         let p = g.location(in: view)
-        if placing { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(p, held: g.state == .began || g.state == .changed); return }
         switch g.state {
         case .began: lastPanPoint = p
         case .changed:
@@ -106,7 +128,7 @@ extension GameScene: UIGestureRecognizerDelegate {
     /// Hold, then drag: a selection box from where the finger was held.
     @objc func onHold(_ g: UILongPressGestureRecognizer) {
         let p = g.location(in: view)
-        if placing { if g.state == .changed { let (x, y) = worldPoint(fromView: p); ctl.moveGhost(worldX: x, y: y) }; return }
+        if placing { dragGhost(p, held: g.state == .began || g.state == .changed); return }
         switch g.state {
         case .began:
             boxStart = p
@@ -162,7 +184,7 @@ extension GameScene {
         guard let v = view else { return }
         let p = v.convert(e.locationInWindow, from: nil)
         let vp = CGPoint(x: p.x, y: v.bounds.height - p.y)
-        if placing { let (x, y) = worldPoint(fromView: vp); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(vp); return }
         if e.clickCount == 2 { handleDoubleTap(vp); return }
         boxStart = vp
     }
@@ -171,7 +193,7 @@ extension GameScene {
         guard let v = view else { return }
         let p = v.convert(e.locationInWindow, from: nil)
         let vp = CGPoint(x: p.x, y: v.bounds.height - p.y)
-        if placing { let (x, y) = worldPoint(fromView: vp); ctl.moveGhost(worldX: x, y: y); return }
+        if placing { dragGhost(vp); return }
         if let s = boxStart { updateBox(s, vp) }
     }
 
@@ -179,7 +201,7 @@ extension GameScene {
         guard let v = view else { return }
         let p = v.convert(e.locationInWindow, from: nil)
         let vp = CGPoint(x: p.x, y: v.bounds.height - p.y)
-        if placing { ctl.confirmPlacement(); return }
+        if placing { placeDragPoint = nil; ctl.confirmPlacement(); return }
         if let s = boxStart {
             if hypot(s.x - vp.x, s.y - vp.y) < 6 {
                 // Left click selects (never commands) on desktop.

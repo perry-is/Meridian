@@ -205,4 +205,21 @@ extension ArtSheet {
         CGImageDestinationFinalize(dest)
         print("wrote \(url.path)")
     }
+
+    /// One PNG per building (team colour of each faction's usual slot), named faction_index_name.png.
+    static func writeBuildings(to dir: URL) {
+        let data = GameData.shared
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for (fi, f) in Faction.allCases.enumerated() {
+            for (k, b) in data.buildingIDs(f).enumerated() {
+                let d = data.buildings[b]
+                let img = WorldArt.building(d, team: TeamColor.rgb(fi % 2))
+                let name = "\(f.rawValue)_\(k + 1)_\(d.name.lowercased().replacingOccurrences(of: " ", with: "_")).png"
+                guard let dest = CGImageDestinationCreateWithURL(dir.appendingPathComponent(name) as CFURL, UTType.png.identifier as CFString, 1, nil) else { continue }
+                CGImageDestinationAddImage(dest, img, nil)
+                CGImageDestinationFinalize(dest)
+            }
+        }
+        print("wrote buildings to \(dir.path)")
+    }
 }

@@ -19,7 +19,8 @@
   "valueWood": 1.2,
   "ironNodeAmount": 1600,
   "goldNodeAmount": 900,
-  "treeAmount": 400
+  "treeAmount": 400,
+  "extraBuilderRate": 0.6
  },
  "territory": {
   "captureRadius": 3.0,

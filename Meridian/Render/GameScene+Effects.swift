@@ -146,7 +146,21 @@ extension GameScene {
     func animateUnit(_ e: Entity, _ v: EntityView, _ t: Double) {
         let d = world.udef(e)
         let sx = cos(e.facing) + sin(e.facing)
-        if abs(sx) > 0.15 {
+        let turns = !v.facings.isEmpty
+        if turns {
+            // Pose: attack just after firing, a tool swing while gathering, the walk / wing-beat cycle when moving.
+            let seedT = Double(e.id % 97) * 0.37
+            let pose: Int
+            if t - e.lastFireTime < 0.2 { pose = UnitModels.attack }
+            else if e.order == .gather && !e.moving { pose = Int(t * 2.5 + seedT) % 2 == 0 ? UnitModels.idle : UnitModels.attack }
+            else if e.moving || e.isAir {
+                let rate = e.isAir ? 9.0 : 2.6 * max(1.5, world.speed(e))
+                pose = UnitModels.walk + Int(t * rate + seedT) % 4
+            } else { pose = UnitModels.idle }
+            let tex = v.facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))][pose]
+            if v.body.texture !== tex { v.body.texture = tex }
+            if abs(sx) > 0.15 { v.facingSign = sx < 0 ? -1 : 1 }
+        } else if abs(sx) > 0.15 {
             let ns: CGFloat = sx < 0 ? -1 : 1
             if ns != v.facingSign { v.facingSign = ns; v.turnT = 0.14 }
         }
@@ -159,10 +173,12 @@ extension GameScene {
             if abs(dx) > 6 { let ns: CGFloat = dx < 0 ? -1 : 1; if ns != v.facingSign { v.facingSign = ns; v.turnT = 0.12 } }
         }
         // Gait: frames advance with distance travelled, so feet plant instead of sliding.
-        if !v.frames.isEmpty {
+        do {
             let cycles = e.isAir ? 1.3 : speed / max(0.3, v.rig.stride)
             if e.moving || e.isAir { v.gait += cycles / 60 }
             else if v.gait.truncatingRemainder(dividingBy: 0.5) > 0.02 { v.gait += 1.0 / 60 * 1.5 }   // settle to a standing pose
+        }
+        if !v.frames.isEmpty {
             let fr = Int(floor(v.gait * Double(v.frames.count))) % v.frames.count
             if v.body.texture !== v.frames[fr] { v.body.texture = v.frames[fr] }
         }
@@ -172,7 +188,7 @@ extension GameScene {
         var sxMul: CGFloat = 1
         if v.hover { y += 2 + CGFloat(sin(t * 3 + seed)) * 2; v.shadow?.setScale(0.9 - CGFloat(sin(t * 3 + seed)) * 0.06) }
         // Idle infantry glance around now and then.
-        if !e.moving && e.target < 0 && !e.isAir && !v.vehicle && !v.heavy {
+        if !turns && !e.moving && e.target < 0 && !e.isAir && !v.vehicle && !v.heavy {
             let cyc = (t + seed * 0.71).truncatingRemainder(dividingBy: 6 + Double(e.id % 5))
             if cyc < 1.1 { sxMul = -1 }
         }
@@ -212,7 +228,7 @@ extension GameScene {
         if v.rig.kind == .melee && sinceFire < 0.22 { lunge = CGFloat(sin(sinceFire / 0.22 * .pi)) * 4 }
         v.body.position = CGPoint(x: -v.facingSign * kick + v.facingSign * lunge + joltX, y: y)
         v.body.zRotation = rot * v.facingSign
-        v.body.xScale = v.facingSign * xMag * sxMul
+        v.body.xScale = turns ? 1 : v.facingSign * xMag * sxMul
         v.body.yScale = sy
         // Arrival: Lattice units materialise from a hologram, Brood units unfold from the egg.
         if let b0 = born[e.id] {
