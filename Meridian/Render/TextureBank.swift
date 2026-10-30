@@ -30,8 +30,8 @@ enum TeamColor {
 final class TextureBank {
     let data: GameData
     private(set) var unit: [[[SKTexture]]] = []     // [player][unitType][frame]
-    /// [player][unitType][facing] for units with pre-rendered 3D models; empty for the rest.
-    private(set) var unitFacings: [[[SKTexture]]] = []
+    /// [player][unitType][facing][pose] for units with pre-rendered 3D models; empty for the rest.
+    private(set) var unitFacings: [[[[SKTexture]]]] = []
     private(set) var building: [[SKTexture]] = []   // [player][buildingType]
     private(set) var resource: [[SKTexture]] = []   // [kind][variant]
     private(set) var cliffs: [SKTexture] = []
@@ -73,7 +73,7 @@ final class TextureBank {
         defer { print(String(format: "BANK generated in %.2fs", Date().timeIntervalSince(t0))) }
         var images: [String: PlatformImage] = [:]
         var unitNames: [[String]] = [], buildingNames: [[String]] = []
-        var models: [Int: [(base: CGImage, mask: CGImage)]] = [:]
+        var models: [Int: [[(base: CGImage, mask: CGImage)]]] = [:]
         for (i, u) in data.units.enumerated() where factions.contains(u.faction) { models[i] = UnitModels.load(u.id) }
         for (pi, f) in factions.enumerated() {
             let tc = TeamColor.rgb(pi)
@@ -83,10 +83,12 @@ final class TextureBank {
                 un.append(name)
                 guard u.faction == f else { continue }
                 if let m = models[i] {
-                    for (k, v) in m.enumerated() {
-                        let img = UnitModels.tinted(v.base, mask: v.mask, team: tc)
-                        images[name + "_f\(k)"] = .from(img)
-                        if pi == 0 && k == 7 { unitIcons[i] = img }   // front three-quarter view
+                    for (k, poses) in m.enumerated() {
+                        for (pz, v) in poses.enumerated() {
+                            let img = UnitModels.tinted(v.base, mask: v.mask, team: tc)
+                            images[name + "_f\(k)_\(pz)"] = .from(img)
+                            if pi == 0 && k == 7 && pz == 0 { unitIcons[i] = img }   // front three-quarter view
+                        }
                     }
                     continue
                 }
@@ -100,7 +102,7 @@ final class TextureBank {
                 let name = "b\(pi)_\(i)"
                 bn.append(name)
                 guard b.faction == f else { continue }
-                let img = WorldArt.building(b, team: tc)
+                let img = BuildingModels.image(b.id, team: tc) ?? WorldArt.building(b, team: tc)
                 images[name] = .from(img)
                 if pi == 0 { buildingIcons[i] = img }
             }
@@ -108,7 +110,7 @@ final class TextureBank {
         }
         // Icons for every faction (tech screens show all of the player's own faction only, but keep complete).
         for (i, u) in data.units.enumerated() where unitIcons[i] == nil { unitIcons[i] = UnitArt.render(u, team: TeamColor.rgb(0)) }
-        for (i, b) in data.buildings.enumerated() where buildingIcons[i] == nil { buildingIcons[i] = WorldArt.building(b, team: TeamColor.rgb(0)) }
+        for (i, b) in data.buildings.enumerated() where buildingIcons[i] == nil { buildingIcons[i] = BuildingModels.image(b.id, team: TeamColor.rgb(0)) ?? WorldArt.building(b, team: TeamColor.rgb(0)) }
         for v in 0..<3 {
             images["r0_\(v)"] = .from(EnvironmentArt.iron(v))
             images["r1_\(v)"] = .from(EnvironmentArt.gold(v))
@@ -143,7 +145,9 @@ final class TextureBank {
 
         let atlas = SKTextureAtlas(dictionary: images)
         unit = unitNames.map { $0.map { n in (0..<UnitArt.frameCount).map { images[n + "_\($0)"] != nil ? atlas.textureNamed(n + "_\($0)") : SKTexture() } } }
-        unitFacings = unitNames.map { $0.map { n in images[n + "_f0"] == nil ? [] : (0..<UnitModels.facingCount).map { atlas.textureNamed(n + "_f\($0)") } } }
+        unitFacings = unitNames.map { $0.map { n in
+            images[n + "_f0_0"] == nil ? [] : (0..<UnitModels.facingCount).map { k in (0..<UnitModels.poseCount).map { atlas.textureNamed(n + "_f\(k)_\($0)") } }
+        } }
         building = buildingNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
         resource = ResourceKind.allCases.map { k in (0..<3).map { atlas.textureNamed("r\(k.rawValue)_\($0)") } }
         cliffs = (0..<6).map { atlas.textureNamed("cliff\($0)") }

@@ -113,7 +113,16 @@ extension GameScene {
         let sx = cos(e.facing) + sin(e.facing)
         let turns = !v.facings.isEmpty
         if turns {
-            let tex = v.facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))]
+            // Pose: attack just after firing, a tool swing while gathering, the walk / wing-beat cycle when moving.
+            let seedT = Double(e.id % 97) * 0.37
+            let pose: Int
+            if t - e.lastFireTime < 0.2 { pose = UnitModels.attack }
+            else if e.order == .gather && !e.moving { pose = Int(t * 2.5 + seedT) % 2 == 0 ? UnitModels.idle : UnitModels.attack }
+            else if e.moving || e.isAir {
+                let rate = e.isAir ? 9.0 : 2.6 * max(1.5, world.speed(e))
+                pose = UnitModels.walk + Int(t * rate + seedT) % 4
+            } else { pose = UnitModels.idle }
+            let tex = v.facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))][pose]
             if v.body.texture !== tex { v.body.texture = tex }
             if abs(sx) > 0.15 { v.facingSign = sx < 0 ? -1 : 1 }
         } else if abs(sx) > 0.15 {

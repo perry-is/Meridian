@@ -28,6 +28,9 @@ extension GameScene {
     }
 
     func animateParts(_ e: Entity, _ v: EntityView, _ d: BuildingDef, _ t: Double, busy: Bool) {
+        // Moving parts are placed to match the procedural drawings; 3D Concord and Lattice buildings skip them
+        // (their beacons still pulse via BuildingArt.lights). Brood breathing is generic and stays.
+        if d.faction != .aliens && BuildingModels.meta(d.id) != nil { return }
         let n = CGFloat(d.size)
         let seed = Double(e.id % 17)
         let near = zoom < 2.4 && onScreen(v.root.position)

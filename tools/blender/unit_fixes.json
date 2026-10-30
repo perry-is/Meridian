@@ -1,3 +1,157 @@
 {
-  "a_wisp": { "rotate": [90, 0, 0] }
+  "a_wisp": {
+    "rotate": [
+      90,
+      0,
+      0
+    ],
+    "rig": "flyer",
+    "recolor": true
+  },
+  "a_blightwing": {
+    "rig": "flyer",
+    "recolor": true
+  },
+  "a_sporewing": {
+    "rig": "hover"
+  },
+  "a_glint": {
+    "rig": "biped",
+    "recolor": true
+  },
+  "a_mantis": {
+    "rig": "biped",
+    "knee": 0,
+    "arms": 0.3
+  },
+  "a_ravager": {
+    "rig": "biped"
+  },
+  "a_seeder": {
+    "rig": "biped"
+  },
+  "a_lifebinder": {
+    "rig": "biped"
+  },
+  "a_shadeling": {
+    "recolor": true,
+    "forward": [
+      -1,
+      0,
+      0
+    ]
+  },
+  "a_skitter": {
+    "recolor": true,
+    "forward": [
+      0,
+      1,
+      0
+    ]
+  },
+  "a_weaver": {
+    "recolor": true
+  },
+  "a_needleback": {
+    "recolor": true
+  },
+  "a_spinecaster": {
+    "recolor": true
+  },
+  "h_buggy": {
+    "source": "proc",
+    "rig": "vehicle"
+  },
+  "h_bastion": {
+    "source": "proc",
+    "rig": "vehicle"
+  },
+  "h_mortar": {
+    "source": "proc",
+    "rig": "vehicle"
+  },
+  "h_minelayer": {
+    "source": "proc",
+    "rig": "vehicle"
+  },
+  "m_runner": {
+    "source": "proc",
+    "rig": "vehicle"
+  },
+  "m_suppress": {
+    "source": "proc",
+    "rig": "vehicle"
+  },
+  "h_kestrel": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "h_harrier": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "h_dropship": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "m_recon": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "m_repair": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "m_vector": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "m_quake": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "m_carrier": {
+    "source": "proc",
+    "rig": "aircraft"
+  },
+  "m_fabricator": {
+    "source": "proc",
+    "rig": "hover"
+  },
+  "m_flak": {
+    "source": "proc",
+    "rig": "hover"
+  },
+  "m_arc": {
+    "source": "proc",
+    "rig": "hover"
+  },
+  "m_piercer": {
+    "source": "proc",
+    "rig": "multiped"
+  },
+  "m_jammer": {
+    "source": "proc",
+    "rig": "multiped"
+  },
+  "m_coil": {
+    "source": "proc",
+    "rig": "multiped"
+  },
+  "m_shockframe": {
+    "source": "proc",
+    "rig": "biped",
+    "arm_x": [
+      0.27,
+      0.32
+    ]
+  },
+  "m_bulwark": {
+    "source": "proc",
+    "rig": "biped",
+    "arm_x": [
+      0.26,
+      0.3
+    ]
+  }
 }

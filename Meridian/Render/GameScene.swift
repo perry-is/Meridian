@@ -12,8 +12,8 @@ final class EntityView {
     var lastHP: Double = 0
     var baseScale: CGFloat = 1
     var frames: [SKTexture] = []
-    /// 3D-rendered units: one texture per facing (they turn instead of mirroring).
-    var facings: [SKTexture] = []
+    /// 3D-rendered units: [facing][pose] (they turn instead of mirroring).
+    var facings: [[SKTexture]] = []
     var teamRing: SKSpriteNode?
     var lastFire: Double = -1
     var bodyY: CGFloat = 0
@@ -328,7 +328,7 @@ final class GameScene: SKScene {
         }
     }
 
-    /// Development capture: `-snap <png> [-snapAt seconds] [-snapUnit id]` saves one frame (optionally
+    /// Development capture: `-snap <png> [-snapAt seconds] [-snapUnit id] [-snapZoom z]` saves one frame (optionally
     /// zoomed onto the first unit of that type) and quits. Works without screen-recording permission.
     func snapIfRequested(_ now: TimeInterval) {
         let a = ProcessInfo.processInfo.arguments
@@ -336,9 +336,11 @@ final class GameScene: SKScene {
         guard let path = arg("-snap"), let v = view else { return }
         if snapStart == 0 { snapStart = now }
         let at = Double(arg("-snapAt") ?? "") ?? 8
-        if let id = arg("-snapUnit"), now - snapStart > at - 1.5, let t = world.data.unitIndex[id],
-           let e = world.entities.first(where: { $0.alive && $0.isUnit && $0.type == t }) {
-            zoom = 0.45; applyZoom()
+        // -snapUnit takes a unit or building id; -snapZoom sets the zoom (default 0.45).
+        if let id = arg("-snapUnit"), now - snapStart > at - 1.5,
+           let e = world.entities.first(where: { e in
+               e.alive && (e.isUnit ? world.data.unitIndex[id] == e.type : e.isBuilding && world.data.buildingIndex[id] == e.type) }) {
+            zoom = CGFloat(Double(arg("-snapZoom") ?? "") ?? 0.45); applyZoom()
             cam.position = Iso.scene(e.x, e.y)
         }
         guard now - snapStart > at, let tex = v.texture(from: self) else { return }
@@ -382,7 +384,7 @@ final class GameScene: SKScene {
             }
             let d = world.udef(e)
             let frames = bank.unit[owner][e.type], facings = bank.unitFacings[owner][e.type]
-            let s = SKSpriteNode(texture: facings.isEmpty ? frames[0] : facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))])
+            let s = SKSpriteNode(texture: facings.isEmpty ? frames[0] : facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))][UnitModels.idle])
             let sz = UnitArt.canvasSize(d)
             s.size = CGSize(width: sz, height: sz)
             let sh = SKSpriteNode(texture: bank.fx["shadow"], size: CGSize(width: sz * 0.8, height: sz * 0.4))
