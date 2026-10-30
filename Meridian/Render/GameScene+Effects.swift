@@ -111,7 +111,12 @@ extension GameScene {
     func animateUnit(_ e: Entity, _ v: EntityView, _ t: Double) {
         let d = world.udef(e)
         let sx = cos(e.facing) + sin(e.facing)
-        if abs(sx) > 0.15 {
+        let turns = !v.facings.isEmpty
+        if turns {
+            let tex = v.facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))]
+            if v.body.texture !== tex { v.body.texture = tex }
+            if abs(sx) > 0.15 { v.facingSign = sx < 0 ? -1 : 1 }
+        } else if abs(sx) > 0.15 {
             let ns: CGFloat = sx < 0 ? -1 : 1
             if ns != v.facingSign { v.facingSign = ns; v.turnT = 0.14 }
         }
@@ -129,7 +134,7 @@ extension GameScene {
         var sxMul: CGFloat = 1
         if v.hover { y += 2 + CGFloat(sin(t * 3 + seed)) * 2; v.shadow?.setScale(0.9 - CGFloat(sin(t * 3 + seed)) * 0.06) }
         // Idle infantry glance around now and then.
-        if !e.moving && e.target < 0 && !e.isAir && !v.vehicle && !v.heavy {
+        if !turns && !e.moving && e.target < 0 && !e.isAir && !v.vehicle && !v.heavy {
             let cyc = (t + seed * 0.71).truncatingRemainder(dividingBy: 6 + Double(e.id % 5))
             if cyc < 1.1 { sxMul = -1 }
         }
@@ -166,7 +171,7 @@ extension GameScene {
         if v.turnT > 0 { v.turnT -= 1.0 / 60; xMag = max(0.2, abs(CGFloat(cos((0.14 - v.turnT) / 0.14 * .pi)))) }
         v.body.position = CGPoint(x: -v.facingSign * kick + joltX, y: y)
         v.body.zRotation = rot * v.facingSign
-        v.body.xScale = v.facingSign * xMag * sxMul
+        v.body.xScale = turns ? 1 : v.facingSign * xMag * sxMul
         v.body.yScale = sy
         // Arrival: Lattice units materialise from a hologram, Brood units unfold from the egg.
         if let b0 = born[e.id] {

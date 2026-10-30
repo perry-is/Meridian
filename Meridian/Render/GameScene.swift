@@ -1,4 +1,5 @@
 import SpriteKit
+import ImageIO
 import MeridianCore
 
 /// Visual node for one simulation entity.
@@ -11,6 +12,8 @@ final class EntityView {
     var lastHP: Double = 0
     var baseScale: CGFloat = 1
     var frames: [SKTexture] = []
+    /// 3D-rendered units: one texture per facing (they turn instead of mirroring).
+    var facings: [SKTexture] = []
     var teamRing: SKSpriteNode?
     var lastFire: Double = -1
     var bodyY: CGFloat = 0
@@ -78,6 +81,7 @@ final class GameScene: SKScene {
     var lastPanPoint: CGPoint?
     /// Where the finger/mouse is holding a building ghost (view coordinates); drives edge scrolling.
     var placeDragPoint: CGPoint?
+    var snapStart: TimeInterval = 0
     /// Where the HUD's top bar ends and its bottom panels begin (view y), bounding the visible map.
     var hudTopY: CGFloat = 0
     var hudBottomY: CGFloat = .infinity
@@ -312,6 +316,7 @@ final class GameScene: SKScene {
         syncProjectiles()
         syncSelectionOverlays()
         applyShake(dt)
+        snapIfRequested(currentTime)
         syncSites()
         edgeScrollWhilePlacing(min(dt, 0.05))
         syncGhost()
@@ -321,6 +326,28 @@ final class GameScene: SKScene {
             fogShader.uniformNamed("u_fog")?.textureValue = fogTexture()
             ctl.minimapVersion &+= 1
         }
+    }
+
+    /// Development capture: `-snap <png> [-snapAt seconds] [-snapUnit id]` saves one frame (optionally
+    /// zoomed onto the first unit of that type) and quits. Works without screen-recording permission.
+    func snapIfRequested(_ now: TimeInterval) {
+        let a = ProcessInfo.processInfo.arguments
+        func arg(_ k: String) -> String? { a.firstIndex(of: k).flatMap { $0 + 1 < a.count ? a[$0 + 1] : nil } }
+        guard let path = arg("-snap"), let v = view else { return }
+        if snapStart == 0 { snapStart = now }
+        let at = Double(arg("-snapAt") ?? "") ?? 8
+        if let id = arg("-snapUnit"), now - snapStart > at - 1.5, let t = world.data.unitIndex[id],
+           let e = world.entities.first(where: { $0.alive && $0.isUnit && $0.type == t }) {
+            zoom = 0.45; applyZoom()
+            cam.position = Iso.scene(e.x, e.y)
+        }
+        guard now - snapStart > at, let tex = v.texture(from: self) else { return }
+        let img = tex.cgImage()
+        if let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil) {
+            CGImageDestinationAddImage(dest, img, nil); CGImageDestinationFinalize(dest)
+        }
+        print("SNAP \(path)")
+        exit(0)
     }
 
     /// Frame-time log for stress runs (printed to stdout; read with `simctl launch --console`).
@@ -354,8 +381,8 @@ final class GameScene: SKScene {
                 return EntityView(body: s, shadow: nil)
             }
             let d = world.udef(e)
-            let frames = bank.unit[owner][e.type]
-            let s = SKSpriteNode(texture: frames[0])
+            let frames = bank.unit[owner][e.type], facings = bank.unitFacings[owner][e.type]
+            let s = SKSpriteNode(texture: facings.isEmpty ? frames[0] : facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))])
             let sz = UnitArt.canvasSize(d)
             s.size = CGSize(width: sz, height: sz)
             let sh = SKSpriteNode(texture: bank.fx["shadow"], size: CGSize(width: sz * 0.8, height: sz * 0.4))
@@ -369,7 +396,7 @@ final class GameScene: SKScene {
                 sh.position = CGPoint(x: 3, y: 1)
             }
             let v = EntityView(body: s, shadow: sh)
-            v.frames = frames
+            if facings.isEmpty { v.frames = frames } else { v.facings = facings }
             v.bodyY = s.position.y
             // Team ring: the primary readability cue in big battles. Shape encodes class.
             let cls = e.isAir ? "ring_air" : (d.role == "siege" ? "ring_siege" : (d.tags.contains("massive") ? "ring_heavy" :
