@@ -434,7 +434,8 @@ final class GameScene: SKScene {
             let k = ResourceKind(rawValue: e.type)!
             let v = e.id % 3
             let s = SKSpriteNode(texture: bank.resource[k.rawValue][v])
-            s.anchorPoint = CGPoint(x: 0.5, y: k == .wood ? 0.08 : (k == .iron ? 0.22 : 0.16))
+            let names: [ResourceKind: String] = [.iron: "iron", .gold: "gold", .wood: "tree"]
+            s.anchorPoint = CGPoint(x: 0.5, y: PropModels.anchorY("\(names[k]!)\(v)", k == .wood ? 0.08 : (k == .iron ? 0.22 : 0.16)))
             if k == .wood {
                 s.setScale(0.8 + CGFloat(e.id % 5) * 0.06); s.xScale *= e.id % 2 == 0 ? 1 : -1
                 s.color = biome.treeTint; s.colorBlendFactor = biome.treeTintAmount * CGFloat(0.6 + 0.4 * hnoise(e.id, 3, 5))

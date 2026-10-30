@@ -83,3 +83,23 @@ enum BuildingModels {
         return UnitModels.tinted(b, mask: m, team: team)
     }
 }
+
+/// Pre-rendered 3D environment props (tools/blender/props.py), in the same canvases as EnvironmentArt.
+enum PropModels {
+    static func image(_ name: String) -> CGImage? { UnitModels.bundled("e3d_\(name)") }
+}
+
+extension PropModels {
+    /// 3D props with ground shadows are rendered with a margin (props.py MX/MB/MT), which moves the anchor.
+    static func anchorY(_ name: String, _ original: CGFloat) -> CGFloat {
+        has(name) ? (original + 0.25) / 1.3 : original
+    }
+
+    nonisolated(unsafe) private static var present: [String: Bool] = [:]
+    static func has(_ name: String) -> Bool {
+        if let p = present[name] { return p }
+        let p = Bundle.main.url(forResource: "e3d_\(name)", withExtension: "png") != nil
+        present[name] = p
+        return p
+    }
+}

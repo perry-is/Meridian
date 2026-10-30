@@ -235,9 +235,9 @@ enum TerrainLayer {
                     var neighbors = 0
                     for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] where isRock(x + dx, y + dy) { neighbors += 1 }
                     let interior = neighbors >= 3
-                    let tex = bank.cliffs[(interior ? 3 : 0) + Int(hnoise(x, y, 6) * 3) % 3]
-                    let s = SKSpriteNode(texture: tex)
-                    s.anchorPoint = CGPoint(x: 0.5, y: 0.2)
+                    let variant = (interior ? 3 : 0) + Int(hnoise(x, y, 6) * 3) % 3
+                    let s = SKSpriteNode(texture: bank.cliffs[variant])
+                    s.anchorPoint = CGPoint(x: 0.5, y: PropModels.anchorY("cliff\(variant)", 0.2))
                     let jx = Double(hnoise(x, y, 8) - 0.5) * 0.4, jy = Double(hnoise(x, y, 9) - 0.5) * 0.4
                     s.position = Iso.scene(Double(x) + 0.5 + jx, Double(y) + 0.5 + jy)
                     let sc = (interior ? 0.75 : 0.6) + hnoise(x, y, 10) * 0.25

@@ -112,12 +112,12 @@ final class TextureBank {
         for (i, u) in data.units.enumerated() where unitIcons[i] == nil { unitIcons[i] = UnitArt.render(u, team: TeamColor.rgb(0)) }
         for (i, b) in data.buildings.enumerated() where buildingIcons[i] == nil { buildingIcons[i] = BuildingModels.image(b.id, team: TeamColor.rgb(0)) ?? WorldArt.building(b, team: TeamColor.rgb(0)) }
         for v in 0..<3 {
-            images["r0_\(v)"] = .from(EnvironmentArt.iron(v))
-            images["r1_\(v)"] = .from(EnvironmentArt.gold(v))
-            images["r2_\(v)"] = .from(EnvironmentArt.tree(v))
+            images["r0_\(v)"] = .from(PropModels.image("iron\(v)") ?? EnvironmentArt.iron(v))
+            images["r1_\(v)"] = .from(PropModels.image("gold\(v)") ?? EnvironmentArt.gold(v))
+            images["r2_\(v)"] = .from(PropModels.image("tree\(v)") ?? EnvironmentArt.tree(v))
         }
-        for v in 0..<6 { images["cliff\(v)"] = .from(EnvironmentArt.cliff(v)) }
-        for k in 0..<5 { for v in 0..<2 { images["flora\(k)_\(v)"] = .from(EnvironmentArt.flora(k, v)) } }
+        for v in 0..<6 { images["cliff\(v)"] = .from(PropModels.image("cliff\(v)") ?? EnvironmentArt.cliff(v)) }
+        for k in 0..<5 { for v in 0..<2 { images["flora\(k)_\(v)"] = .from(PropModels.image("flora\(k)_\(v)") ?? EnvironmentArt.flora(k, v)) } }
         let fxNames = ["glow", "ring", "shadow", "beam", "bolt", "orb", "shell", "spark", "smoke", "scorch", "pixel"]
         for n in fxNames { images["fx_" + n] = .from(WorldArt.effect(n)) }
         images["fx_vignette"] = .from(EnvironmentArt.vignette())
