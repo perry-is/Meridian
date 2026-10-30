@@ -33,6 +33,8 @@ final class SoundEngine {
     private var lastPlayed: [String: Double] = [:]
     private let format: AVAudioFormat
     private var started = false
+    /// The score stems are scheduled and should be playing whenever the engine runs.
+    private var musicReady = false
     private var busyUntil: [Double] = []
     private var windowStart = 0.0
     private var windowCount = 0
@@ -93,15 +95,41 @@ final class SoundEngine {
         // Voices run permanently; playback is just queueing buffers onto an idle voice.
         if started { voices.forEach { $0.play() }; radioNode.play() }
         guard started else { return }
+        // iOS stops the engine on interruptions and route or configuration changes; playing a node on a stopped
+        // engine raises an exception, so restart it (and every node) when it comes back.
+        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in self?.ensureRunning() }
+        #if os(iOS)
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
+            if (n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.ended.rawValue { self?.ensureRunning() }
+        }
+        #endif
         // The adaptive score is built off the main thread, then all three stems start on the same sample.
         DispatchQueue.global(qos: .utility).async { [self] in
             let stems = [MusicScore.calm(), MusicScore.tension(), MusicScore.combat()].map(pcm)
             DispatchQueue.main.async { [self] in
                 for (node, buf) in zip([music, tensionNode, combatNode], stems) { node.volume = 0; node.scheduleBuffer(buf, at: nil, options: .loops) }
+                musicReady = true
+                // If the engine stopped while the score was being built, ensureRunning starts the stems on restart.
+                guard engine.isRunning else { ensureRunning(); return }
                 let start = AVAudioTime(hostTime: mach_absolute_time() + AVAudioTime.hostTime(forSeconds: 0.2))
                 for node in [music, tensionNode, combatNode] { node.play(at: start) }
             }
         }
+    }
+
+    /// Restarts a stopped engine and its player nodes. Main thread.
+    @discardableResult
+    private func ensureRunning() -> Bool {
+        guard started else { return false }
+        if engine.isRunning { return true }
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
+        guard (try? engine.start()) != nil else { return false }
+        voices.forEach { $0.play() }
+        radioNode.play()
+        if musicReady { [music, tensionNode, combatNode].forEach { $0.play() } }
+        return true
     }
 
     private func pcm(_ s: [Float]) -> AVAudioPCMBuffer {
@@ -173,7 +201,7 @@ final class SoundEngine {
             node.stop()
             node.volume = 0.9
             node.scheduleBuffer(b, at: nil, options: [], completionHandler: nil)
-            node.play()
+            if node.engine?.isRunning == true { node.play() }
         }
     }
 
