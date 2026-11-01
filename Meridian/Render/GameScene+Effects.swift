@@ -1064,6 +1064,13 @@ extension GameScene {
             if wrecks.count > 36 { let old = wrecks.removeFirst(); old.removeAllActions(); old.run(.sequence([.fadeOut(withDuration: 1), .removeFromParent()])) }
             return
         }
+        if let f = v.facings.first, f.count > UnitModels.death {
+            // Motion-captured soldiers play their own fall, lie still a moment, then fade.
+            let frames = Array(v.facings[UnitModels.facing(Iso.scene(cos(e.facing), sin(e.facing)))][UnitModels.death...])
+            body.run(.sequence([.animate(with: frames, timePerFrame: 0.14), .wait(forDuration: 2.4), .fadeOut(withDuration: 0.9)]))
+            root.run(.sequence([.wait(forDuration: 3.8), .removeFromParent()]))
+            return
+        }
         switch fac {
         case .humans:
             body.anchorPoint = CGPoint(x: 0.5, y: 0.12)

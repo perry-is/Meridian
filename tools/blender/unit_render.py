@@ -10,9 +10,12 @@
 # Poses: 0 idle, 1-4 walk (or wing-beat) cycle, 5 attack. Tripo models come unrigged, so poses are made by
 # procedural skinning: body regions (legs, arms, wings) are found from the model's proportions and rotated about
 # estimated joints with smooth weights. Rigs: biped, multiped (any number of legs), flyer (wings), hover.
+#
+# Soldiers with a skinned model in art/rigged/<id>.fbx (Mixamo skeleton) are posed with real motion-capture clips
+# from art/anims instead, retargeted bone by bone, and also get death frames: poses 6-8.
 import bpy, sys, os, math, json
 import numpy as np
-from mathutils import Vector, Matrix, Euler
+from mathutils import Vector, Matrix, Euler, Quaternion
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ids = sys.argv[sys.argv.index("--") + 1:]
@@ -28,6 +31,10 @@ PX_PER_UNIT = 32 * math.sqrt(2)        # screen points per world unit along the 
 ELEV = math.radians(30)                  # 2:1 isometric: ground depth is squashed by sin(30°) = 0.5
 SCALE = 2                                # pixels per point
 POSES = 6
+DEATH_POSES = 3
+# Which clip and point in it (0..1) each pose samples, for rigged soldiers. unit_fixes.json can override "clips".
+CLIPS = {"idle": ("rifle_idle", 0.0), "walk": ("rifle_walk", 0.0), "attack": ("firing_rifle", 0.25),
+         "death": ("death_front", (0.25, 0.5, 1.0))}
 TARGET_TRIS = 120_000                    # plenty for a ~100px sprite, and fast to deform and render
 R = Vector((1, 1, 0)).normalized()       # screen right on the ground
 U = Vector((-1, 1, 0)).normalized()      # screen up on the ground (away from the viewer)
@@ -164,6 +171,50 @@ def pose_aircraft(P0, pose, dims):
         P = rot_x(P, (0, 0, zc), math.radians(10), one)
     return P
 
+# ---------------------------------------------------------------- motion capture
+class Retarget:
+    """Plays Mixamo clips on any Mixamo-named skeleton: each bone copies the clip's world rotation, corrected for the
+    difference between the two rest poses; the hips also copy translation, scaled by hip height."""
+    def __init__(self, tgt):
+        tgt.animation_data_clear()      # Mixamo downloads carry their own take, which would override the pose at render
+        self.tgt = tgt; self.src = {}
+    def clip(self, name):
+        if name not in self.src:
+            before = set(bpy.data.objects)
+            bpy.ops.import_scene.fbx(filepath=os.path.join(ROOT, f"art/anims/{name}.fbx"))
+            new = [o for o in bpy.data.objects if o not in before]
+            src = next(o for o in new if o.type == "ARMATURE")
+            for o in new:
+                if o is not src: bpy.data.objects.remove(o)
+            src.hide_render = True
+            tgt = self.tgt
+            wr = lambda o, b: (o.matrix_world @ b.matrix_local).to_quaternion()
+            names = [b.name for b in tgt.data.bones if b.name in src.data.bones]   # hierarchical: parents first
+            hip = "mixamorig:Hips"
+            hs, ht = src.matrix_world @ src.data.bones[hip].head_local, tgt.matrix_world @ tgt.data.bones[hip].head_local
+            self.src[name] = dict(arm=src, names=names, hs=hs, ht=ht, k=ht.z / max(hs.z, 1e-6),
+                                  rs={n: wr(src, src.data.bones[n]) for n in names}, rt={n: wr(tgt, tgt.data.bones[n]) for n in names},
+                                  range=[int(x) for x in src.animation_data.action.frame_range])
+        return self.src[name]
+    def apply(self, name, t, still_hips=False):
+        c = self.clip(name); src, tgt = c["arm"], self.tgt
+        f0, f1 = c["range"]
+        bpy.context.scene.frame_set(int(round(f0 + (f1 - f0) * t)))
+        for n in c["names"]:
+            ps, pt = src.pose.bones[n], tgt.pose.bones[n]
+            sm = src.matrix_world @ ps.matrix
+            q = sm.to_quaternion() @ c["rs"][n].inverted() @ c["rt"][n]
+            bpy.context.view_layer.update()
+            head = (tgt.matrix_world @ pt.matrix).translation
+            if n == "mixamorig:Hips":
+                d = (sm.translation - c["hs"]) * c["k"]
+                if still_hips: d.x = d.y = 0
+                head = c["ht"] + d
+            # Back into armature space without its scale (Mixamo exports are in centimetres, scaled 0.01).
+            mw = tgt.matrix_world
+            pt.matrix = Matrix.Translation(mw.inverted() @ head) @ (mw.to_quaternion().inverted() @ q).to_matrix().to_4x4()
+        bpy.context.view_layer.update()
+
 # ---------------------------------------------------------------- materials
 def hsv_mask(nt, color):
     """0..1 where the albedo is the saturated blue team marker."""
@@ -232,11 +283,21 @@ def setup_scene():
     sc.render.image_settings.color_mode = "RGBA"
     return sc
 
-def render_unit(uid, poses=range(POSES), facings=range(8), out_dir=OUT):
+def rig_path(uid):
+    f = os.path.join(ROOT, f"art/rigged/{uid}.fbx")
+    return f if os.path.exists(f) else None
+
+def render_unit(uid, poses=None, facings=range(8), out_dir=OUT):
     u = UNITS[uid]; fix = FIX.get(uid, {})
     air = u.get("domain") == "air"
     rig = rig_of(uid, u)
     sc = setup_scene()
+    rig_fbx = rig_path(uid)
+    if rig_fbx and not uid.startswith("h_"):
+        return render_creature(uid, u, fix, sc, rig_fbx, poses or range(POSES), facings, out_dir)
+    if rig_fbx:
+        return render_rigged(uid, u, fix, sc, rig_fbx, poses or range(POSES + DEATH_POSES), facings, out_dir)
+    poses = poses or range(POSES)
     if fix.get("source") == "proc":
         sys.path.insert(0, os.path.dirname(__file__))
         import units_proc
@@ -284,7 +345,212 @@ def render_unit(uid, poses=range(POSES), facings=range(8), out_dir=OUT):
     k = ortho * fix.get("fill", 0.72) / max(dims)
     holder = bpy.data.objects.new("holder", None); sc.collection.objects.link(holder)
     obj.parent = holder; holder.scale = (k, k, k)
+    stage(sc, C, air)
 
+    def set_pose(p):
+        Q = P0.copy(); Q[:, 2] += zoff
+        if rig == "biped": Q = pose_biped(Q, p, H, fix.get("knee", 1.0), fix.get("arms", 1.0), tuple(fix.get("arm_x", (0.12, 0.2))))
+        elif rig == "multiped": Q = pose_multiped(Q, p, dims)
+        elif rig == "flyer": Q = pose_flyer(Q, p, dims)
+        elif rig == "hover": Q = pose_hover(Q, p, dims)
+        elif rig == "vehicle": Q = pose_vehicle(Q, p, dims)
+        elif rig == "aircraft": Q = pose_aircraft(Q, p, dims)
+        Q[:, 2] -= zoff
+        obj.data.vertices.foreach_set("co", Q.astype(np.float32).ravel())
+        obj.data.update()
+
+    shoot(sc, uid, obj, holder, fix, poses, facings, set_pose, out_dir)
+    print("UNIT", uid, rig, "canvas", C, "verts", n)
+
+def render_rigged(uid, u, fix, sc, path, poses, facings, out_dir):
+    """A skinned Mixamo-skeleton soldier, posed from motion-capture clips."""
+    bpy.ops.import_scene.fbx(filepath=path)
+    arm = next(o for o in sc.objects if o.type == "ARMATURE")
+    obj = next(o for o in sc.objects if o.type == "MESH")
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.shade_smooth()
+    rt = Retarget(arm)
+    clips = {**CLIPS, **{k: tuple(v) for k, v in fix.get("clips", {}).items()}}
+    frames = [clips["idle"]] + [(clips["walk"][0], clips["walk"][1] + i / 4) for i in range(4)] + [clips["attack"]] + \
+             [(clips["death"][0], t) for t in clips["death"][1]]
+    for c, _ in frames: rt.clip(c)                   # load every clip while the rig is still at the origin
+
+    def world_verts():
+        ev = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        M = np.array(obj.matrix_world)
+        P = np.empty(len(ev.data.vertices) * 3); ev.data.vertices.foreach_get("co", P)
+        P = P.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+        return P
+    rt.apply(*clips["idle"])
+    P = world_verts(); lo, hi = P.min(axis=0), P.max(axis=0)
+    dims = tuple(float(v) for v in (hi - lo))
+    base = Vector(((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]))
+    # Mixamo characters face -Y in Blender, which is the renderer's forward.
+    C = canvas(u); ortho = C / PX_PER_UNIT
+    k = ortho * fix.get("fill", 0.72) / max(dims)
+    holder = bpy.data.objects.new("holder", None); sc.collection.objects.link(holder)
+    off = bpy.data.objects.new("off", None); sc.collection.objects.link(off)
+    off.parent = holder; arm.parent = off
+    stage(sc, C, False)
+
+    def set_pose(p):
+        # Retargeting works in world space, so pose with the rig back at the origin, then restore the framing.
+        rot = holder.rotation_euler.copy()
+        holder.rotation_euler = (0, 0, 0); holder.scale = (1, 1, 1); off.location = (0, 0, 0)
+        bpy.context.view_layer.update()
+        rt.apply(*frames[p])
+        if p >= POSES:
+            # Fall where it stands: keep half the body's drift so the corpse stays centred on its tile.
+            hips = arm.matrix_world @ arm.pose.bones["mixamorig:Hips"].head
+            drift = hips - (arm.matrix_world @ arm.data.bones["mixamorig:Hips"].head_local)
+            off.location = (-drift.x * 0.5, -drift.y * 0.5, 0)
+        off.location = Vector(off.location) - base
+        holder.rotation_euler = rot; holder.scale = (k, k, k)
+        bpy.context.view_layer.update()
+
+    shoot(sc, uid, obj, holder, fix, poses, facings, set_pose, out_dir)
+    print("UNIT", uid, "mocap", "canvas", C, "verts", len(obj.data.vertices))
+
+# ---------------------------------------------------------------- skeletal creatures
+def side_of(name):
+    return 1 if name.endswith(".R") or ".R." in name else -1 if name.endswith(".L") or ".L." in name else 0
+
+def creature_pose(arm, p, kind, F, Up, Lat, amp):
+    """Poses a creature skeleton by bone name. Rotations are given about armature-space axes (F forward, Up, Lat
+    lateral = F x Up) and applied in each bone's rest frame, so a knee bends about the leg's own swing axis."""
+    for pb in arm.pose.bones:
+        pb.rotation_mode = "QUATERNION"; pb.rotation_quaternion = (1, 0, 0, 0); pb.location = (0, 0, 0)
+    rot = {}
+    def add(name, axis, deg):
+        if name in arm.pose.bones and deg:
+            rot[name] = Quaternion(axis, math.radians(deg * amp)) @ rot.get(name, Quaternion())
+    walking = 1 <= p <= 4
+    ph = (p - 1) / 4 * 2 * math.pi if walking else 0.0
+    c, s_ = math.cos(ph), math.sin(ph)
+    # Swinging a limb "forward" is a rotation about the lateral axis that carries a hanging foot towards F.
+    fwd = 1 if (Quaternion(Lat, 0.3) @ (-Up)).dot(F) > 0 else -1
+    tails = [b.name for b in arm.pose.bones if b.name.startswith("tail") or b.name.startswith("abdomen")]
+    if kind == "biped":
+        if walking:
+            for sd in (1, -1):
+                sw = 24 * c * sd
+                add(f"thigh.{'R' if sd > 0 else 'L'}", Lat, fwd * sw)
+                add(f"shin.{'R' if sd > 0 else 'L'}", Lat, -fwd * 38 * max(0, s_ * sd))
+                add(f"upper_arm.{'R' if sd > 0 else 'L'}", Lat, -fwd * sw * 0.8)
+                add(f"forearm.{'R' if sd > 0 else 'L'}", Lat, fwd * 12)
+            add("chest", Up, 6 * c)
+            for i, t in enumerate(tails): add(t, Up, 10 * s_ * (i + 1) / len(tails))
+        elif p == 5:
+            add("chest", Lat, fwd * 14); add("spine", Lat, fwd * 6); add("head", Lat, fwd * 8)
+            for sd in "LR":
+                add(f"upper_arm.{sd}", Lat, fwd * 70); add(f"forearm.{sd}", Lat, fwd * 35)
+            for i, t in enumerate(tails): add(t, Lat, -fwd * 12)
+    elif kind == "quadruped":
+        if walking:
+            for nm, sd, front in (("fore", 1, 1), ("fore", -1, 1), ("hind", 1, -1), ("hind", -1, -1)):
+                a = sd * front                                  # diagonal pairs move together (trot)
+                sfx = "R" if sd > 0 else "L"
+                add(f"{nm}_upper.{sfx}", Lat, fwd * 22 * c * a)
+                add(f"{nm}_lower.{sfx}", Lat, -fwd * front * 30 * max(0, s_ * a))
+                add(f"{nm}_paw.{sfx}", Lat, fwd * front * 15 * max(0, s_ * a))
+            add("chest", Up, 4 * c); add("head", Up, -4 * c)
+            for i, t in enumerate(tails): add(t, Up, 12 * s_ * (i + 1) / len(tails))
+        elif p == 5:
+            add("chest", Lat, -fwd * 16); add("neck", Lat, fwd * 10); add("head", Lat, fwd * 14)
+            for sd in "LR":
+                add(f"fore_upper.{sd}", Lat, fwd * 40); add(f"fore_lower.{sd}", Lat, -fwd * 30)
+            for i, t in enumerate(tails): add(t, Lat, fwd * 15)
+    elif kind == "hexapod":
+        if walking:
+            for row, rs in (("front", 1), ("middle", -1), ("rear", 1)):
+                for sd in (1, -1):
+                    a = rs * sd                                 # alternating tripods
+                    sfx = "R" if sd > 0 else "L"
+                    add(f"{row}_coxa.{sfx}", Up, 16 * c * a * sd)
+                    add(f"{row}_femur.{sfx}", F, -sd * 18 * max(0, s_ * a))
+            for t in ("antenna.L.01", "antenna.R.01"): add(t, Up, 8 * s_)
+            add("abdomen", Up, 5 * c)
+        elif p == 5:
+            add("thorax", Lat, -fwd * 12); add("head", Lat, fwd * 10)
+            for sd, sfx in ((1, "R"), (-1, "L")):
+                add(f"front_femur.{sfx}", F, -sd * 35); add(f"front_coxa.{sfx}", Up, -14 * sd)
+    elif kind == "flyer":
+        wings = [b.name for b in arm.pose.bones if b.name.startswith("wing")]
+        if walking:
+            for w in wings:
+                sd = side_of(w); deep = w.endswith(".02") or w.endswith(".03") or "rib" in w
+                lag = 0.7 if deep else 0.0
+                add(w, F, sd * (38 if not deep else 18) * math.cos(ph - lag))
+            for i, t in enumerate(tails): add(t, Lat, 8 * math.sin(ph) * (i + 1) / max(1, len(tails)))
+            for leg in [b.name for b in arm.pose.bones if b.name.startswith("leg")]: add(leg, Lat, fwd * 10 * s_)
+        elif p == 5:
+            add("chest", Lat, fwd * 10); add("thorax", Lat, fwd * 10); add("head", Lat, fwd * 18)
+            for w in wings: add(w, F, side_of(w) * 25)
+            for leg in [b.name for b in arm.pose.bones if b.name.startswith("leg")]: add(leg, Lat, fwd * 35)
+    for name, q in rot.items():
+        pb = arm.pose.bones[name]
+        r = pb.bone.matrix_local.to_quaternion()
+        pb.rotation_quaternion = r.inverted() @ q @ r
+    bpy.context.view_layer.update()
+    return c if walking else 0.0
+
+def creature_kind(arm):
+    names = {b.name for b in arm.data.bones}
+    if any(n.startswith("wing") for n in names): return "flyer"
+    if "front_coxa.L" in names: return "hexapod"
+    if "fore_upper.L" in names: return "quadruped"
+    return "biped"
+
+def render_creature(uid, u, fix, sc, path, poses, facings, out_dir):
+    """A skinned Tripo creature on its own skeleton, posed with scripted gait cycles keyed by bone names."""
+    air = u.get("domain") == "air"
+    bpy.ops.import_scene.fbx(filepath=path)
+    arm = next(o for o in sc.objects if o.type == "ARMATURE")
+    obj = next(o for o in sc.objects if o.type == "MESH")
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.shade_smooth()
+    kind = fix.get("skeleton", creature_kind(arm))
+    # The rig keeps the source model's axes: unit_fixes' rotate / forward say how to stand it up and face it.
+    fixm = Euler([math.radians(a) for a in fix.get("rotate", [0, 0, 0])]).to_matrix().to_4x4()
+    fwd = Vector(fix.get("forward", [0, -1, 0]))
+    yaw = Matrix.Rotation(math.atan2(fwd.x, -fwd.y), 4, "Z")
+    to_arm = (fixm @ arm.matrix_world).inverted().to_3x3()   # standing frame -> armature space
+    F = (to_arm @ (yaw.inverted().to_3x3() @ Vector((0, -1, 0)))).normalized()   # whatever the yaw turns to face -Y
+    Up = (to_arm @ Vector((0, 0, 1))).normalized()
+    Lat = F.cross(Up).normalized()
+
+    def world_verts():
+        ev = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        M = np.array(obj.matrix_world)
+        P = np.empty(len(ev.data.vertices) * 3); ev.data.vertices.foreach_get("co", P)
+        return P.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+    holder = bpy.data.objects.new("holder", None); sc.collection.objects.link(holder)
+    orient = bpy.data.objects.new("orient", None); sc.collection.objects.link(orient)
+    orient.parent = holder; arm.parent = orient
+    orient.matrix_basis = yaw @ fixm
+    bpy.context.view_layer.update()
+    P = world_verts(); lo, hi = P.min(axis=0), P.max(axis=0)
+    dims = tuple(float(v) for v in (hi - lo)); H = dims[2]
+    base = Vector(((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2] if not air else (lo[2] + hi[2]) / 2))
+    orient.matrix_basis = Matrix.Translation(-base) @ yaw @ fixm
+    C = canvas(u); ortho = C / PX_PER_UNIT
+    k = ortho * fix.get("fill", 0.72) / max(dims)
+    holder.scale = (k, k, k)
+    rest = orient.matrix_basis.copy()
+    stage(sc, C, air)
+
+    def set_pose(p):
+        bob = creature_pose(arm, p, kind, F, Up, Lat, fix.get("amp", 1.0))
+        lift = (0.018 if kind != "flyer" else -0.03) * H * (abs(bob) if kind != "flyer" else bob)
+        orient.matrix_basis = Matrix.Translation((0, 0, lift)) @ rest
+        bpy.context.view_layer.update()
+
+    shoot(sc, uid, obj, holder, fix, poses, facings, set_pose, out_dir)
+    print("UNIT", uid, "skeleton", kind, "canvas", C, "verts", len(obj.data.vertices))
+
+def stage(sc, C, air):
+    """Isometric camera framing a C-point canvas, key and fill suns, and a soft sky."""
+    ortho = C / PX_PER_UNIT
     cam_data = bpy.data.cameras.new("cam"); cam_data.type = "ORTHO"; cam_data.ortho_scale = ortho
     cam = bpy.data.objects.new("cam", cam_data); sc.collection.objects.link(cam); sc.camera = cam
     view = (U * math.cos(ELEV) + Vector((0, 0, -math.sin(ELEV)))).normalized()
@@ -301,30 +567,20 @@ def render_unit(uid, poses=range(POSES), facings=range(8), out_dir=OUT):
     sun(-(-R + U) * 0.8 + Vector((0, 0, -1)), 5.0, (1.0, 0.93, 0.82))
     sun((-R + U) * 0.6 + Vector((0, 0, -0.4)), 1.0, (0.6, 0.72, 1.0))
     w = bpy.data.worlds.new("w"); sc.world = w; w.use_nodes = True
-    bg = w.node_tree.nodes["Background"]; bg.inputs["Color"].default_value = (0.45, 0.5, 0.6, 1)
-    lights = [o for o in sc.objects if o.type == "LIGHT"]
+    w.node_tree.nodes["Background"].inputs["Color"].default_value = (0.45, 0.5, 0.6, 1)
 
+def shoot(sc, uid, obj, holder, fix, poses, facings, set_pose, out_dir):
+    """Renders each pose in each facing: a lit image and its team-colour mask."""
     pairs = prepare_materials([obj], fix)
     slots = [m.name if m else None for m in obj.data.materials]
-
-    def set_pose(p):
-        Q = P0.copy(); Q[:, 2] += zoff
-        if rig == "biped": Q = pose_biped(Q, p, H, fix.get("knee", 1.0), fix.get("arms", 1.0), tuple(fix.get("arm_x", (0.12, 0.2))))
-        elif rig == "multiped": Q = pose_multiped(Q, p, dims)
-        elif rig == "flyer": Q = pose_flyer(Q, p, dims)
-        elif rig == "hover": Q = pose_hover(Q, p, dims)
-        elif rig == "vehicle": Q = pose_vehicle(Q, p, dims)
-        elif rig == "aircraft": Q = pose_aircraft(Q, p, dims)
-        Q[:, 2] -= zoff
-        obj.data.vertices.foreach_set("co", Q.astype(np.float32).ravel())
-        obj.data.update()
-
+    lights = [o for o in sc.objects if o.type == "LIGHT"]
+    bg = sc.world.node_tree.nodes["Background"]
     for p in poses:
-        set_pose(p)
         for d in facings:
             a = math.radians(45 * d)
             g = R * math.cos(a) + U * math.sin(a)
             holder.rotation_euler = (0, 0, math.atan2(g.y, g.x) - math.atan2(-1, 0))
+            set_pose(p)
             for i, nm in enumerate(slots):
                 if nm: obj.data.materials[i] = pairs[nm][0]
             for l in lights: l.hide_render = False
@@ -341,10 +597,10 @@ def render_unit(uid, poses=range(POSES), facings=range(8), out_dir=OUT):
             sc.view_settings.view_transform = "Raw"         # mask values are data, not colours
             sc.render.filepath = os.path.join(out_dir, f"u3d_{uid}_d{d}_{p}m.png")
             bpy.ops.render.render(write_still=True)
-    print("UNIT", uid, rig, "canvas", C, "verts", n)
 
-if os.environ.get("PREVIEW"):
-    # Quick check: all poses, one facing (side view), into a scratch folder.
-    for uid in ids: render_unit(uid, facings=[int(os.environ.get("FACING", "0"))], out_dir=os.environ["PREVIEW"])
-else:
-    for uid in ids: render_unit(uid)
+if __name__ == "__main__":
+    if os.environ.get("PREVIEW"):
+        # Quick check: all poses, one facing (side view), into a scratch folder.
+        for uid in ids: render_unit(uid, facings=[int(os.environ.get("FACING", "0"))], out_dir=os.environ["PREVIEW"])
+    else:
+        for uid in ids: render_unit(uid)

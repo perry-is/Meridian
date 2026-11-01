@@ -9,3 +9,6 @@ build/
 # Tripo source models (~65 MB each); kept locally and in Tripo, not in git
 art/tripo/**/*.glb
 __pycache__/
+
+# Rigged soldier meshes (exported from Mixamo / Blender, ~12 MB each)
+art/rigged/

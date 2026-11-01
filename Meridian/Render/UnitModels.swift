@@ -2,27 +2,33 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// Pre-rendered 3D unit sprites (tools/blender/unit_render.py): eight facings x six poses per unit, each with a
-/// mask of the model's team-colour markings. Units without renders fall back to the procedural UnitArt drawings.
+/// Pre-rendered 3D unit sprites (tools/blender/unit_render.py): eight facings x six poses per unit (nine for
+/// motion-captured soldiers, which add a death fall), each with a mask of the model's team-colour markings. Units
+/// without renders fall back to the procedural UnitArt drawings.
 enum UnitModels {
     static let facingCount = 8
     /// 0 idle, 1-4 walk / wing-beat cycle, 5 attack.
     static let poseCount = 6
     static let idle = 0, walk = 1, attack = 5
+    /// Optional falling frames after the six poses.
+    static let death = 6, deathCount = 3
 
     /// The unit's lit renders and team masks as [facing][pose], facing k*45° on screen (0 = right,
-    /// counter-clockwise), if bundled.
+    /// counter-clockwise), if bundled. Death frames are kept only if every facing has them.
     static func load(_ id: String) -> [[(base: CGImage, mask: CGImage)]]? {
         var out: [[(CGImage, CGImage)]] = []
         for k in 0..<facingCount {
             var poses: [(CGImage, CGImage)] = []
-            for p in 0..<poseCount {
-                guard let b = image("u3d_\(id)_d\(k)_\(p)"), let m = image("u3d_\(id)_d\(k)_\(p)m") else { return nil }
+            for p in 0..<poseCount + deathCount {
+                guard let b = image("u3d_\(id)_d\(k)_\(p)"), let m = image("u3d_\(id)_d\(k)_\(p)m") else {
+                    if p < poseCount { return nil } else { break }
+                }
                 poses.append((b, m))
             }
             out.append(poses)
         }
-        return out
+        let n = out.map(\.count).min() ?? poseCount
+        return out.map { Array($0.prefix(n == poseCount + deathCount ? n : poseCount)) }
     }
 
     /// Recolours the masked markings with the team colour, keeping the render's own shading.

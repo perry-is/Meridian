@@ -156,7 +156,8 @@ final class TextureBank {
             return d
         } }
         unitFacings = unitNames.map { $0.map { n in
-            images[n + "_f0_0"] == nil ? [] : (0..<UnitModels.facingCount).map { k in (0..<UnitModels.poseCount).map { atlas.textureNamed(n + "_f\(k)_\($0)") } }
+            let poses = UnitModels.poseCount + (images[n + "_f0_\(UnitModels.death)"] != nil ? UnitModels.deathCount : 0)
+            return images[n + "_f0_0"] == nil ? [] : (0..<UnitModels.facingCount).map { k in (0..<poses).map { atlas.textureNamed(n + "_f\(k)_\($0)") } }
         } }
         building = buildingNames.map { $0.map { images[$0] != nil ? atlas.textureNamed($0) : SKTexture() } }
         resource = ResourceKind.allCases.map { k in (0..<3).map { atlas.textureNamed("r\(k.rawValue)_\($0)") } }

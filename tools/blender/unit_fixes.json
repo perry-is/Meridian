@@ -42,12 +42,7 @@
     ]
   },
   "a_skitter": {
-    "recolor": true,
-    "forward": [
-      0,
-      1,
-      0
-    ]
+    "recolor": true
   },
   "a_weaver": {
     "recolor": true
@@ -153,5 +148,23 @@
       0.26,
       0.3
     ]
+  },
+  "h_engineer": {
+    "clips": {
+      "attack": [
+        "working",
+        0.5
+      ]
+    }
+  },
+  "h_lancer": {
+    "portrait": {
+      "zoom": 3.5,
+      "offset": [
+        0,
+        0,
+        0.35
+      ]
+    }
   }
 }

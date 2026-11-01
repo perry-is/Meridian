@@ -27,8 +27,10 @@ struct UnitPortraitView: View {
                                                 blink: PortraitArt.blink(t, seed: seed),
                                                 mouth: radio.mouth(at: CACurrentMediaTime(), unitType: unitType),
                                                 t: t)
-                    // Painted layers when this unit has them, otherwise the Swift-drawn portrait.
-                    if !LayeredPortrait.preferOriginal, let lp = LayeredPortrait.portrait(for: unitID) {
+                    // The 3D model's portrait, else painted layers when this unit has them, else the Swift-drawn one.
+                    if !LayeredPortrait.preferOriginal, let mp = ModelPortrait.portrait(for: unitID, team: team) {
+                        mp.draw(cg, pose: pose)
+                    } else if !LayeredPortrait.preferOriginal, let lp = LayeredPortrait.portrait(for: unitID) {
                         lp.draw(cg, pose: pose, team: team)
                     } else {
                         PortraitArt.draw(Pen(cg, 40, 40), unit: unitID, team: team, pose: pose)
@@ -51,12 +53,13 @@ struct UnitPortraitView: View {
                     .padding(.horizontal, 4).padding(.vertical, 2).background(Color.black.opacity(0.7)).padding(.bottom, 3)
             }
         }
-        // Long-press compares the painted portrait with the original (only for units that have painted layers).
+        // Long-press compares the 3D or painted portrait with the original (only for units that have one).
         .onLongPressGesture(minimumDuration: 0.8) {
-            guard LayeredPortrait.portrait(for: unitID) != nil else { return }
+            let model = ModelPortrait.has(unitID)
+            guard model || LayeredPortrait.portrait(for: unitID) != nil else { return }
             LayeredPortrait.preferOriginal.toggle()
             styleFlip.toggle()
-            flash = LayeredPortrait.preferOriginal ? "ORIGINAL" : "PAINTED"
+            flash = LayeredPortrait.preferOriginal ? "ORIGINAL" : (model ? "3D" : "PAINTED")
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { flash = nil }
         }
         .id(styleFlip)
