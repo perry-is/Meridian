@@ -23,7 +23,7 @@ The game uses a 2:1 isometric projection: a tile is 64×32 points. The Blender c
 
 Every Tripo character is now rigged, so infantry and creatures animate on real skeletons.
 
-**Soldiers: motion capture.** Each soldier has a 25-bone Mixamo-compatible skeleton. Three were auto-rigged by Mixamo. Mixamo's rigger rejected the other four, so they were rigged in Blender: a skeleton was built from joint positions marked on front-view renders, then auto-weighted on a voxel-remeshed proxy and the weights transferred to the real mesh. `unit_render.py` retargets Mixamo clips onto each skeleton bone by bone. Each bone copies the clip's world rotation, corrected for the difference between the two rest poses, so one set of clips drives every soldier whatever their proportions:
+**Soldiers: motion capture.** Each soldier has a 25-bone Mixamo-compatible skeleton. Three were auto-rigged by Mixamo. The Ranger came from Tripo already rigged with a VRM skeleton, and `tools/blender/vrm_to_mixamo.py` renames its bones to Mixamo names. Mixamo's rigger rejected the other four, so they were rigged in Blender: a skeleton was built from joint positions marked on front-view renders, then auto-weighted on a voxel-remeshed proxy and the weights transferred to the real mesh. `unit_render.py` retargets Mixamo clips onto each skeleton bone by bone. Each bone copies the clip's world rotation, corrected for the difference between the two rest poses, so one set of clips drives every soldier whatever their proportions:
 
 | Pose | Clip |
 |---|---|
