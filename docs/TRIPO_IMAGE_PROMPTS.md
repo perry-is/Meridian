@@ -152,3 +152,62 @@ Wisp, swift alien flying predator in level flight, slender dragonfly-wasp body, 
 ```
 Shadeling, sleek alien ambush predator, low panther-like four-legged body, pale bone ridges and spines along the back, long whip tail with a blade tip, glowing bio-green eyes, glossy dark purple chitin plates with lighter edges, bright pure blue markings on the shoulder plates, prowling pose, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
 ```
+
+## Brood regeneration (the other 11)
+
+Rigging: use Tripo's **Humanoid** rig for the upright ones (Mantis, Needleback, Lifebinder), and its **four-legged** rig for Ravager, Spinecaster, Rupturer and Seeder, the same rig Shadeling got. Skip rigging for Weaver, Skitter, Colossus and Blightwing; I'll build those skeletons myself.
+
+**a_weaver: Weaver**
+```
+Weaver, small six-legged alien worker creature, rounded armoured back carrying glowing amber resin sacs, spindly jointed legs, large harvesting mandibles at the front, glowing bio-green pores, dark purple-brown glossy chitin, bright pure blue markings on the back plates, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_mantis: Mantis**
+```
+Mantis, fast upright alien warrior shaped like a praying mantis, two huge serrated scythe-blade forelimbs raised, lean armoured chitin body on two strong digitigrade legs, narrow head with glowing bio-green eyes, dark purple-brown chitin, bone spikes, bright pure blue stripes on the thorax, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_ravager: Ravager**
+```
+Ravager, hulking four-legged alien brute, massive cleaver-shaped bone blades on its front limbs, heavy plated hunched shoulders, low armoured head with a drooling fanged jaw, thick muscular legs, dark purple-brown chitin and wet flesh, bone spikes, glowing bio-green pores, bright pure blue shoulder plates, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_spinecaster: Spinecaster**
+```
+Spinecaster, four-legged alien artillery creature, hunched arched back bristling with long acid-dripping launchable spines angled forward, glowing green acid glands along the flanks, sturdy legs, low armoured head, dark purple-brown chitin, bright pure blue markings on the back plates, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_needleback: Needleback**
+```
+Needleback, upright two-legged alien anti-air creature like a giant porcupine, tall quills fanned upward along its back with glowing bio-green tips, short clawed arms, armoured head looking up, dark purple-brown chitin, bright pure blue markings on the chest plates, standing pose with arms slightly out from the body, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_lifebinder: Lifebinder**
+```
+Lifebinder, graceful upright alien healer creature, tall slender body, glowing bio-green heart-sac pulsing in the chest, long flowing tentacle tendrils from the shoulders, soft translucent membranes, delicate head with glowing eyes, dark purple-brown chitin, bright pure blue markings on the shoulder plates, standing pose with arms slightly out from the body, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_skitter: Skitter**
+```
+Skitter, tiny fast alien swarm creature, beetle-crab hybrid, low wide armoured shell, six sharp pointed legs, snapping pincer jaws at the front, glowing bio-green eyes, dark purple-brown glossy chitin, bright pure blue markings on the shell, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_colossus: Colossus**
+```
+Colossus, towering alien behemoth, elephant-sized armoured body on six massive pillar legs, huge curved bone tusks, crushing armoured battering-ram head, glowing green vents along the back, dark purple-brown chitin plates, bone spikes, bright pure blue carapace plates on the back, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_rupturer: Rupturer**
+```
+Rupturer, bloated four-legged alien bio-artillery creature, giant translucent green acid sac swelling on its back, short sturdy legs, a wide mortar-like spitting orifice on top of the head, dark purple-brown chitin and wet flesh, bright pure blue plates along the sides, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_seeder: Spore Seeder**
+```
+Spore Seeder, slow heavy four-legged alien creature, large mushroom-like spore cap on its back covered in glowing bio-green pods, fungal growths along the legs, low head with feeding tendrils, dark purple-brown chitin, bright pure blue markings on the flank plates, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_blightwing: Blightwing**
+```
+Blightwing, large flying alien bombardier in level flight, wide bat-like leathery wings spread, long neck with a spitting fanged maw, bulging acid gland dangling under the belly, short tucked legs, long tail, dark purple-brown chitin and membrane, bone spikes, bright pure blue markings on the back plates, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
