@@ -176,7 +176,7 @@ struct HUDState {
     var tileHP: [Int: Double] = [:]
     var idleWorkers = 0
     var armyCount = 0
-    var sides: [(faction: Faction, units: Int, value: Double, kills: Int, team: Int, defeated: Bool)] = []
+    var sides: [(faction: Faction, units: Int, value: Double, kills: Int, team: Int, defeated: Bool, name: String)] = []
 }
 
 @MainActor
@@ -880,7 +880,7 @@ final class GameController: ObservableObject {
             for e in world.entities where e.isUnit && e.alive && !e.isMine && e.owner == pl.index && !world.traits[e.type].worker {
                 n += 1; v += data.units[e.type].cost.value(data.rules.economy) * e.hp / max(1, e.maxHp)
             }
-            return (pl.faction, n, v, pl.stats.kills, pl.team, pl.defeated)
+            return (pl.faction, n, v, pl.stats.kills, pl.team, pl.defeated, pl.name)
         }
         h.siteOwners = world.sites.map { $0.control >= 1 ? $0.owner : -1 }
         h.siteProgress = world.sites.map { $0.owner >= 0 ? $0.control : ($0.capturer >= 0 ? -$0.control : 0) }

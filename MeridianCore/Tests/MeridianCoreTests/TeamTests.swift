@@ -121,10 +121,12 @@ final class TeamTests: XCTestCase {
     func testTeamVictoryAndElimination() {
         let w = World(config: MatchConfig(factions: [.humans, .machines, .aliens, .humans], teams: [0, 0, 1, 1], layout: .crossroads, seed: 9))
         let straggler = w.spawnUnit(data.unitIndex["a_mantis"]!, owner: 2, x: 30, y: 30)
+        w.sites[1].owner = 2; w.sites[1].control = 1
         for b in w.buildings(of: 2) { w.kill(b, killer: 0) }
         for _ in 0..<25 { w.step() }
         XCTAssertTrue(w.players[2].defeated)
         XCTAssertFalse(straggler.alive, "an eliminated commander's units disband")
+        XCTAssertEqual(w.sites[1].owner, -1, "an eliminated commander's sites fall neutral")
         XCTAssertNil(w.winner, "team 1 still has a commander standing")
         for b in w.buildings(of: 3) { w.kill(b, killer: 1) }
         for _ in 0..<25 { w.step() }

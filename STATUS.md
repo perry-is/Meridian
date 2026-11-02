@@ -189,3 +189,11 @@ Renderer-only; the simulation, stats, AI and controls are unchanged. Full write-
 - **Fixes after first compile:** resource nodes on tile boundaries broke four-fold symmetry (rotate the tile, not the point); the home flank site on 3–4 player Riverbend/Highlands sat on the same side as the boundary site (on Riverbend, across the river in the neighbour's sector), now on the far side at 0.42 rad like Crossroads.
 - **1v1 balance:** two-player maps keep their bases and sites, but obstacles and forests are drawn from a different random sequence. 108-game tournaments (`--seeds 6`): before this mission Humans 69%, Machines 24%, Aliens 57%; after it 74/26/50. The difference is within noise; the drift from the 54/52/44 table above predates this work.
 - **Screenshots:** `docs/screenshots/teams/` (in-app 2v2 and three-way Riverbend; generator layouts for every map and player count).
+
+### Follow-ups after verification
+- An eliminated commander's sites fall neutral (their bulwarks go with them), so a dead ally no longer props up a team's Dominance count or vision.
+- `meridian-sim match` reports the winning team and its members ("Winner: team B (P1 machines, P3 humans)").
+- The spectator HUD shows player names, so two commanders of one faction read "Terran Concord 1" and "Terran Concord 4".
+- Spectators see the whole minimap instead of commander 1's explored area.
+- CI: `.github/workflows/core-tests.yml` builds and tests `MeridianCore` on every push and runs a short 3-player headless match.
+- Known and accepted: two-player maps keep their layouts but rocks and forests differ from the old generator for the same seed; saves from before this branch are not offered (format 2).

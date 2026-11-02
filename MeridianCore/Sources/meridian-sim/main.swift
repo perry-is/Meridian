@@ -25,6 +25,9 @@ struct MatchResult {
     var factions: [Faction]
     var peak: [Int]
     var ms: Double
+    /// Team per player and the winning team's members (empty when nobody won).
+    var teams: [Int] = []
+    var winningTeam: [Int] = []
 }
 
 func runMatch(_ f0: Faction, _ f1: Faction, layout: MapLayout, seed: UInt64, diff: [Difficulty], strat: [AIStrategy],
@@ -71,8 +74,9 @@ func runMatch(factions: [Faction], teams: [Int]?, victory: VictoryMode, layout: 
             print("P\(p.index) \(p.faction.rawValue): valueKilled \(Int(s.valueKilled)) valueLost \(Int(s.valueLost)) gathered \(s.gathered) territory \(s.territoryIncome.map { Int($0) })\n   produced/lost: \(prod)")
         }
     }
+    let winners = m.world.winningTeam.map { t in m.world.players.indices.filter { m.world.teamOf[$0] == t } } ?? []
     return MatchResult(winner: m.world.winner!, reason: m.world.victoryReason, time: m.world.time,
-                       factions: factions, peak: m.world.players.map { $0.stats.peakUnits }, ms: ms)
+                       factions: factions, peak: m.world.players.map { $0.stats.peakUnits }, ms: ms, teams: m.world.teamOf, winningTeam: winners)
 }
 
 func parseFaction(_ s: String) -> Faction { Faction(rawValue: s) ?? .humans }
@@ -94,8 +98,10 @@ case "match":
                      diff: factions.indices.map { parseDiff(opt("d\($0)", opt("diff", "normal"))) },
                      strat: factions.indices.map { AIStrategy(rawValue: opt("s\($0)", "balanced")) ?? .balanced },
                      swap: flag("swap"), limit: Double(opt("limit", "2700"))!, verbose: true)
-    let name = r.winner >= 0 ? r.factions[r.winner].rawValue : "none"
-    print("Winner: P\(r.winner) \(name) — \(r.reason) at \(mmss(r.time)); peak units \(r.peak); wall \(fmt(r.ms / 1000, 1))s")
+    // "Winner: team B (P1 machines, P3 humans)" in team games, "Winner: P1 machines" in duels.
+    let who = r.winningTeam.map { "P\($0) \(r.factions[$0].rawValue)" }.joined(separator: ", ")
+    let label = r.winningTeam.isEmpty ? "none" : (Set(r.teams).count < r.teams.count ? "team \(["A", "B", "C", "D"][r.teams[r.winner]]) (\(who))" : who)
+    print("Winner: \(label) — \(r.reason) at \(mmss(r.time)); peak units \(r.peak); wall \(fmt(r.ms / 1000, 1))s")
 
 case "tournament":
     // Every ordered faction pair on every playable map, several seeds, both start positions.

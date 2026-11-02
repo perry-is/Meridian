@@ -332,6 +332,14 @@ extension World {
             else if e.isBuilding { e.queue.removeAll() }
         }
         p.researching.removeAll()
+        // Their sites fall neutral (and their bulwarks with them): nobody holds ground without a commander.
+        for i in sites.indices where sites[i].owner == p.index {
+            if let b = entity(sites[i].bulwarkID) { kill(b, killer: -1) }
+            sites[i].owner = -1; sites[i].control = 0; sites[i].capturer = -1
+            sites[i].installation = .none; sites[i].bulwarkID = -1
+        }
+        p.dominanceTimer = 0
+        refreshZonesSoon = true
         for pl in players { emit(.message(owner: pl.index, text: "\(p.name) has been eliminated")) }
     }
 }

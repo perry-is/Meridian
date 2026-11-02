@@ -77,7 +77,7 @@ struct SpectatorHUD: View {
         VStack(alignment: alignment, spacing: 2) {
             ForEach(Array(h.sides.enumerated()).filter { $0.element.team == team }, id: \.offset) { p, s in
                 VStack(alignment: alignment, spacing: 1) {
-                    Text(GameData.shared.faction(s.faction).name.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(1)
+                    Text(s.name.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(1)
                         .foregroundColor(Theme.team(p)).strikethrough(s.defeated)
                     HStack(spacing: 6) {
                         Label("\(s.units)", systemImage: "person.3.fill")

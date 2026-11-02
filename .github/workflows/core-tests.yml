@@ -1,0 +1,29 @@
+name: Core tests
+
+# The simulation core has no Apple dependencies, so it builds and tests on Linux too.
+on:
+  push:
+    branches: ["**"]
+    paths: ["MeridianCore/**", ".github/workflows/core-tests.yml"]
+  pull_request:
+    paths: ["MeridianCore/**", ".github/workflows/core-tests.yml"]
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        working-directory: MeridianCore
+        run: swift build -c release
+      - name: Test
+        working-directory: MeridianCore
+        run: swift test
+      - name: Data validation and a short headless match
+        working-directory: MeridianCore
+        run: |
+          .build/release/meridian-sim validate
+          .build/release/meridian-sim match --quick --limit 600 --p0 humans --p1 aliens --p2 machines --teams 0,1,1 --victory annihilation | tail -3

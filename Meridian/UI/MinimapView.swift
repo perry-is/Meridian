@@ -95,9 +95,12 @@ struct MinimapView: View {
         let p = controller.world.players[controller.me]
         let n = controller.world.map.size
         var px = [UInt8](repeating: 0, count: n * n * 4)
-        for i in 0..<(n * n) {
-            let a: UInt8 = p.visible[i] > 0 ? 0 : (p.explored[i] ? 120 : 235)
-            px[i * 4 + 3] = a
+        // Spectators see the whole battlefield; players see their team's vision.
+        if !controller.spectating {
+            for i in 0..<(n * n) {
+                let a: UInt8 = p.visible[i] > 0 ? 0 : (p.explored[i] ? 120 : 235)
+                px[i * 4 + 3] = a
+            }
         }
         return Self.image(px, n)
     }
