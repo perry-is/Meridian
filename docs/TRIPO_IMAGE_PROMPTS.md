@@ -211,3 +211,180 @@ Spore Seeder, slow heavy four-legged alien creature, large mushroom-like spore c
 ```
 Blightwing, large flying alien bombardier in level flight, wide bat-like leathery wings spread, long neck with a spitting fanged maw, bulging acid gland dangling under the belly, short tucked legs, long tail, dark purple-brown chitin and membrane, bone spikes, bright pure blue markings on the back plates, single game asset concept render, three-quarter front view from slightly above, entire model in frame, centered, plain light grey background, soft even studio lighting, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
 ```
+
+## Buildings
+
+None of these need a rig, so skip rigging in Tripo. Export each GLB named with the building's id into `/Users/perry/Desktop/tripo/buildings/`.
+
+Extra rules for buildings:
+
+- Isometric three-quarter view looking at one corner, so the image shows two walls and the roof.
+- The building stands on a flat square base that fills its footprint. Footprint sizes: HQ 4×4 tiles, Depot, Tower and Forward 2×2, everything else 3×3. Keep 2×2 buildings compact, and make towers tall and narrow.
+- No ground, terrain, people or vehicles around it.
+- Production buildings have their door or bay on a front-facing wall, so units can be seen coming out.
+
+### Concord
+
+Concord is the human army: olive drab, gunmetal and concrete, with hazard stripes and amber lights.
+
+**h_hq: Command Hub** (4×4)
+```
+Command Hub, massive fortified military command headquarters, central armoured command tower with a radar dish and tall antenna mast, wide helicopter landing pad on one side, large vehicle-sized cargo intake bay door at the front, smaller annex blocks and communication dishes around it, thick reinforced concrete and steel base, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue roof panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_depot: Logistics Depot** (2×2)
+```
+Logistics Depot, compact military resource depot, armoured unloading dock with a wide intake bay, small overhead gantry crane, stacked metal cargo crates and ore bins, conveyor chute, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue crane and door panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_infantry: Drill Hall** (3×3)
+```
+Drill Hall, fortified military barracks, long bunker-style hall with a sloped armoured roof, large double blast door at the front, sandbag walls, flagpole, rooftop watch catwalk, rows of narrow slit windows glowing amber, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue roof panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_heavy: Motor Pool** (3×3)
+```
+Motor Pool, military vehicle factory, large armoured hangar with a wide raised roll-up garage door and vehicle ramp at the front, overhead gantry crane on the roof, exhaust stacks, cylindrical fuel tanks beside it, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue door panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_air: Aerodrome** (3×3)
+```
+Aerodrome, military airfield structure, raised square landing platform with edge landing lights on top of a hangar, small control tower with a tinted glass cab at one corner, radar dish, fuel lines, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue landing pad edge markings, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no aircraft, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_research: Tech Lab** (3×3)
+```
+Tech Lab, military research facility, modular laboratory building with a large glass observation dome, satellite dish, rooftop cooling units, antenna array, lit windows showing server racks, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue wall panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_tower: Sentry Tower** (2×2, tall)
+```
+Sentry Tower, defensive gun tower, tall narrow reinforced concrete tower on a small square base, armoured rotating turret on top with twin autocannons and a missile pod, searchlight, access ladder, olive-drab and gunmetal armour plating over concrete, hazard-yellow stripes, amber lights, bright pure blue turret side panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**h_forward: Forward Post** (2×2)
+```
+Forward Post, compact military field outpost, prefab armoured bunker ringed with sandbags, folding mechanical repair crane arm, supply crates, camouflage netting, tall radio antenna with a beacon light, olive-drab and gunmetal armour plating, hazard-yellow stripes, amber lights, bright pure blue bunker panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+### Lattice
+
+The Lattice look matches its machines: obsidian, gunmetal and chrome, with hexagonal plates and floating rings.
+
+**m_hq: Core Nexus** (4×4)
+```
+Core Nexus, massive machine-intelligence citadel, tall central obsidian spire with a glowing turquoise core crystal at its heart, several floating chrome rings orbiting the spire, broad stepped hexagonal base, glowing intake ports at the foot, smaller satellite pylons at the corners, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_depot: Smelter** (2×2)
+```
+Smelter, compact machine smelting furnace, hexagonal furnace block with a glowing turquoise molten opening, intake funnel on top, chrome heat-vent fins, one small floating chrome ring above it, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_infantry: Assembly Line** (3×3)
+```
+Assembly Line, robotic factory hall, long angular building with an open front gate, robotic assembly arms visible inside, conveyor ramp leading out of the gate, chrome exhaust fins along the roof, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_heavy: Heavy Forge** (3×3)
+```
+Heavy Forge, massive machine foundry, heavy angular obsidian block with a wide forge gate glowing turquoise inside, huge hydraulic press arms on the roof, chrome pistons, stacked heat-sink fins, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_air: Drone Spire** (3×3)
+```
+Drone Spire, tall slender obsidian launch spire on a hexagonal base, several empty docking cradles on angled arms around it, floating chrome rings near the top, glowing turquoise beacon at the tip, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no drones, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_research: Logic Array** (3×3)
+```
+Logic Array, machine data centre, ring of tall monolithic obsidian server pillars around a floating glowing turquoise data sphere, chrome conduits linking the pillars, glowing turquoise data lines running up each pillar, hexagonal base, obsidian and gunmetal hexagonal plating with chrome trim, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_tower: Pulse Tower** (2×2, tall)
+```
+Pulse Tower, heavily armoured machine defence tower, thick tapered hexagonal obsidian column with overlapping chrome armour fins, energy emitter on top inside a floating chrome ring charged with turquoise light, small square base, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**m_forward: Relay Pylon** (2×2, tall)
+```
+Relay Pylon, slender machine relay obelisk on a small hexagonal base, three floating chrome rings stacked around its upper half, glowing turquoise energy crystal at the tip, small antenna fins, obsidian and gunmetal hexagonal plating with chrome trim, glowing turquoise circuitry, bright pure blue hexagonal panels, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire building in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no people, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+### Brood
+
+The Brood grows its buildings. They use the same look as its creatures: dark purple-brown chitin, bone spines, wet flesh and bio-green glowing pores. Keep the roots and tendrils inside the square base. The game draws the Bloom ground separately.
+
+**a_hq: Hive Heart** (4×4)
+```
+Hive Heart, massive living alien hive, huge fleshy heart-like mound with a large ribbed opening at the front, arching bone ribs and spires curving over it, thick pulsing veins, clusters of smaller egg sacs around the base, short root tendrils kept within a square base, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the chitin plates, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_depot: Siphon Gland** (2×2)
+```
+Siphon Gland, compact living alien resource gland, bulbous fleshy organ with a puckered intake orifice at the front, translucent sacs of glowing bio-green fluid on top, short root tendrils kept within a square base, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the chitin plates, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_infantry: Brood Hollow** (3×3)
+```
+Brood Hollow, living alien burrow, low cavernous organic mound with a large tunnel mouth at the front ringed with bone teeth, clusters of glowing egg sacs on top, ribbed chitin ridges, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the chitin plates, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_heavy: Ripening Den** (3×3)
+```
+Ripening Den, living alien gestation chamber, large swollen ribbed chrysalis with the shadow of a huge creature visible through a translucent membrane, bone spikes along its back, thick veins wrapping it, a wide birthing slit at the front, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the chitin plates, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_air: Aerie Bloom** (3×3)
+```
+Aerie Bloom, tall living alien nest, thick fleshy stalk rising from a root base and opening into large membranous petals at the top like a giant flower nest, glowing bio-green spore pods hanging under the petals, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the petals, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_research: Cortex Garden** (3×3)
+```
+Cortex Garden, living alien research growth, cluster of large folded brain-like organs on a fleshy bed, linked by glowing bio-green nerve fibres, tall sensory stalks topped with eye-like bulbs, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the chitin plates, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_tower: Thorn Tower** (2×2, tall)
+```
+Thorn Tower, living alien defence tower, tall twisted column of chitin bristling with huge outward-pointing bone thorns, a launching maw at the top glowing bio-green, rooted base, dark purple-brown chitin and wet flesh, bone spines, bio-green glowing pores, bright pure blue markings on the chitin plates, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+**a_forward: Root Node** (2×2)
+```
+Root Node, small living alien growth node, knotted tangle of thick roots twisting upward into a glowing bio-green bulb, small bone spines, roots kept within a square base, dark purple-brown chitin and wet flesh, bio-green glowing pores, bright pure blue markings on the root bark, single building game asset concept render, isometric three-quarter view from above looking at one corner, square footprint on a flat base, entire structure in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no creatures, no text, no logos, stylized-realistic AAA sci-fi RTS look, PBR materials, worn and weathered, bold readable silhouette
+```
+
+## Resources
+
+Resources are neutral, so they have **no blue** anywhere. Export the GLBs into `/Users/perry/Desktop/tripo/props/` as `gold0`–`gold2` and `iron0`–`iron2`. Each is a field you mine, about one tile across. Make the three variants of each clearly different in shape, so a field of them doesn't look copy-pasted.
+
+**gold0: Gold crystals, tall cluster**
+```
+cluster of large glowing golden-amber crystals, several tall faceted hexagonal crystal spires growing upward from a low dark rock base, smaller crystals around them, warm inner glow, sci-fi mineral resource, single game asset concept render, three-quarter view from above, entire object in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no blue, no text, stylized-realistic AAA sci-fi RTS look, PBR materials, bold readable silhouette
+```
+
+**gold1: Gold crystals, wide low cluster**
+```
+wide low cluster of glowing golden-amber crystals, many medium faceted crystals fanning outward at angles from a flat dark rock base, warm inner glow, sci-fi mineral resource, single game asset concept render, three-quarter view from above, entire object in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no blue, no text, stylized-realistic AAA sci-fi RTS look, PBR materials, bold readable silhouette
+```
+
+**gold2: Gold crystals, broken shards**
+```
+two large leaning glowing golden-amber crystal shards and a scatter of small broken crystal fragments embedded in a cracked dark rock base, warm inner glow, sci-fi mineral resource, single game asset concept render, three-quarter view from above, entire object in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no blue, no text, stylized-realistic AAA sci-fi RTS look, PBR materials, bold readable silhouette
+```
+
+**iron0: Iron ore, boulder pile**
+```
+pile of heavy dark grey iron ore boulders with shiny metallic silver veins and rust-orange streaks, rough rocky surfaces, sci-fi mining resource deposit, single game asset concept render, three-quarter view from above, entire object in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no blue, no text, stylized-realistic AAA sci-fi RTS look, PBR materials, bold readable silhouette
+```
+
+**iron1: Iron ore, outcrop**
+```
+jagged dark iron ore rock outcrop with exposed layered metallic seams, shiny silver metal veins and rust-orange streaks, a few loose ore chunks at its base, sci-fi mining resource deposit, single game asset concept render, three-quarter view from above, entire object in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no blue, no text, stylized-realistic AAA sci-fi RTS look, PBR materials, bold readable silhouette
+```
+
+**iron2: Iron ore, split boulder**
+```
+one large split dark iron ore boulder cracked open to reveal a bright metallic silver interior, rust-orange streaks on the weathered outside, small ore chunks scattered around it, sci-fi mining resource deposit, single game asset concept render, three-quarter view from above, entire object in frame, centered, plain light grey background, soft even studio lighting, no ground, no terrain, no ground shadow, no blue, no text, stylized-realistic AAA sci-fi RTS look, PBR materials, bold readable silhouette
+```
