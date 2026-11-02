@@ -141,7 +141,8 @@ extension World {
 
 /// A complete saved match: settings, simulation state and the computer opponents.
 public struct MatchSave: Codable {
-    public static let formatVersion = 1
+    /// 2: team play. The map is regenerated from the seed on load, and the generator changed with it, so older saves cannot resume.
+    public static let formatVersion = 2
     public var version = MatchSave.formatVersion
     public var factions: [Faction]
     /// Team per player and the victory mode (absent in saves from before team play, which were 1v1 dominance matches).

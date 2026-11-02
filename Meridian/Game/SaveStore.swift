@@ -36,8 +36,9 @@ enum SaveStore {
     private static var infoURL: URL { dir.appendingPathComponent("current-info.json") }
 
     static var info: Info? {
-        guard let d = try? Data(contentsOf: infoURL) else { return nil }
-        return try? JSONDecoder().decode(Info.self, from: d)
+        guard let d = try? Data(contentsOf: infoURL), let i = try? JSONDecoder().decode(Info.self, from: d) else { return nil }
+        // Saves from before team play rebuild a different map from their seed; don't offer them.
+        return i.factions == nil ? nil : i
     }
 
     /// Encodes and writes off the main thread (the snapshot itself was taken on the main thread).
@@ -52,7 +53,10 @@ enum SaveStore {
     static func read() -> MatchSave? {
         queue.sync {}   // let any pending write finish first
         guard let d = try? Data(contentsOf: saveURL) else { return nil }
-        do { return try JSONDecoder().decode(MatchSave.self, from: d) } catch { print("SAVE read failed: \(error)"); return nil }
+        do {
+            let s = try JSONDecoder().decode(MatchSave.self, from: d)
+            return s.version >= MatchSave.formatVersion ? s : nil
+        } catch { print("SAVE read failed: \(error)"); return nil }
     }
 
     static func delete() {
