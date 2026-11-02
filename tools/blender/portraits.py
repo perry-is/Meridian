@@ -34,37 +34,47 @@ def render_portrait(uid):
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.shade_smooth()
     soldier = "mixamorig:Head" in arm.pose.bones
-    head = bone(arm, "mixamorig:Head", "head"); neck = bone(arm, "mixamorig:Neck", "neck", "neck.02", "thorax")
     # Stand it up and face it like the sprites: forward is -Y in the standing frame.
     fixm = Euler([math.radians(a) for a in fix.get("rotate", [0, 0, 0])]).to_matrix().to_4x4()
     fwd = Vector(fix.get("forward", [0, -1, 0]))
-    yaw = Matrix.Rotation(math.atan2(fwd.x, -fwd.y), 4, "Z")
+    yaw = Matrix.Rotation(ur.humanoid_yaw(arm) if soldier else math.atan2(-fwd.x, -fwd.y), 4, "Z")
     to_arm = (fixm @ arm.matrix_world).inverted().to_3x3()
     F = (to_arm @ (yaw.inverted().to_3x3() @ Vector((0, -1, 0)))).normalized()   # whatever the yaw turns to face -Y
     Up = (to_arm @ Vector((0, 0, 1))).normalized(); Lat = F.cross(Up).normalized()
+    # unit_fixes "portrait": {"head": "front"} skips a mislabelled head bone.
+    head = None if pf.get("head") == "front" else bone(arm, "mixamorig:Head", "head", "tripo::Head_0")
+    if head is None:
+        # Unnamed creature skeletons: the bone reaching furthest forward, above the legs.
+        bs = [b for b in arm.pose.bones if b.bone.head_local.dot(Up) > 0]
+        head = max(bs or arm.pose.bones, key=lambda b: b.bone.tail_local.dot(F))
+    neck = bone(arm, "mixamorig:Neck", "neck", "neck.02", "thorax") or (head.parent if head.parent and head.parent.parent else None)
     if soldier:
-        rt = ur.Retarget(arm); rt.clip("rifle_idle")
+        # Retargeting works in world space, so pose the rig at the origin before standing it up.
+        rt = ur.Retarget(arm); rt.apply("rifle_idle", 0.0)
     orient = bpy.data.objects.new("orient", None); sc.collection.objects.link(orient)
     arm.parent = orient; orient.matrix_basis = yaw @ fixm
-    if soldier:
-        # Retargeting needs the rig at the origin; the standing frame for soldiers is the identity anyway.
-        rt.apply("rifle_idle", 0.0)
     bpy.context.view_layer.update()
 
-    # Head vertices (in mesh space) from the head bone's skin weights.
-    vg = obj.vertex_groups.get(head.name)
+    # Head vertices (in mesh space): skinned to the head bone or anything below it (helmets, horns, jaws).
     n = len(obj.data.vertices)
     co = np.empty(n * 3); obj.data.vertices.foreach_get("co", co); co = co.reshape(-1, 3)
-    w = np.zeros(n)
-    if vg:
-        gi = vg.index
-        for v in obj.data.vertices:
-            for g in v.groups:
-                if g.group == gi: w[v.index] = g.weight
-    hv = co[w > 0.5] if (w > 0.5).sum() > 50 else co[w > 0.1]
     m2a = np.array(arm.matrix_world.inverted() @ obj.matrix_world)       # mesh space -> armature space
     a2m = np.linalg.inv(m2a)
     to_a = lambda P: P @ m2a[:3, :3].T + m2a[:3, 3]
+    groups = {obj.vertex_groups[b.name].index for b in [head.bone] + list(head.bone.children_recursive)
+              if b.name in obj.vertex_groups}
+    w = np.zeros(n)
+    for v in obj.data.vertices:
+        for g in v.groups:
+            if g.group in groups: w[v.index] += g.weight
+    w = np.clip(w, 0, 1)
+    if (w > 0.1).sum() < 50:
+        # Some rigs leave the head bone unskinned: take the mesh around it instead.
+        hb = head.bone
+        r = max(hb.length * 1.5, 1e-3)
+        d = np.linalg.norm(to_a(co) - np.array((hb.head_local + hb.tail_local) / 2), axis=1)
+        w = ur.smooth(r, r * 0.5, d)
+    hv = co[w > 0.5] if (w > 0.5).sum() > 50 else co[w > 0.1]
     hva = to_a(hv)
     cen = hva.mean(axis=0)
     Fn, Un, Ln = (np.array(v) for v in (F, Up, Lat))
@@ -105,6 +115,15 @@ def render_portrait(uid):
     # Camera: a short telephoto on the head from the front, a little above and to the side.
     hc = arm.matrix_world @ Vector(cen)
     hsw = hs * arm.matrix_world.to_scale().x
+    if pf.get("frame") == "body":
+        # Heads sunk into armour or tiny on a big body: frame the upper front of the whole model instead.
+        ev = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        M = np.array(obj.matrix_world)
+        P = np.empty(len(ev.data.vertices) * 3); ev.data.vertices.foreach_get("co", P)
+        P = P.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+        lo, hi = P.min(axis=0), P.max(axis=0)
+        hc = Vector(((lo[0] + hi[0]) / 2, lo[1], lo[2] + (hi[2] - lo[2]) * pf.get("rise", 0.62)))
+        hsw = float(max(hi - lo)) * 0.3
     view = Vector((math.sin(math.radians(pf.get("yaw", 22))), -1, 0)).normalized()
     view = (view * math.cos(math.radians(pf.get("pitch", 10))) + Vector((0, 0, math.sin(math.radians(pf.get("pitch", 10)))))).normalized()
     cd = bpy.data.cameras.new("cam"); cd.lens = 85; cd.sensor_width = 36

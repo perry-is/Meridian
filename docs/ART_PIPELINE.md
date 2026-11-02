@@ -8,8 +8,7 @@ Meridian is a 2D SpriteKit game, but every unit, building and prop is a 3D model
 
 | Asset | Source |
 |---|---|
-| Infantry and creatures (22 units) | Generated in [Tripo](https://www.tripo3d.ai) from text prompts ([prompts and guide](TRIPO_GUIDE.md)), then rigged (Mixamo, or Blender for meshes Mixamo rejected) |
-| Vehicles, mechs and aircraft (22 units) | Modelled procedurally in Blender Python (`tools/blender/units_proc.py`) |
+| All 45 units | Concept image from a prompt ([prompts](TRIPO_IMAGE_PROMPTS.md)), turned into a model with [Tripo](https://www.tripo3d.ai)'s Image to 3D and rigged there where it could be (the first soldiers came from text prompts and were rigged in Mixamo or Blender) |
 | Buildings (24) | Modelled procedurally in Blender Python (`tools/blender/buildings.py`), with a shared material kit per faction |
 | Rocks, trees, ore, crystals and plants | Modelled procedurally in Blender Python (`tools/blender/props.py`) |
 
@@ -21,9 +20,9 @@ The game uses a 2:1 isometric projection: a tile is 64×32 points. The Blender c
 
 ## Animation
 
-Every Tripo character is now rigged, so infantry and creatures animate on real skeletons.
+Most units are rigged and animate on real skeletons. `tools/blender/import_rig.py` brings a Tripo-rigged model in: VRM humanoid skeletons get Mixamo bone names, and creature skeletons are kept as they are.
 
-**Soldiers: motion capture.** Each soldier has a 25-bone Mixamo-compatible skeleton. Three were auto-rigged by Mixamo. The Ranger came from Tripo already rigged with a VRM skeleton, and `tools/blender/vrm_to_mixamo.py` renames its bones to Mixamo names. Mixamo's rigger rejected the other four, so they were rigged in Blender: a skeleton was built from joint positions marked on front-view renders, then auto-weighted on a voxel-remeshed proxy and the weights transferred to the real mesh. `unit_render.py` retargets Mixamo clips onto each skeleton bone by bone. Each bone copies the clip's world rotation, corrected for the difference between the two rest poses, so one set of clips drives every soldier whatever their proportions:
+**Humanoids: motion capture.** The soldiers, plus the humanoid mechs and aliens (Arc Sentry, Shockframe, Bulwark, Mantis, Needleback, Lifebinder), have Mixamo-compatible skeletons. The renderer judges each one's facing from which side its left hip is on, since Tripo doesn't always export them facing the same way. Three soldiers were auto-rigged by Mixamo and the Ranger by Tripo. Mixamo's rigger rejected the other four, so they were rigged in Blender: a skeleton was built from joint positions marked on front-view renders, then auto-weighted on a voxel-remeshed proxy and the weights transferred to the real mesh. `unit_render.py` retargets Mixamo clips onto each skeleton bone by bone. Each bone copies the clip's world rotation, corrected for the difference between the two rest poses, so one set of clips drives every humanoid whatever their proportions:
 
 | Pose | Clip |
 |---|---|
@@ -32,7 +31,7 @@ Every Tripo character is now rigged, so infantry and creatures animate on real s
 | attack | firing rifle (Engineer: working on a device) |
 | death (3 frames) | death, played once when the unit dies |
 
-**Creatures: scripted gaits.** Alien skeletons use consistent bone names (`thigh.L`, `fore_upper.R`, `front_coxa.L`, `wing_arm.R.01`, and so on). The renderer reads the body plan from those names and drives a gait cycle for each:
+**Creatures: gaits read from the skeleton.** Tripo's creature skeletons are only partly named, so `AutoGait` in `unit_render.py` works from the skeleton's shape instead. A bone chain counts as a leg if the mesh it moves reaches the ground; bones often stop short of the toes, so the mesh decides. Each leg starts below the last bone it shares with another leg. Legs step in alternating sets (a trot on four legs, tripods on six), each swinging along its own axis and lifting as it comes forward. Tails, antennae and mandibles sway, and the attack raises the front legs. Older hand-built skeletons with named bones use fixed cycles:
 
 | Body plan | Motion |
 |---|---|
@@ -43,7 +42,7 @@ Every Tripo character is now rigged, so infantry and creatures animate on real s
 
 Each unit renders **8 facings × 6 poses** (9 with death), from 48 to 72 frames per unit.
 
-Vehicles, mechs and aircraft are procedural models without skeletons. They use simple body motion instead (`vehicle`, `aircraft` and `hover` rigs in `unit_render.py`): pitch and bob on the move, banking in flight, recoil when firing.
+Vehicles, aircraft, drones and the few creatures Tripo couldn't rig use simple body motion on the mesh instead (`vehicle`, `aircraft`, `hover`, `flyer` and `multiped` in `unit_render.py`): pitch and bob on the move, banking in flight, wing beats, recoil when firing.
 
 ## Live portraits
 
@@ -57,7 +56,7 @@ In game, `ModelPortrait` crossfades between head turns as the unit glances aroun
 
 ## Team colours
 
-Each sprite has a matching grayscale mask marking where team colour goes. The mask comes from either a material flag (procedural models) or a hue detector that finds the blue panels on Tripo models. Masks render with Blender's Raw view transform so their values stay linear. In game, SpriteKit multiplies the team colour through the mask, so one set of renders serves every player colour.
+Each sprite has a matching grayscale mask marking where team colour goes. The mask comes from a hue detector that finds the bright blue panels on Tripo models (buildings, built in code, flag their team material instead). Masks render with Blender's Raw view transform so their values stay linear. In game, SpriteKit multiplies the team colour through the mask, so one set of renders serves every player colour.
 
 ## Shadows and anchors
 

@@ -287,16 +287,20 @@ def rig_path(uid):
     f = os.path.join(ROOT, f"art/rigged/{uid}.fbx")
     return f if os.path.exists(f) else None
 
+def is_humanoid(path):
+    """Mixamo-named skeletons take motion capture; FBX stores bone names as plain strings."""
+    with open(path, "rb") as f: return b"mixamorig:Hips" in f.read()
+
 def render_unit(uid, poses=None, facings=range(8), out_dir=OUT):
     u = UNITS[uid]; fix = FIX.get(uid, {})
     air = u.get("domain") == "air"
     rig = rig_of(uid, u)
     sc = setup_scene()
     rig_fbx = rig_path(uid)
-    if rig_fbx and not uid.startswith("h_"):
-        return render_creature(uid, u, fix, sc, rig_fbx, poses or range(POSES), facings, out_dir)
-    if rig_fbx:
+    if rig_fbx and is_humanoid(rig_fbx):
         return render_rigged(uid, u, fix, sc, rig_fbx, poses or range(POSES + DEATH_POSES), facings, out_dir)
+    if rig_fbx:
+        return render_creature(uid, u, fix, sc, rig_fbx, poses or range(POSES), facings, out_dir)
     poses = poses or range(POSES)
     if fix.get("source") == "proc":
         sys.path.insert(0, os.path.dirname(__file__))
@@ -323,7 +327,7 @@ def render_unit(uid, poses=None, facings=range(8), out_dir=OUT):
     # centre (air) at the origin.
     fixm = Euler([math.radians(a) for a in fix.get("rotate", [0, 0, 0])]).to_matrix().to_4x4()
     fwd = Vector(fix.get("forward", [0, -1, 0]))
-    yaw = Matrix.Rotation(math.atan2(fwd.x, -fwd.y), 4, "Z")
+    yaw = Matrix.Rotation(math.atan2(-fwd.x, -fwd.y), 4, "Z")
     obj.data.transform(yaw @ fixm @ mw); obj.matrix_world = Matrix.Identity(4)
     n = len(obj.data.vertices)
     P = np.empty(n * 3, dtype=np.float32); obj.data.vertices.foreach_get("co", P); P = P.reshape(-1, 3)
@@ -362,6 +366,14 @@ def render_unit(uid, poses=None, facings=range(8), out_dir=OUT):
     shoot(sc, uid, obj, holder, fix, poses, facings, set_pose, out_dir)
     print("UNIT", uid, rig, "canvas", C, "verts", n)
 
+def humanoid_yaw(arm):
+    """Turn (about Z) that faces a Mixamo-skeleton character along -Y, judged from which side its left hip is on:
+    Tripo doesn't always export humanoids facing the same way."""
+    M = arm.matrix_world
+    side = M @ arm.data.bones["mixamorig:LeftUpLeg"].head_local - M @ arm.data.bones["mixamorig:RightUpLeg"].head_local
+    f = side.cross(Vector((0, 0, 1)))
+    return math.atan2(-f.x, -f.y) if f.length > 1e-6 else 0.0
+
 def render_rigged(uid, u, fix, sc, path, poses, facings, out_dir):
     """A skinned Mixamo-skeleton soldier, posed from motion-capture clips."""
     bpy.ops.import_scene.fbx(filepath=path)
@@ -382,21 +394,22 @@ def render_rigged(uid, u, fix, sc, path, poses, facings, out_dir):
         P = P.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
         return P
     rt.apply(*clips["idle"])
+    turn_z = humanoid_yaw(arm)
     P = world_verts(); lo, hi = P.min(axis=0), P.max(axis=0)
     dims = tuple(float(v) for v in (hi - lo))
     base = Vector(((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]))
-    # Mixamo characters face -Y in Blender, which is the renderer's forward.
     C = canvas(u); ortho = C / PX_PER_UNIT
     k = ortho * fix.get("fill", 0.72) / max(dims)
     holder = bpy.data.objects.new("holder", None); sc.collection.objects.link(holder)
+    turn = bpy.data.objects.new("turn", None); sc.collection.objects.link(turn)
     off = bpy.data.objects.new("off", None); sc.collection.objects.link(off)
-    off.parent = holder; arm.parent = off
+    turn.parent = holder; off.parent = turn; arm.parent = off
     stage(sc, C, False)
 
     def set_pose(p):
         # Retargeting works in world space, so pose with the rig back at the origin, then restore the framing.
         rot = holder.rotation_euler.copy()
-        holder.rotation_euler = (0, 0, 0); holder.scale = (1, 1, 1); off.location = (0, 0, 0)
+        holder.rotation_euler = (0, 0, 0); holder.scale = (1, 1, 1); off.location = (0, 0, 0); turn.rotation_euler = (0, 0, 0)
         bpy.context.view_layer.update()
         rt.apply(*frames[p])
         if p >= POSES:
@@ -405,7 +418,7 @@ def render_rigged(uid, u, fix, sc, path, poses, facings, out_dir):
             drift = hips - (arm.matrix_world @ arm.data.bones["mixamorig:Hips"].head_local)
             off.location = (-drift.x * 0.5, -drift.y * 0.5, 0)
         off.location = Vector(off.location) - base
-        holder.rotation_euler = rot; holder.scale = (k, k, k)
+        holder.rotation_euler = rot; holder.scale = (k, k, k); turn.rotation_euler = (0, 0, turn_z)
         bpy.context.view_layer.update()
 
     shoot(sc, uid, obj, holder, fix, poses, facings, set_pose, out_dir)
@@ -499,10 +512,102 @@ def creature_kind(arm):
     if any(n.startswith("wing") for n in names): return "flyer"
     if "front_coxa.L" in names: return "hexapod"
     if "fore_upper.L" in names: return "quadruped"
-    return "biped"
+    if "thigh.L" in names: return "biped"
+    return "auto"
+
+class AutoGait:
+    """A gait for skeletons without known bone names (Tripo's creature rigs), read from the skeleton's shape. Every
+    bone chain that ends at the ground is a leg, starting below the last bone it shares with another leg. Legs step
+    in alternating sets (a trot on four legs, tripods on six), swinging along their own sweep axis and lifting as they
+    come forward. Other loose chains (tails, antennae, mandibles) sway. Attack raises the front legs and works the
+    chains at the front."""
+    def __init__(self, arm, obj, F, Up, Lat):
+        self.arm, self.F, self.Up, self.Lat = arm, F, Up, Lat
+        bones = arm.data.bones
+        hz = lambda v: v.dot(Up)
+        # How low each bone's skin reaches (vertices it dominates), in armature space: bones often stop short of
+        # the toes, so the mesh decides what touches the ground.
+        names = {g.index: g.name for g in obj.vertex_groups}
+        m2a = arm.matrix_world.inverted() @ obj.matrix_world
+        low, ground, top = {}, math.inf, -math.inf
+        for v in obj.data.vertices:
+            z = hz(m2a @ v.co); ground = min(ground, z); top = max(top, z)
+            if v.groups:
+                g = max(v.groups, key=lambda g: g.weight)
+                n = names.get(g.group)
+                if n: low[n] = min(low.get(n, math.inf), z)
+        H = top - ground
+        centre = sum((b.head_local for b in bones), Vector()) / len(bones)
+        reach = lambda b: min(low.get(b.name, math.inf), low.get(b.parent.name, math.inf) if b.parent else math.inf)
+        feet = [b for b in bones if not b.children and reach(b) - ground < 0.12 * H]
+        shared = {}
+        for f in feet:
+            b = f
+            while b: shared[b.name] = shared.get(b.name, 0) + 1; b = b.parent
+        self.legs = []
+        for f in feet:
+            chain = [f]; b = f.parent
+            while b and shared[b.name] == 1 and hz(b.head_local) - ground < 0.85 * H:
+                chain.insert(0, b); b = b.parent
+            root = chain[0]
+            d = (f.tail_local - root.head_local).normalized()
+            side = 1 if (root.head_local - centre).dot(Lat) > 0 else -1
+            sweep = d.cross(F)
+            sweep = (sweep if sweep.length > 0.2 else Lat.copy()).normalized()
+            if (Quaternion(sweep, 0.2) @ d).dot(F) < d.dot(F): sweep = -sweep
+            flat = d - Up * d.dot(Up)
+            lift = None
+            if flat.length > 0.5:
+                lift = flat.cross(Up).normalized()
+                if (Quaternion(lift, 0.2) @ d).dot(Up) < d.dot(Up): lift = -lift
+            self.legs.append(dict(chain=[c.name for c in chain], side=side, at=root.head_local.dot(F), sweep=sweep, lift=lift))
+        # Alternate along each side, and opposite sides out of step: diagonal pairs move together.
+        for sd in (1, -1):
+            row = sorted((l for l in self.legs if l["side"] == sd), key=lambda l: -l["at"])
+            for i, l in enumerate(row): l["phase"] = sd * (1 if i % 2 == 0 else -1); l["front"] = i == 0
+        legbones = {n for l in self.legs for n in l["chain"]}
+        self.loose = []
+        for b in bones:
+            if b.children or b.name in legbones or b.name in shared: continue
+            root = b
+            while root.parent and root.parent.name not in shared and root.parent.name not in legbones: root = root.parent
+            if root.name not in [c[0] for c in self.loose]:
+                self.loose.append((root.name, (root.head_local - centre).dot(F) > 0))
+
+    def pose(self, p, amp=1.0):
+        arm = self.arm
+        for pb in arm.pose.bones:
+            pb.rotation_mode = "QUATERNION"; pb.rotation_quaternion = (1, 0, 0, 0)
+        rot = {}
+        def add(name, axis, deg):
+            rot[name] = Quaternion(axis, math.radians(deg * amp)) @ rot.get(name, Quaternion())
+        walking = 1 <= p <= 4
+        ph = (p - 1) / 4 * 2 * math.pi if walking else 0.0
+        c, s_ = math.cos(ph), math.sin(ph)
+        for l in self.legs:
+            root = l["chain"][0]
+            if walking:
+                a = l["phase"]
+                add(root, l["sweep"], 20 * c * a)
+                up = max(0.0, -s_ * a)                  # lift on the forward swing
+                if l["lift"] is not None: add(root, l["lift"], 18 * up)
+                elif len(l["chain"]) > 1: add(l["chain"][1], l["sweep"], -30 * up)
+            elif p == 5 and l["front"]:
+                add(root, l["sweep"], 35)
+                if l["lift"] is not None: add(root, l["lift"], 25)
+        for i, (name, front) in enumerate(self.loose):
+            if walking: add(name, self.Up, 8 * math.sin(ph + i))
+            elif p == 5 and front: add(name, self.Lat, 15 if i % 2 else -15)
+        for name, q in rot.items():
+            pb = arm.pose.bones[name]
+            r = pb.bone.matrix_local.to_quaternion()
+            pb.rotation_quaternion = r.inverted() @ q @ r
+        bpy.context.view_layer.update()
+        return c if walking else 0.0
 
 def render_creature(uid, u, fix, sc, path, poses, facings, out_dir):
-    """A skinned Tripo creature on its own skeleton, posed with scripted gait cycles keyed by bone names."""
+    """A skinned Tripo creature on its own skeleton, posed with scripted gait cycles: keyed by bone names for named
+    skeletons, or read from the skeleton's shape (AutoGait)."""
     air = u.get("domain") == "air"
     bpy.ops.import_scene.fbx(filepath=path)
     arm = next(o for o in sc.objects if o.type == "ARMATURE")
@@ -513,11 +618,13 @@ def render_creature(uid, u, fix, sc, path, poses, facings, out_dir):
     # The rig keeps the source model's axes: unit_fixes' rotate / forward say how to stand it up and face it.
     fixm = Euler([math.radians(a) for a in fix.get("rotate", [0, 0, 0])]).to_matrix().to_4x4()
     fwd = Vector(fix.get("forward", [0, -1, 0]))
-    yaw = Matrix.Rotation(math.atan2(fwd.x, -fwd.y), 4, "Z")
+    yaw = Matrix.Rotation(math.atan2(-fwd.x, -fwd.y), 4, "Z")
     to_arm = (fixm @ arm.matrix_world).inverted().to_3x3()   # standing frame -> armature space
     F = (to_arm @ (yaw.inverted().to_3x3() @ Vector((0, -1, 0)))).normalized()   # whatever the yaw turns to face -Y
     Up = (to_arm @ Vector((0, 0, 1))).normalized()
     Lat = F.cross(Up).normalized()
+    gait = AutoGait(arm, obj, F, Up, Lat) if kind == "auto" else None
+    if gait: print("GAIT", uid, len(gait.legs), "legs", len(gait.loose), "loose chains")
 
     def world_verts():
         ev = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
@@ -540,7 +647,7 @@ def render_creature(uid, u, fix, sc, path, poses, facings, out_dir):
     stage(sc, C, air)
 
     def set_pose(p):
-        bob = creature_pose(arm, p, kind, F, Up, Lat, fix.get("amp", 1.0))
+        bob = gait.pose(p, fix.get("amp", 1.0)) if gait else creature_pose(arm, p, kind, F, Up, Lat, fix.get("amp", 1.0))
         lift = (0.018 if kind != "flyer" else -0.03) * H * (abs(bob) if kind != "flyer" else bob)
         orient.matrix_basis = Matrix.Translation((0, 0, lift)) @ rest
         bpy.context.view_layer.update()
