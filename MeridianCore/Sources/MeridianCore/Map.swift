@@ -229,11 +229,13 @@ private struct Generator {
     }
 
     /// Places a resource node under a continuous point and under each of its rotated copies.
-    /// Every copy must be free and walkable, so the copies stay identical.
+    /// Every copy must be free and walkable, so the copies stay identical. The tile is chosen first and its
+    /// centre rotated (as the old mirror did); flooring each rotated point disagrees on tile boundaries.
     mutating func placeResource(_ kind: ResourceKind, at px: Double, _ py: Double) {
         var tiles: [(Int, Int)] = []
+        let (bx, by) = tile((px, py))
         for j in 0..<k {
-            let (x, y) = tile(rot(px, py, j))
+            let (x, y) = tile(rot(Double(bx) + 0.5, Double(by) + 0.5, j))
             guard inside(x, y), inPlay(Double(x) + 0.5, Double(y) + 0.5) else { return }
             let i = idx(x, y)
             guard !occupied[i], Terrain(rawValue: terrain[i])!.groundPassable, !tiles.contains(where: { $0 == (x, y) }) else { return }
