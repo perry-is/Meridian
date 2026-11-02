@@ -77,7 +77,8 @@ extension MapLayout {
 
     /// Strategic sites of the first player's sector as (angle offset from the base, distance fraction).
     /// Two-player maps keep their three sites per side; bigger maps have a home flank and a contested site
-    /// on the boundary with the next commander.
+    /// on the boundary with the next commander. The flank sits on the other side of the base from the boundary
+    /// site and well inside the sector (half-width pi/k), so each base has one site towards each neighbour.
     func sectorSites(players k: Int) -> [(Double, Double)] {
         let boundary = Double.pi / Double(k)
         let scale = k == 3 ? 0.85 : 1.0
@@ -86,9 +87,9 @@ extension MapLayout {
             return k == 2 ? [(0.424, 0.396), (-0.424, 0.396), (-boundary, 0.368)] : [(0.42, 0.37 * scale), (-boundary, 0.36 * scale)]
         case .riverbend:
             // The boundary site sits on the river's outer ford (0.37 of the side), so it is never scaled.
-            return k == 2 ? [(0.883, 0.362), (-0.883, 0.362), (boundary, 0.37)] : [(0.8, 0.33 * scale), (boundary, 0.37)]
+            return k == 2 ? [(0.883, 0.362), (-0.883, 0.362), (boundary, 0.37)] : [(-0.42, 0.33 * scale), (boundary, 0.37)]
         case .highlands:
-            return k == 2 ? [(0.578, 0.335), (-0.536, 0.364), (1.653, 0.32)] : [(0.55, 0.34 * scale), (boundary, 0.33 * scale)]
+            return k == 2 ? [(0.578, 0.335), (-0.536, 0.364), (1.653, 0.32)] : [(-0.42, 0.34 * scale), (boundary, 0.33 * scale)]
         }
     }
 }
