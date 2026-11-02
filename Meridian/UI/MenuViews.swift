@@ -103,9 +103,10 @@ struct HelpView: View {
                         .accessibilityLabel("Start tutorial")
                     }
                     group("Goal", [
-                        "Destroy every enemy structure, or",
-                        "Hold \(Int((7 * GameData.shared.rules.territory.dominanceFraction).rounded(.up))) of 7 strategic sites for \(Int(GameData.shared.rules.territory.dominanceSeconds / 60)) min \(Int(GameData.shared.rules.territory.dominanceSeconds) % 60) s once the dominance protocol activates at \(Int(GameData.shared.rules.territory.dominanceStart / 60)):00.",
+                        "Annihilation (the standard mode): destroy every enemy structure. A commander with no structures left is out, and the last team standing wins.",
+                        "Dominance (optional): as above, or hold \(Int((7 * GameData.shared.rules.territory.dominanceFraction).rounded(.up))) of 7 strategic sites (\(Int(GameData.shared.rules.territory.dominanceFraction * 100))% of them on bigger maps) for \(Int(GameData.shared.rules.territory.dominanceSeconds / 60)) min \(Int(GameData.shared.rules.territory.dominanceSeconds) % 60) s once the dominance protocol activates at \(Int(GameData.shared.rules.territory.dominanceStart / 60)):00. Allies' sites count together.",
                         "Quick Match plays on a smaller map with everything built faster; dominance activates at \(Int(GameData.quick.rules.territory.dominanceStart / 60)):00 and needs \(Int(GameData.quick.rules.territory.dominanceSeconds / 60)) min \(Int(GameData.quick.rules.territory.dominanceSeconds) % 60) s.",
+                        "Up to four commanders can fight, free-for-all or in teams. Allies share vision, never damage each other and capture sites together; bigger battlefields keep every base the same distance from its neighbours.",
                     ])
                     group("Touch controls", [
                         "Tap a unit or building to select it. Double-tap a unit to select all of that type.",
@@ -232,8 +233,13 @@ struct GameOverView: View {
                     Text(reason.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(3).foregroundColor(accent)
                     Text(String(format: "Match time %d:%02d", Int(controller.world.time) / 60, Int(controller.world.time) % 60)).font(.system(size: 11, design: .monospaced)).foregroundColor(.white.opacity(0.6))
                     VStack(spacing: 6) {
-                        HStack { Text("").frame(width: 110, alignment: .leading); Text("YOU").frame(maxWidth: .infinity); Text("ENEMY").frame(maxWidth: .infinity) }
-                            .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+                        HStack {
+                            Text("").frame(width: 110, alignment: .leading)
+                            ForEach(controller.world.players.indices, id: \.self) { p in
+                                Text(columnTitle(p)).frame(maxWidth: .infinity).foregroundColor(Theme.team(p))
+                            }
+                        }
+                        .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
                         row("Units produced") { $0.unitsProduced }
                         row("Units lost") { $0.unitsLost }
                         row("Kills") { $0.kills }
@@ -256,13 +262,23 @@ struct GameOverView: View {
         .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { appear = true } }
     }
 
+    /// Column heading per commander: YOU / ALLY / ENEMY (numbered when there are several).
+    func columnTitle(_ p: Int) -> String {
+        let w = controller.world
+        if controller.spectating { return "P\(p + 1)" }
+        if p == controller.me { return "YOU" }
+        let ally = w.isAlly(controller.me, p)
+        let peers = w.players.indices.filter { $0 != controller.me && w.isAlly(controller.me, $0) == ally }
+        let base = ally ? "ALLY" : "ENEMY"
+        return peers.count > 1 ? "\(base) \((peers.firstIndex(of: p) ?? 0) + 1)" : base
+    }
+
     func row(_ t: String, _ f: @escaping (PlayerStats) -> Int) -> some View {
-        let a = f(controller.world.players[0].stats), b = f(controller.world.players[1].stats)
-        let m = Double(max(1, max(a, b)))
+        let values = controller.world.players.map { f($0.stats) }
+        let m = Double(max(1, values.max() ?? 1))
         return HStack(spacing: 8) {
             Text(t).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).frame(width: 110, alignment: .leading)
-            bar(a, m, Theme.team(0))
-            bar(b, m, Theme.team(1))
+            ForEach(values.indices, id: \.self) { p in bar(values[p], m, Theme.team(p)) }
         }
     }
 
@@ -274,7 +290,7 @@ struct GameOverView: View {
                     Capsule().fill(c.opacity(0.85)).frame(width: g.size.width * CGFloat(Double(v) / m))
                 }
             }.frame(height: 5)
-            Text("\(v)").font(.system(size: 10, weight: .semibold, design: .monospaced)).frame(width: 40, alignment: .trailing)
+            Text("\(v)").font(.system(size: 10, weight: .semibold, design: .monospaced)).frame(width: controller.world.players.count > 2 ? 30 : 40, alignment: .trailing)
         }.frame(maxWidth: .infinity)
     }
 }

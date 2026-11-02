@@ -10,9 +10,19 @@ enum SaveStore {
         var difficulty: String
         var gameTime: Double
         var savedAt: Date
+        /// Every commander and their teams (absent in saves from before team play).
+        var factions: [Faction]? = nil
+        var teams: [Int]? = nil
         var line: String {
             let d = GameData.shared
-            return "\(d.faction(playerFaction).name) vs \(d.faction(aiFaction).name) · \(layout.title) · \(String(format: "%d:%02d", Int(gameTime) / 60, Int(gameTime) % 60))"
+            let time = String(format: "%d:%02d", Int(gameTime) / 60, Int(gameTime) % 60)
+            guard let fs = factions, let ts = teams, fs.count == ts.count, fs.count > 2 || ts.count == 2 && ts[0] == ts[1] else {
+                return "\(d.faction(playerFaction).name) vs \(d.faction(aiFaction).name) · \(layout.title) · \(time)"
+            }
+            // "Concord + Brood vs Lattice + Lattice"
+            let mine = fs.indices.filter { ts[$0] == ts[0] }.map { d.faction(fs[$0]).name }.joined(separator: " + ")
+            let theirs = fs.indices.filter { ts[$0] != ts[0] }.map { d.faction(fs[$0]).name }.joined(separator: " + ")
+            return "\(mine) vs \(theirs) · \(layout.title) · \(time)"
         }
     }
 

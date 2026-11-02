@@ -16,12 +16,18 @@ struct SpectatorHUD: View {
             if !cinematic {
                 GlassPanel(accent: Theme.accent, padding: 8) {
                     VStack(spacing: 5) {
-                        HStack {
-                            side(0, h, alignment: .leading)
+                        HStack(alignment: .top) {
+                            teamColumn(teams(h).first ?? 0, h, alignment: .leading)
                             Spacer()
-                            Text(String(format: "%d:%02d", Int(h.time) / 60, Int(h.time) % 60)).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundColor(.white.opacity(0.7))
+                            VStack(spacing: 2) {
+                                Text(String(format: "%d:%02d", Int(h.time) / 60, Int(h.time) % 60)).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundColor(.white.opacity(0.7))
+                                if teams(h).count > 2 {
+                                    // Free-for-all with three or four commanders: the middle ones go here.
+                                    ForEach(Array(teams(h).dropFirst().dropLast()), id: \.self) { t in teamColumn(t, h, alignment: .center) }
+                                }
+                            }
                             Spacer()
-                            side(1, h, alignment: .trailing)
+                            teamColumn(teams(h).last ?? 1, h, alignment: .trailing)
                         }
                         tug(h)
                     }
@@ -59,23 +65,39 @@ struct SpectatorHUD: View {
         .foregroundColor(.white)
     }
 
-    func side(_ p: Int, _ h: HUDState, alignment: HorizontalAlignment) -> some View {
-        let s = p < h.sides.count ? h.sides[p] : (Faction.humans, 0, 0.0, 0)
-        return VStack(alignment: alignment, spacing: 1) {
-            Text(GameData.shared.faction(s.0).name.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(1).foregroundColor(Theme.team(p))
-            HStack(spacing: 6) {
-                Label("\(s.1)", systemImage: "person.3.fill")
-                Label("\(s.3)", systemImage: "scope")
-            }.font(.system(size: 11, weight: .semibold, design: .monospaced))
+    /// Distinct teams in slot order.
+    func teams(_ h: HUDState) -> [Int] {
+        var out: [Int] = []
+        for s in h.sides where !out.contains(s.team) { out.append(s.team) }
+        return out
+    }
+
+    /// Every commander on a team, one line each (faction, army size, kills), in their player colour.
+    func teamColumn(_ team: Int, _ h: HUDState, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            ForEach(Array(h.sides.enumerated()).filter { $0.element.team == team }, id: \.offset) { p, s in
+                VStack(alignment: alignment, spacing: 1) {
+                    Text(GameData.shared.faction(s.faction).name.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(1)
+                        .foregroundColor(Theme.team(p)).strikethrough(s.defeated)
+                    HStack(spacing: 6) {
+                        Label("\(s.units)", systemImage: "person.3.fill")
+                        Label("\(s.kills)", systemImage: "scope")
+                    }.font(.system(size: 11, weight: .semibold, design: .monospaced))
+                }
+            }
         }
     }
 
+    /// Army strength of the first team against everyone else.
     func tug(_ h: HUDState) -> some View {
-        let a = h.sides.first?.value ?? 1, b = h.sides.dropFirst().first?.value ?? 1
+        let first = teams(h).first ?? 0
+        let a = h.sides.filter { $0.team == first }.reduce(0.0) { $0 + $1.value }
+        let b = h.sides.filter { $0.team != first }.reduce(0.0) { $0 + $1.value }
         let f = CGFloat(a / max(1, a + b))
+        let other = h.sides.firstIndex { $0.team != first } ?? 1
         return GeometryReader { g in
             ZStack(alignment: .leading) {
-                Rectangle().fill(Theme.team(1).opacity(0.85))
+                Rectangle().fill(Theme.team(other).opacity(0.85))
                 Rectangle().fill(Theme.team(0).opacity(0.85)).frame(width: g.size.width * f)
                 Rectangle().fill(Color.white).frame(width: 2).offset(x: g.size.width * f - 1)
             }

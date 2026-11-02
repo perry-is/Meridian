@@ -308,10 +308,11 @@ extension World {
     /// Cancel an unfinished building for a 75% refund.
     public func commandCancelConstruction(_ building: Int) {
         guard let b = entity(building), b.isBuilding, !b.complete else { return }
-        let c = data.buildings[b.type].cost.scaled(0.75)
+        // Towers refund what was actually paid for them (their price escalates with each one owned).
+        if bdef(b).kind == .tower { players[b.owner].towerCount -= 1 }
+        let c = buildingCost(b.owner, b.type).scaled(0.75)
         players[b.owner].refund(c)
         b.alive = false
         occupy(b, false)
-        if bdef(b).kind == .tower { players[b.owner].towerCount -= 1 }
     }
 }

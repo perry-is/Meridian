@@ -270,7 +270,7 @@ extension World {
                 // Look ahead for a friendly unit that is holding its ground and slip past it.
                 var blocker: Entity? = nil
                 forEachNear(e.x + dx * 0.8, e.y + dy * 0.8, 0.9) { o in
-                    guard blocker == nil, o.id != e.id, o.isUnit, !o.isAir, !o.isMine, o.owner == e.owner, !o.moving else { return }
+                    guard blocker == nil, o.id != e.id, o.isUnit, !o.isAir, !o.isMine, !isEnemy(e.owner, o.owner), !o.moving else { return }
                     let rx = o.x - e.x, ry = o.y - e.y
                     let along = rx * dx + ry * dy
                     if along <= 0 || along > 1.2 { return }
@@ -322,7 +322,7 @@ extension World {
             let me = pushMass(e)
             forEachNear(e.x, e.y, 1.8) { o in
                 guard o.id != e.id, o.isUnit, !o.isMine, o.isAir == e.isAir else { return }
-                let enemies = e.owner != o.owner
+                let enemies = isEnemy(e.owner, o.owner)
                 // Opposing lines keep a small gap at the point of contact so a front line reads clearly.
                 let pad = enemies ? (tactics.frontline ? 0.18 : 0.02) : ((!e.moving && !o.moving) ? 0.12 : 0.02)
                 let minD = r + o.radius + pad

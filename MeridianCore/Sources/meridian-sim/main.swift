@@ -29,9 +29,18 @@ struct MatchResult {
 
 func runMatch(_ f0: Faction, _ f1: Faction, layout: MapLayout, seed: UInt64, diff: [Difficulty], strat: [AIStrategy],
               swap: Bool, limit: Double, verbose: Bool) -> MatchResult {
+    runMatch(factions: [f0, f1], teams: nil, victory: VictoryMode(rawValue: opt("victory", "dominance")) ?? .dominance,
+             layout: layout, seed: seed, diff: diff, strat: strat, swap: swap, limit: limit, verbose: verbose)
+}
+
+/// Any number of commanders (2–4), optionally in teams.
+func runMatch(factions: [Faction], teams: [Int]?, victory: VictoryMode, layout: MapLayout, seed: UInt64, diff: [Difficulty], strat: [AIStrategy],
+              swap: Bool, limit: Double, verbose: Bool) -> MatchResult {
     let quick = flag("quick")
-    let cfg = MatchConfig(factions: [f0, f1], layout: layout, seed: seed, mapSize: quick ? GameData.quickMapSize : 112, swapStarts: swap)
-    let m = Match(config: cfg, ai: [(0, diff[0], strat[0]), (1, diff[1], strat[1])], data: quick ? .quick : .shared)
+    let cfg = MatchConfig(factions: factions, teams: teams, victory: victory, layout: layout, seed: seed,
+                          mapSize: MatchConfig.mapSize(players: factions.count, quick: quick), swapStarts: swap)
+    let ai = factions.indices.map { (player: $0, difficulty: diff[$0 % diff.count], strategy: strat[$0 % strat.count]) }
+    let m = Match(config: cfg, ai: ai, data: quick ? .quick : .shared)
     m.world.tactics = TacticsFlags(disabling: opt("disable", "").split(separator: ",").map(String.init))
     m.timeLimit = limit
     m.world.collectEvents = false
@@ -63,7 +72,7 @@ func runMatch(_ f0: Faction, _ f1: Faction, layout: MapLayout, seed: UInt64, dif
         }
     }
     return MatchResult(winner: m.world.winner!, reason: m.world.victoryReason, time: m.world.time,
-                       factions: [f0, f1], peak: m.world.players.map { $0.stats.peakUnits }, ms: ms)
+                       factions: factions, peak: m.world.players.map { $0.stats.peakUnits }, ms: ms)
 }
 
 func parseFaction(_ s: String) -> Faction { Faction(rawValue: s) ?? .humans }
@@ -75,10 +84,15 @@ case "validate":
     print(problems.isEmpty ? "Data OK: \(data.units.count) units, \(data.buildings.count) buildings, \(data.upgrades.count) upgrades" : problems.joined(separator: "\n"))
 
 case "match":
-    let r = runMatch(parseFaction(opt("p0", "humans")), parseFaction(opt("p1", "machines")),
+    // --p0..--p3 factions (players beyond p1 are optional), --teams 0,0,1,1, --victory annihilation|dominance.
+    var factions: [Faction] = [parseFaction(opt("p0", "humans")), parseFaction(opt("p1", "machines"))]
+    for k in 2..<MatchConfig.maxPlayers { let f = opt("p\(k)", ""); if !f.isEmpty { factions.append(parseFaction(f)) } }
+    let teams = opt("teams", "").split(separator: ",").compactMap { Int($0) }
+    let r = runMatch(factions: factions, teams: teams.count == factions.count ? teams : nil,
+                     victory: VictoryMode(rawValue: opt("victory", factions.count > 2 ? "annihilation" : "dominance")) ?? .annihilation,
                      layout: MapLayout(rawValue: opt("map", "crossroads")) ?? .crossroads, seed: UInt64(opt("seed", "1"))!,
-                     diff: [parseDiff(opt("d0", "normal")), parseDiff(opt("d1", "normal"))],
-                     strat: [AIStrategy(rawValue: opt("s0", "balanced"))!, AIStrategy(rawValue: opt("s1", "balanced"))!],
+                     diff: factions.indices.map { parseDiff(opt("d\($0)", opt("diff", "normal"))) },
+                     strat: factions.indices.map { AIStrategy(rawValue: opt("s\($0)", "balanced")) ?? .balanced },
                      swap: flag("swap"), limit: Double(opt("limit", "2700"))!, verbose: true)
     let name = r.winner >= 0 ? r.factions[r.winner].rawValue : "none"
     print("Winner: P\(r.winner) \(name) — \(r.reason) at \(mmss(r.time)); peak units \(r.peak); wall \(fmt(r.ms / 1000, 1))s")

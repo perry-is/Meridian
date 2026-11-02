@@ -232,6 +232,13 @@ struct RootView: View {
             if let f = arg("-enemy"), let v = Faction(rawValue: f) { settings.aiFaction = v }
             if let m = arg("-map"), let v = MapLayout(rawValue: m) { settings.layout = v }
             if let d = arg("-difficulty"), let v = Difficulty(rawValue: d) { settings.difficulty = v }
+            // -players 3|4 adds computer commanders; -teams 0,0,1,1 puts them in teams; -victory annihilation|dominance.
+            if let n = arg("-players").flatMap(Int.init) { while settings.slots.count < min(MatchConfig.maxPlayers, n) { settings.addSlot() } }
+            if let t = arg("-teams") {
+                let teams = t.split(separator: ",").compactMap { Int($0) }
+                for (i, team) in teams.enumerated() where i < settings.slots.count { settings.slots[i].team = team }
+            }
+            if let v = arg("-victory").flatMap({ VictoryMode(rawValue: $0) }) { settings.victory = v }
             if a.contains("-quick") { settings.quick = true }
             if a.contains("-uitest") || a.contains("-nosave") { SaveStore.delete() }
             if a.contains("-tutorial") && controller == nil {

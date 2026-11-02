@@ -144,6 +144,9 @@ public struct MatchSave: Codable {
     public static let formatVersion = 1
     public var version = MatchSave.formatVersion
     public var factions: [Faction]
+    /// Team per player and the victory mode (absent in saves from before team play, which were 1v1 dominance matches).
+    public var teams: [Int]? = nil
+    public var victory: VictoryMode? = nil
     public var layout: MapLayout
     public var seed: UInt64
     public var mapSize: Int
@@ -159,13 +162,14 @@ public struct MatchSave: Codable {
 extension Match {
     public func save() -> MatchSave {
         let c = world.config
-        return MatchSave(factions: c.factions, layout: c.layout, seed: c.seed, mapSize: c.mapSize, swapStarts: c.swapStarts,
-                         world: world.snapshot(), ais: ais.map { $0.snapshot() })
+        return MatchSave(factions: c.factions, teams: c.teams, victory: c.victory, layout: c.layout, seed: c.seed, mapSize: c.mapSize,
+                         swapStarts: c.swapStarts, world: world.snapshot(), ais: ais.map { $0.snapshot() })
     }
 
     /// Rebuilds the map from the saved settings, then restores the simulation and the AIs exactly as they were.
     public static func load(_ s: MatchSave, data: GameData = .shared) -> Match {
-        let cfg = MatchConfig(factions: s.factions, layout: s.layout, seed: s.seed, mapSize: s.mapSize, swapStarts: s.swapStarts)
+        let cfg = MatchConfig(factions: s.factions, teams: s.teams, victory: s.victory ?? .dominance, layout: s.layout, seed: s.seed,
+                              mapSize: s.mapSize, swapStarts: s.swapStarts)
         let m = Match(config: cfg, ai: [], data: data)
         m.world.restore(s.world)
         m.ais = s.ais.map { AIController.restore($0) }

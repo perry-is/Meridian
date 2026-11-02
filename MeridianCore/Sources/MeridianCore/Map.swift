@@ -22,9 +22,19 @@ public enum MapLayout: String, CaseIterable, Sendable {
         case .arena: return "Test Arena"
         }
     }
+    /// One line for the battle setup screen.
+    public var blurb: String {
+        switch self {
+        case .crossroads: return "Open plains with rock ridges that funnel the roads between bases."
+        case .riverbend: return "Rivers split the commanders apart; fight for the fords."
+        case .highlands: return "Broken ground full of crags and pools: ambush country."
+        case .arena: return "Flat test ground."
+        }
+    }
 }
 
-/// Static map description produced by the generator. Two-player maps are point-symmetric for fairness.
+/// Static map description produced by the generator. Maps are rotationally symmetric around their centre
+/// (one fold per player), so every commander starts with the same ground, resources and sites.
 public struct MapData: Sendable {
     public let size: Int
     public var terrain: [UInt8]
@@ -32,6 +42,7 @@ public struct MapData: Sendable {
     public var resources: [ResourceSpawn]
     /// HQ footprint origin tiles, one per start position.
     public var starts: [(x: Int, y: Int)]
+    /// Strategic sites; index 0 is the centre.
     public var sites: [(x: Double, y: Double)]
     public var name: String
 
@@ -41,8 +52,10 @@ public struct MapData: Sendable {
 
     // MARK: Generation
 
-    public static func generate(layout: MapLayout, seed: UInt64, size: Int = 112) -> MapData {
-        var g = Generator(size: size, seed: seed &+ UInt64(layout.hashValueStable))
+    /// Generates a battlefield for 2–4 players. `size` should come from `MatchConfig.mapSize(players:quick:)`.
+    public static func generate(layout: MapLayout, seed: UInt64, size: Int = 112, players: Int = 2) -> MapData {
+        let k = max(2, min(MatchConfig.maxPlayers, players))
+        var g = Generator(size: size, players: k, seed: seed &+ UInt64(layout.hashValueStable) &+ UInt64(k - 2) &* 1013)
         return g.build(layout)
     }
 }
@@ -51,19 +64,51 @@ extension MapLayout {
     var hashValueStable: Int {
         switch self { case .crossroads: return 11; case .riverbend: return 23; case .highlands: return 37; case .arena: return 41 }
     }
+
+    /// Start positions in polar coordinates around the centre: the angle of the first base and its distance
+    /// as a fraction of the map side. (For two players these reproduce the original layouts.)
+    func base(players k: Int) -> (angle: Double, radius: Double) {
+        switch self {
+        case .crossroads, .arena: return (angle: 1.25 * .pi, radius: k == 3 ? 0.38 : 0.495)      // corner (two: both corners)
+        case .riverbend: return (angle: .pi, radius: k == 3 ? 0.37 : 0.39)                        // edge midpoint
+        case .highlands: return (angle: 2.384, radius: k == 3 ? 0.38 : 0.495)                     // the other corner
+        }
+    }
+
+    /// Strategic sites of the first player's sector as (angle offset from the base, distance fraction).
+    /// Two-player maps keep their three sites per side; bigger maps have a home flank and a contested site
+    /// on the boundary with the next commander.
+    func sectorSites(players k: Int) -> [(Double, Double)] {
+        let boundary = Double.pi / Double(k)
+        let scale = k == 3 ? 0.85 : 1.0
+        switch self {
+        case .crossroads, .arena:
+            return k == 2 ? [(0.424, 0.396), (-0.424, 0.396), (-boundary, 0.368)] : [(0.42, 0.37 * scale), (-boundary, 0.36 * scale)]
+        case .riverbend:
+            // The boundary site sits on the river's outer ford (0.37 of the side), so it is never scaled.
+            return k == 2 ? [(0.883, 0.362), (-0.883, 0.362), (boundary, 0.37)] : [(0.8, 0.33 * scale), (boundary, 0.37)]
+        case .highlands:
+            return k == 2 ? [(0.578, 0.335), (-0.536, 0.364), (1.653, 0.32)] : [(0.55, 0.34 * scale), (boundary, 0.33 * scale)]
+        }
+    }
 }
 
 private struct Generator {
     let n: Int
+    /// Symmetry order = player count.
+    let k: Int
     var rng: RNG
     var terrain: [UInt8]
     var elevation: [UInt8]
     var occupied: [Bool]        // resources and reserved tiles
     var protected: [Bool]       // never place obstacles here
     var resources: [ResourceSpawn] = []
+    /// Angle from the centre to the first player's base.
+    var baseAngle = 0.0
 
-    init(size: Int, seed: UInt64) {
+    init(size: Int, players: Int, seed: UInt64) {
         n = size
+        k = players
         rng = RNG(seed: seed)
         terrain = Array(repeating: Terrain.grass.rawValue, count: size * size)
         elevation = Array(repeating: 0, count: size * size)
@@ -71,10 +116,82 @@ private struct Generator {
         protected = Array(repeating: false, count: size * size)
     }
 
+    var c: Double { Double(n) / 2 }
     @inline(__always) func idx(_ x: Int, _ y: Int) -> Int { y * n + x }
     @inline(__always) func inside(_ x: Int, _ y: Int) -> Bool { x >= 1 && y >= 1 && x < n - 1 && y < n - 1 }
-    func mirror(_ x: Int, _ y: Int) -> (Int, Int) { (n - 1 - x, n - 1 - y) }
-    func mirrorD(_ x: Double, _ y: Double) -> (Double, Double) { (Double(n) - x, Double(n) - y) }
+    @inline(__always) func inBounds(_ x: Int, _ y: Int) -> Bool { x >= 0 && y >= 0 && x < n && y < n }
+
+    // MARK: Symmetry
+
+    /// Rotates a point by `j` sectors about the centre. Quarter turns are exact (tile centres land on tile centres),
+    /// so two- and four-player maps are symmetric tile for tile.
+    func rot(_ x: Double, _ y: Double, _ j: Int) -> (Double, Double) {
+        let jj = ((j % k) + k) % k
+        if jj == 0 { return (x, y) }
+        var dx = x - c, dy = y - c
+        if k == 2 || k == 4 {
+            for _ in 0..<(k == 2 ? jj * 2 : jj) { (dx, dy) = (-dy, dx) }
+        } else {
+            let a = Double(jj) * 2 * .pi / Double(k)
+            (dx, dy) = (dx * cos(a) - dy * sin(a), dx * sin(a) + dy * cos(a))
+        }
+        return (c + dx, c + dy)
+    }
+
+    /// The tile under a continuous point.
+    @inline(__always) func tile(_ p: (Double, Double)) -> (Int, Int) { (Int(floor(p.0)), Int(floor(p.1))) }
+
+    /// All rotated copies of a tile (off-map copies dropped; only possible on three-player maps).
+    func orbit(_ x: Int, _ y: Int) -> [(Int, Int)] {
+        (0..<k).map { tile(rot(Double(x) + 0.5, Double(y) + 0.5, $0)) }.filter { inBounds($0.0, $0.1) }
+    }
+
+    /// Representative of a tile's orbit: the copy with the lowest index. Symmetric decisions are made here.
+    func rep(_ x: Int, _ y: Int) -> (Int, Int) {
+        var best = (x, y)
+        for (ox, oy) in orbit(x, y) where idx(ox, oy) < idx(best.0, best.1) { best = (ox, oy) }
+        return best
+    }
+
+    /// Whether a point lies in the first player's sector (within half a turn-slice of the base direction).
+    func inSector(_ x: Double, _ y: Double) -> Bool {
+        var d = atan2(y - c, x - c) - baseAngle
+        while d > .pi { d -= 2 * .pi }
+        while d < -.pi { d += 2 * .pi }
+        return abs(d) < .pi / Double(k)
+    }
+
+    /// Distance from a point to the nearest sector boundary ray (the border between two commanders' halves).
+    func distToBoundary(_ x: Double, _ y: Double) -> Double {
+        var best = Double.infinity
+        for j in 0..<k {
+            let a = baseAngle + .pi / Double(k) + Double(j) * 2 * .pi / Double(k)
+            let ux = cos(a), uy = sin(a)
+            let dx = x - c, dy = y - c
+            let along = dx * ux + dy * uy
+            let d = along < 0 ? (dx * dx + dy * dy).squareRoot() : abs(dx * uy - dy * ux)
+            best = min(best, d)
+        }
+        return best
+    }
+
+    /// Three-player maps are played inside the inscribed circle (the corners cannot be made symmetric).
+    var playRadius: Double { k == 3 ? c - 1 : Double.infinity }
+    func inPlay(_ x: Double, _ y: Double) -> Bool { dist2(x, y, c, c) < playRadius * playRadius }
+
+    /// A random point inside the first sector, `margin` tiles from the edges.
+    mutating func randomInSector(margin: Double) -> (Double, Double) {
+        for _ in 0..<64 {
+            let x = rng.range(margin, Double(n) - margin), y = rng.range(margin, Double(n) - margin)
+            if inSector(x, y) && dist2(x, y, c, c) < (playRadius - margin) * (playRadius - margin) { return (x, y) }
+        }
+        let a = baseAngle + rng.range(-0.8, 0.8) * .pi / Double(k)
+        let r = rng.range(8, min(c - margin, playRadius - margin))
+        return (c + cos(a) * r, c + sin(a) * r)
+    }
+
+    /// A point `r` tiles from the centre at `angle`.
+    func polar(_ angle: Double, _ r: Double) -> (Double, Double) { (c + cos(angle) * r, c + sin(angle) * r) }
 
     // Hash-based value noise, deterministic for a seed.
     func noise(_ x: Double, _ y: Double, _ s: UInt64) -> Double {
@@ -89,42 +206,53 @@ private struct Generator {
         return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy
     }
 
+    // MARK: Painting (every operation is applied to all rotated copies)
+
     mutating func setSym(_ x: Int, _ y: Int, _ t: Terrain) {
         guard inside(x, y) else { return }
-        let (mx, my) = mirror(x, y)
-        terrain[idx(x, y)] = t.rawValue
-        terrain[idx(mx, my)] = t.rawValue
+        for (ox, oy) in orbit(x, y) where inside(ox, oy) { terrain[idx(ox, oy)] = t.rawValue }
     }
 
-    mutating func protect(_ cx: Double, _ cy: Double, _ r: Double) {
+    mutating func protect(_ px: Double, _ py: Double, _ r: Double) {
         let r2 = r * r
-        for y in max(0, Int(cy - r))...min(n - 1, Int(cy + r)) {
-            for x in max(0, Int(cx - r))...min(n - 1, Int(cx + r)) {
-                if dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= r2 { protected[idx(x, y)] = true }
-            }
+        for j in 0..<k {
+            let (cx, cy) = rot(px, py, j)
+            guard let ys = span(cy - r, cy + r, 0, n - 1), let xs = span(cx - r, cx + r, 0, n - 1) else { continue }
+            for y in ys { for x in xs where dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= r2 { protected[idx(x, y)] = true } }
         }
     }
 
-    mutating func placeResourceSym(_ k: ResourceKind, _ x: Int, _ y: Int) {
-        guard inside(x, y) else { return }
-        let (mx, my) = mirror(x, y)
-        let i = idx(x, y), j = idx(mx, my)
-        guard !occupied[i], !occupied[j], Terrain(rawValue: terrain[i])!.groundPassable, Terrain(rawValue: terrain[j])!.groundPassable else { return }
-        occupied[i] = true; occupied[j] = true
-        resources.append(ResourceSpawn(kind: k, x: x, y: y))
-        if i != j { resources.append(ResourceSpawn(kind: k, x: mx, y: my)) }
+    /// Clamped tile range covering [lo, hi], or nil when it misses the map.
+    func span(_ lo: Double, _ hi: Double, _ minT: Int, _ maxT: Int) -> ClosedRange<Int>? {
+        let a = max(minT, Int(floor(lo))), b = min(maxT, Int(floor(hi)))
+        return a <= b ? a...b : nil
+    }
+
+    /// Places a resource node under a continuous point and under each of its rotated copies.
+    /// Every copy must be free and walkable, so the copies stay identical.
+    mutating func placeResource(_ kind: ResourceKind, at px: Double, _ py: Double) {
+        var tiles: [(Int, Int)] = []
+        for j in 0..<k {
+            let (x, y) = tile(rot(px, py, j))
+            guard inside(x, y), inPlay(Double(x) + 0.5, Double(y) + 0.5) else { return }
+            let i = idx(x, y)
+            guard !occupied[i], Terrain(rawValue: terrain[i])!.groundPassable, !tiles.contains(where: { $0 == (x, y) }) else { return }
+            tiles.append((x, y))
+        }
+        for (x, y) in tiles {
+            occupied[idx(x, y)] = true
+            resources.append(ResourceSpawn(kind: kind, x: x, y: y))
+        }
     }
 
     /// Arc of resource nodes around (cx,cy) facing angle a.
-    mutating func resourceArc(_ k: ResourceKind, _ cx: Double, _ cy: Double, angle: Double, radius: Double, count: Int, spread: Double) {
+    mutating func resourceArc(_ kind: ResourceKind, _ cx: Double, _ cy: Double, angle: Double, radius: Double, count: Int, spread: Double) {
         for i in 0..<count {
             let t = count == 1 ? 0 : (Double(i) / Double(count - 1) - 0.5) * spread
             let a = angle + t
-            let x = Int(cx + cos(a) * radius), y = Int(cy + sin(a) * radius)
-            placeResourceSym(k, x, y)
-            if k == .wood { // forests are two rows deep
-                let x2 = Int(cx + cos(a) * (radius + 1.2)), y2 = Int(cy + sin(a) * (radius + 1.2))
-                placeResourceSym(k, x2, y2)
+            placeResource(kind, at: cx + cos(a) * radius, cy + sin(a) * radius)
+            if kind == .wood { // forests are two rows deep
+                placeResource(kind, at: cx + cos(a) * (radius + 1.2), cy + sin(a) * (radius + 1.2))
             }
         }
     }
@@ -132,42 +260,73 @@ private struct Generator {
     mutating func forestClump(_ cx: Double, _ cy: Double, _ count: Int) {
         for _ in 0..<count {
             let a = rng.range(0, 2 * .pi), r = rng.range(0, 3.2)
-            let x = Int(cx + cos(a) * r), y = Int(cy + sin(a) * r)
-            if inside(x, y) && !protected[idx(x, y)] { placeResourceSym(.wood, x, y) }
+            let x = cx + cos(a) * r, y = cy + sin(a) * r
+            let (tx, ty) = tile((x, y))
+            if inside(tx, ty) && !protected[idx(tx, ty)] { placeResource(.wood, at: x, y) }
         }
     }
 
-    mutating func blob(_ cx: Double, _ cy: Double, _ r: Double, _ t: Terrain) {
+    /// An irregular patch of terrain centred on (bx,by) and on each rotated copy. The wobble is sampled at the
+    /// orbit representative so all copies take the same shape.
+    mutating func blob(_ bx: Double, _ by: Double, _ r: Double, _ t: Terrain) {
         let r2 = r * r
-        for y in max(1, Int(cy - r - 1))...min(n - 2, Int(cy + r + 1)) {
-            for x in max(1, Int(cx - r - 1))...min(n - 2, Int(cx + r + 1)) {
-                let wob = noise(Double(x) * 0.35, Double(y) * 0.35, 99) * 0.8 + 0.6
-                if dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= r2 * wob {
-                    let (mx, my) = mirror(x, y)
-                    if !protected[idx(x, y)] && !protected[idx(mx, my)] && !occupied[idx(x, y)] && !occupied[idx(mx, my)] {
-                        setSym(x, y, t)
+        for j in 0..<k {
+            let (cx, cy) = rot(bx, by, j)
+            guard let ys = span(cy - r - 1, cy + r + 1, 1, n - 2), let xs = span(cx - r - 1, cx + r + 1, 1, n - 2) else { continue }
+            for y in ys {
+                for x in xs {
+                    let (rx, ry) = rep(x, y)
+                    let wob = noise(Double(rx) * 0.35, Double(ry) * 0.35, 99) * 0.8 + 0.6
+                    guard dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= r2 * wob else { continue }
+                    let i = idx(x, y)
+                    if !protected[i] && !occupied[i] { terrain[i] = t.rawValue }
+                }
+            }
+        }
+    }
+
+    /// Opens a walkable corridor from a to b (and between their rotated copies).
+    mutating func carve(_ ax: Double, _ ay: Double, _ bx: Double, _ by: Double, width: Double) {
+        let steps = Int(max(abs(bx - ax), abs(by - ay)) * 2) + 1
+        for j in 0..<k {
+            let (a0, a1) = rot(ax, ay, j), (b0, b1) = rot(bx, by, j)
+            for s in 0...steps {
+                let t = Double(s) / Double(steps)
+                let cx = a0 + (b0 - a0) * t, cy = a1 + (b1 - a1) * t
+                guard let ys = span(cy - width, cy + width, 1, n - 2), let xs = span(cx - width, cx + width, 1, n - 2) else { continue }
+                for y in ys {
+                    for x in xs where dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= width * width {
+                        let i = idx(x, y)
+                        if !Terrain(rawValue: terrain[i])!.groundPassable { terrain[i] = Terrain.dirt.rawValue }
                     }
                 }
             }
         }
     }
 
-    mutating func carve(_ ax: Double, _ ay: Double, _ bx: Double, _ by: Double, width: Double) {
-        let steps = Int(max(abs(bx - ax), abs(by - ay)) * 2) + 1
-        for s in 0...steps {
-            let t = Double(s) / Double(steps)
-            let cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t
-            for y in Int(cy - width)...Int(cy + width) {
-                for x in Int(cx - width)...Int(cx + width) where inside(x, y) {
-                    if dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= width * width {
-                        let (mx, my) = mirror(x, y)
-                        for (px, py) in [(x, y), (mx, my)] {
-                            let i = idx(px, py)
-                            if !Terrain(rawValue: terrain[i])!.groundPassable { terrain[i] = Terrain.dirt.rawValue }
+    /// A winding river along each sector boundary, from the centre to the map edge, with fords.
+    mutating func rivers(_ s1: UInt64) {
+        let N = Double(n)
+        let fords: [(Double, Double)] = [(0, 0.05 * N), (0.19 * N, 0.025 * N), (0.37 * N, 0.04 * N)]
+        let reach = (k == 3 ? playRadius : N * 0.75) + 3
+        var d = 0.0
+        while d < reach {
+            let wob = sin(d * 0.11) * 4 + noise(0.5, d * 0.1, s1) * 3
+            let ford = fords.contains { abs(d - $0.0) < $0.1 }
+            if !ford {
+                for j in 0..<k {
+                    let a = baseAngle + .pi / Double(k) + Double(j) * 2 * .pi / Double(k)
+                    let cx = c + cos(a) * d - sin(a) * wob, cy = c + sin(a) * d + cos(a) * wob
+                    guard let ys = span(cy - 2.6, cy + 2.6, 1, n - 2), let xs = span(cx - 2.6, cx + 2.6, 1, n - 2) else { continue }
+                    for y in ys {
+                        for x in xs where dist2(Double(x) + 0.5, Double(y) + 0.5, cx, cy) <= 2.6 * 2.6 {
+                            let i = idx(x, y)
+                            if !occupied[i] { terrain[i] = Terrain.water.rawValue }
                         }
                     }
                 }
             }
+            d += 0.5
         }
     }
 
@@ -188,6 +347,16 @@ private struct Generator {
         return seen
     }
 
+    /// HQ footprint origin (4×4) for the start rotated into sector j.
+    func hqOrigin(_ start: (Double, Double), _ j: Int) -> (x: Int, y: Int) {
+        // The footprint centre is an integer point; rotating it keeps every copy on the same sub-tile phase.
+        let centre = (Double(Int(start.0)), Double(Int(start.1)))
+        let (x, y) = rot(centre.0, centre.1, j)
+        return (x: Int(x.rounded()) - 2, y: Int(y.rounded()) - 2)
+    }
+
+    // MARK: Build
+
     mutating func build(_ layout: MapLayout) -> MapData {
         let N = Double(n)
         if layout == .arena {
@@ -197,104 +366,98 @@ private struct Generator {
                 let v = noise(Double(x) * 0.07, Double(y) * 0.07, s1)
                 terrain[idx(x, y)] = (v > 0.62 ? Terrain.dirt : (v < 0.2 ? Terrain.moss : Terrain.grass)).rawValue
             } }
+            let corners = [(x: 4, y: 4), (x: n - 8, y: n - 8), (x: n - 8, y: 4), (x: 4, y: n - 8)]
             return MapData(size: n, terrain: terrain, elevation: elevation, resources: [],
-                           starts: [(x: 4, y: 4), (x: n - 8, y: n - 8)], sites: [], name: layout.title)
+                           starts: Array(corners.prefix(k)), sites: [], name: layout.title)
         }
-        var start0: (Double, Double)
-        var sitesHalf: [(Double, Double)] = []   // mirrored
-        let center = (N / 2, N / 2)
-        switch layout {
-        case .crossroads:
-            start0 = (0.15 * N, 0.15 * N)
-            sitesHalf = [(0.36 * N, 0.13 * N), (0.13 * N, 0.36 * N), (0.24 * N, 0.76 * N)]
-        case .riverbend:
-            start0 = (0.11 * N, 0.5 * N)
-            sitesHalf = [(0.27 * N, 0.22 * N), (0.27 * N, 0.78 * N), (0.5 * N, 0.13 * N)]
-        case .highlands, .arena:
-            start0 = (0.14 * N, 0.84 * N)
-            sitesHalf = [(0.17 * N, 0.56 * N), (0.4 * N, 0.85 * N), (0.30 * N, 0.25 * N)]
-        }
-        let start1 = mirrorD(start0.0, start0.1)
+        let base = layout.base(players: k)
+        baseAngle = base.angle
+        let start0 = polar(base.angle, base.radius * N)
+        let center = (c, c)
+        let sitesSector = layout.sectorSites(players: k).map { polar(base.angle + $0.0, $0.1 * N) }
 
-        // Ground texture variation.
+        // Ground texture variation (decided at each tile's orbit representative so it rotates with the map).
         let s1 = rng.next(), s2 = rng.next()
         for y in 0..<n {
             for x in 0..<n {
-                let v = noise(Double(x) * 0.08, Double(y) * 0.08, s1) * 0.7 + noise(Double(x) * 0.22, Double(y) * 0.22, s1 &+ 5) * 0.3
-                let (mx, my) = mirror(x, y)
-                if x + y * n > mx + my * n { continue }  // write each symmetric pair once
+                let (rx, ry) = rep(x, y)
+                let v = noise(Double(rx) * 0.08, Double(ry) * 0.08, s1) * 0.7 + noise(Double(rx) * 0.22, Double(ry) * 0.22, s1 &+ 5) * 0.3
                 let t: Terrain = v > 0.68 ? .dirt : (v < 0.3 ? .moss : .grass)
-                terrain[idx(x, y)] = t.rawValue; terrain[idx(mx, my)] = t.rawValue
-                let e = noise(Double(x) * 0.05, Double(y) * 0.05, s2) > 0.62 ? UInt8(1) : 0
-                elevation[idx(x, y)] = e; elevation[idx(mx, my)] = e
+                terrain[idx(x, y)] = t.rawValue
+                elevation[idx(x, y)] = noise(Double(rx) * 0.05, Double(ry) * 0.05, s2) > 0.62 ? 1 : 0
             }
         }
 
-        // Protected zones: bases, sites, center.
-        protect(start0.0, start0.1, 13); protect(start1.0, start1.1, 13)
+        // Protected zones: bases, sites, centre.
+        protect(start0.0, start0.1, 13)
         protect(center.0, center.1, 6)
-        for s in sitesHalf { protect(s.0, s.1, 6); let m = mirrorD(s.0, s.1); protect(m.0, m.1, 6) }
+        for s in sitesSector { protect(s.0, s.1, 6) }
         for y in 0..<n { for x in 0..<n where protected[idx(x, y)] { elevation[idx(x, y)] = 0 } }
 
-        // Base resources: iron arc facing away from center, gold on the side, forest behind.
-        let away = atan2(start0.1 - center.1, start0.0 - center.0)
+        // Base resources: iron arc facing away from centre, gold on the side, forest behind.
+        let away = base.angle
         resourceArc(.iron, start0.0, start0.1, angle: away, radius: 7.5, count: 8, spread: 1.6)
         resourceArc(.gold, start0.0, start0.1, angle: away + 1.75, radius: 8, count: 2, spread: 0.25)
         resourceArc(.wood, start0.0, start0.1, angle: away - 1.6, radius: 9.5, count: 9, spread: 1.0)
 
-        // Site resources.
-        for (i, s) in sitesHalf.enumerated() {
+        // Site resources: every site has gold worth taking.
+        for (i, s) in sitesSector.enumerated() {
             let a = atan2(s.1 - center.1, s.0 - center.0) + (i % 2 == 0 ? 0.6 : -0.6)
             resourceArc(.iron, s.0, s.1, angle: a, radius: 5, count: 5, spread: 1.2)
             resourceArc(.wood, s.0, s.1, angle: a + 2.2, radius: 5.5, count: 4, spread: 0.8)
-            resourceArc(.gold, s.0, s.1, angle: a - 1.9, radius: 5, count: 2, spread: 0.4)   // every site has gold worth taking
+            resourceArc(.gold, s.0, s.1, angle: a - 1.9, radius: 5, count: 2, spread: 0.4)
         }
-        // Contested gold in the center.
-        for k in 0..<4 {
-            let a = Double(k) * .pi / 2 + .pi / 4
-            let x = Int(center.0 + cos(a) * 5.5), y = Int(center.1 + sin(a) * 5.5)
-            if k < 2 { placeResourceSym(.gold, x, y) }
+        // Contested gold in the centre (two nodes per commander).
+        for a in [base.angle + .pi / 4, base.angle - .pi / 4] {
+            let p = polar(a, 5.5)
+            placeResource(.gold, at: p.0, p.1)
         }
 
-        // Obstacles.
+        // Obstacles (per sector; the symmetry supplies the rest).
         switch layout {
         case .riverbend:
-            for y in 0..<n {
-                let wob = sin(Double(y) * 0.11) * 4 + noise(0.5, Double(y) * 0.1, s1) * 3
-                let cx = N / 2 + wob
-                for x in Int(cx - 2.5)...Int(cx + 2.5) where inside(x, y) {
-                    let fy = Double(y) / N
-                    let ford = abs(fy - 0.5) < 0.05 || abs(fy - 0.13) < 0.04 || abs(fy - 0.87) < 0.04 || abs(fy - 0.31) < 0.025 || abs(fy - 0.69) < 0.025
-                    let (mx, my) = mirror(x, y)
-                    if !ford && !occupied[idx(x, y)] && !occupied[idx(mx, my)] { setSym(x, y, .water) }
-                }
+            rivers(s1)
+            var placed = 0, tries = 0
+            while placed < 10 && tries < 60 {
+                tries += 1
+                let (x, y) = randomInSector(margin: 8)
+                if distToBoundary(x, y) < 7 { continue }     // keep the river banks and fords open
+                blob(x, y, rng.range(1.5, 3.5), .rock); placed += 1
             }
-            for _ in 0..<10 { blob(rng.range(8, N / 2 - 6), rng.range(8, N - 8), rng.range(1.5, 3.5), .rock) }
         case .crossroads:
-            for _ in 0..<12 {
-                let x = rng.range(10, N - 10), y = rng.range(10, N - 10)
-                if x + y > N { continue }
+            for _ in 0..<6 {
+                let (x, y) = randomInSector(margin: 10)
                 blob(x, y, rng.range(2, 4.5), rng.chance(0.25) ? .water : .rock)
             }
-            // Ridges that funnel the diagonal.
-            blob(0.32 * N, 0.52 * N, 4, .rock); blob(0.52 * N, 0.30 * N, 3.5, .rock)
+            // Ridges that funnel the road from each base to the centre.
+            let r1 = polar(base.angle - 0.89, 0.181 * N), r2 = polar(base.angle + 0.89, 0.201 * N)
+            blob(r1.0, r1.1, 4, .rock); blob(r2.0, r2.1, 3.5, .rock)
         case .highlands, .arena:
             for _ in 0..<16 {
-                let x = rng.range(8, N - 8), y = rng.range(8, N - 8)
+                let (x, y) = randomInSector(margin: 8)
                 blob(x, y, rng.range(1.5, 5), rng.chance(0.35) ? .water : .rock)
             }
+        }
+        // Three commanders share a round battlefield: the corners beyond it are crag.
+        if k == 3 {
+            for y in 0..<n { for x in 0..<n where !inPlay(Double(x) + 0.5, Double(y) + 0.5) {
+                let i = idx(x, y)
+                if !occupied[i] { terrain[i] = Terrain.rock.rawValue }
+            } }
         }
 
         // Scattered forests.
         for _ in 0..<14 {
-            let x = rng.range(8, N - 8), y = rng.range(8, N - 8)
-            if !protected[idx(Int(x), Int(y))] { forestClump(x, y, rng.int(8) + 6) }
+            let (x, y) = randomInSector(margin: 8)
+            let (tx, ty) = tile((x, y))
+            if inBounds(tx, ty) && !protected[idx(tx, ty)] { forestClump(x, y, rng.int(8) + 6) }
         }
 
-        // Guarantee connectivity between both bases and all sites.
+        // Guarantee connectivity between every base and every site.
         let s0x = Int(start0.0), s0y = Int(start0.1)
-        var targets: [(Double, Double)] = [start1, center]
-        for s in sitesHalf { targets.append(s); targets.append(mirrorD(s.0, s.1)) }
+        var targets: [(Double, Double)] = [center]
+        for j in 1..<k { targets.append(rot(start0.0, start0.1, j)) }
+        for s in sitesSector { for j in 0..<k { targets.append(rot(s.0, s.1, j)) } }
         for _ in 0..<4 {
             let r = reachable(from: s0x, s0y)
             var ok = true
@@ -317,10 +480,9 @@ private struct Generator {
         }
 
         var sites: [(x: Double, y: Double)] = [(center.0, center.1)]
-        for s in sitesHalf { sites.append((s.0, s.1)); let m = mirrorD(s.0, s.1); sites.append((m.0, m.1)) }
-        let hq0 = (x: Int(start0.0) - 2, y: Int(start0.1) - 2)
-        let hq1 = (x: n - 4 - hq0.x, y: n - 4 - hq0.y)
+        for s in sitesSector { for j in 0..<k { let p = rot(s.0, s.1, j); sites.append((p.0, p.1)) } }
+        let starts = (0..<k).map { hqOrigin(start0, $0) }
         return MapData(size: n, terrain: terrain, elevation: elevation, resources: resources,
-                       starts: [hq0, hq1], sites: sites, name: layout.title)
+                       starts: starts, sites: sites, name: layout.title)
     }
 }

@@ -74,7 +74,7 @@ extension GameController {
         return (0..<count).map { k in
             var (x, y) = (p.0 + Double(k % 2) * 1.2, p.1 + Double(k / 2) * 1.2)
             if world.nav.isBlocked(Int(x), Int(y)) { let o = world.nav.nearestOpen(Int(x), Int(y)); x = Double(o.0) + 0.5; y = Double(o.1) + 0.5 }
-            let e = world.spawnUnit(u, owner: 1 - me, x: x, y: y)
+            let e = world.spawnUnit(u, owner: enemyPlayer, x: x, y: y)
             world.commandHold([e.id])
             return e.id
         }
@@ -149,7 +149,7 @@ extension GameController {
                          target: { c in c.tutorial?.spawned.compactMap { c.world.entity($0) }.first.map { ($0.x, $0.y) } },
                          enter: { c in
                              // Practice targets: they fire back but do no damage, so a first fight is never lost.
-                             if let u = c.data.unitIndex["m_runner"] { c.world.players[1 - c.me].mods.unit[u].damage = 0 }
+                             if let u = c.data.unitIndex["m_runner"] { c.world.players[c.enemyPlayer].mods.unit[u].damage = 0 }
                              c.tutorial?.spawned = c.spawnEnemies("m_runner", count: 2, near: c.ahead(11))
                          },
                          done: { c in (c.tutorial?.spawned ?? []).allSatisfy { c.world.entity($0) == nil } }),
@@ -166,11 +166,11 @@ extension GameController {
                                  let dx = site.x - h.x, dy = site.y - h.y, l = max(1, (dx * dx + dy * dy).squareRoot())
                                  p = (site.x + dx / l * 5, site.y + dy / l * 5)
                              }
-                             let f = c.world.players[1 - c.me].faction
+                             let f = c.world.players[c.enemyPlayer].faction
                              if let t = c.data.buildingIDs(f).first(where: { c.data.buildings[$0].kind == .forward }) {
                                  var tx = Int(p.0), ty = Int(p.1)
                                  if c.world.nav.isBlocked(tx, ty) { let o = c.world.nav.nearestOpen(tx, ty); tx = o.0; ty = o.1 }
-                                 c.tutorial?.outpost = c.world.spawnBuilding(t, owner: 1 - c.me, tileX: tx, tileY: ty, complete: true).id
+                                 c.tutorial?.outpost = c.world.spawnBuilding(t, owner: c.enemyPlayer, tileX: tx, tileY: ty, complete: true).id
                              }
                          },
                          done: { c in c.world.entity(c.tutorial?.outpost ?? -1) == nil }),

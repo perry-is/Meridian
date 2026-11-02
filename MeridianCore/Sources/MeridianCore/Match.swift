@@ -30,9 +30,11 @@ public final class Match {
         return s.valueKilled + army * 0.5 + sites * 400
     }
 
+    /// The best-scoring team's leading player (teams pool their score).
     func scoreLeader() -> Int {
-        var best = -1, bs = -Double.infinity
-        for p in world.players.indices { let s = score(p); if s > bs { bs = s; best = p } }
-        return best
+        var teamScore: [Int: Double] = [:]
+        for p in world.players where !p.defeated { teamScore[p.team, default: 0] += score(p.index) }
+        guard let team = teamScore.max(by: { ($0.value, -$0.key) < ($1.value, -$1.key) })?.key else { return -1 }
+        return world.players.filter { $0.team == team && !$0.defeated }.max { score($0.index) < score($1.index) }?.index ?? -1
     }
 }

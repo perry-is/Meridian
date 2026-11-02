@@ -139,17 +139,17 @@ struct SiteStrip: View {
                         .frame(width: compact ? 8 : 10, height: 10)
                 }
             }
-            if h.myDominance > 0 || h.enemyDominance > 0 {
+            if h.dominanceMode && (h.myDominance > 0 || h.enemyDominance > 0) {
                 let mine = h.myDominance >= h.enemyDominance
                 let left = Int(h.dominanceSeconds - max(h.myDominance, h.enemyDominance))
                 Text("\(mine ? "WIN" : "LOSE") \(left / 60):\(String(format: "%02d", left % 60))")
                     .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
                     .padding(.horizontal, 5).padding(.vertical, 2)
-                    .background(Capsule().fill(mine ? Theme.team(0) : Theme.team(1)))
+                    .background(Capsule().fill(mine ? Color(red: 0.3, green: 0.95, blue: 0.4) : Color(red: 1, green: 0.35, blue: 0.28)))
                     .foregroundColor(.black)
             }
         }
-        .accessibilityLabel("Sites: \(h.sitesOwned) yours, \(h.sitesEnemy) enemy")
+        .accessibilityLabel("Sites: \(h.sitesOwned) yours, \(h.sitesAllied) allied, \(h.sitesEnemy) enemy")
     }
 }
 

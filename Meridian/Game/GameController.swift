@@ -19,15 +19,54 @@ enum Iso {
     @inline(__always) static func depth(_ x: Double, _ y: Double) -> CGFloat { CGFloat(x - y) }
 }
 
+/// One commander in the battle setup: slot 0 is the player (or the first AI when watching), the rest are computer opponents.
+struct PlayerSlot: Equatable, Hashable {
+    var faction: Faction
+    /// Commanders with the same team number are allies.
+    var team: Int
+}
+
 struct GameSettings {
-    var playerFaction: Faction = .humans
-    var aiFaction: Faction = .machines
+    /// Two to four commanders. Defaults to the classic 1v1.
+    var slots: [PlayerSlot] = [PlayerSlot(faction: .humans, team: 0), PlayerSlot(faction: .machines, team: 1)]
+    var victory: VictoryMode = .annihilation
     var difficulty: Difficulty = .normal
     var strategy: AIStrategy = .balanced
     var layout: MapLayout = .crossroads
     /// Quick Match: smaller map and a faster clock (about ten minutes).
     var quick = false
     var seed: UInt64 = UInt64(Date().timeIntervalSince1970) % 100_000
+
+    /// The player's faction (slot 0) and the first opponent's — kept for the 1v1 code paths, tests and tools.
+    var playerFaction: Faction {
+        get { slots[0].faction }
+        set { slots[0].faction = newValue }
+    }
+    var aiFaction: Faction {
+        get { slots.count > 1 ? slots[1].faction : .machines }
+        set { if slots.count > 1 { slots[1].faction = newValue } else { slots.append(PlayerSlot(faction: newValue, team: 1)) } }
+    }
+    var factions: [Faction] { slots.map { $0.faction } }
+    var teams: [Int] { slots.map { $0.team } }
+    /// A battle needs at least two teams.
+    var hasOpposingTeams: Bool { Set(teams).count >= 2 }
+    var mapSize: Int { MatchConfig.mapSize(players: slots.count, quick: quick) }
+
+    mutating func addSlot() {
+        guard slots.count < MatchConfig.maxPlayers else { return }
+        let used = Set(teams)
+        let team = (0..<MatchConfig.maxPlayers).first { !used.contains($0) } ?? slots.count
+        slots.append(PlayerSlot(faction: Faction.allCases[slots.count % Faction.allCases.count], team: team))
+    }
+
+    mutating func removeSlot(_ i: Int) {
+        guard slots.count > 2, i > 0, i < slots.count else { return }
+        slots.remove(at: i)
+    }
+
+    /// Allies of slot 0 and everyone else, by slot index.
+    var allyIndices: [Int] { slots.indices.filter { $0 != 0 && slots[$0].team == slots[0].team } }
+    var enemyIndices: [Int] { slots.indices.filter { slots[$0].team != slots[0].team } }
 }
 
 enum InputMode: Equatable {
@@ -108,6 +147,9 @@ struct HUDState {
     var enemyDominance = 0.0
     var dominanceSeconds = 180.0
     var dominanceActive = false
+    /// Dominance mode is on for this match (the site countdown matters).
+    var dominanceMode = false
+    var sitesAllied = 0
     var selectionTitle = ""
     var selectionSubtitle = ""
     var selectionDetail = ""
@@ -134,7 +176,7 @@ struct HUDState {
     var tileHP: [Int: Double] = [:]
     var idleWorkers = 0
     var armyCount = 0
-    var sides: [(faction: Faction, units: Int, value: Double, kills: Int)] = []
+    var sides: [(faction: Faction, units: Int, value: Double, kills: Int, team: Int, defeated: Bool)] = []
 }
 
 @MainActor
@@ -180,7 +222,9 @@ final class GameController: ObservableObject {
     /// Resume a saved match exactly where it was left.
     init(resume m: Match, save: MatchSave) {
         var st = GameSettings()
-        st.playerFaction = save.factions[0]; st.aiFaction = save.factions[1]; st.layout = save.layout; st.seed = save.seed
+        st.slots = save.factions.enumerated().map { PlayerSlot(faction: $0.element, team: m.world.teamOf[$0.offset]) }
+        st.victory = m.world.config.victory
+        st.layout = save.layout; st.seed = save.seed
         st.difficulty = save.extras["difficulty"].flatMap { Difficulty(rawValue: $0) } ?? .normal
         st.strategy = save.extras["strategy"].flatMap { AIStrategy(rawValue: $0) } ?? .balanced
         st.quick = save.extras["quick"] == "1"
@@ -217,7 +261,8 @@ final class GameController: ObservableObject {
         s.extras["formation"] = formation.rawValue
         s.extras["guideDismissed"] = guideDismissed ? "1" : "0"
         SaveStore.write(s, info: SaveStore.Info(playerFaction: settings.playerFaction, aiFaction: settings.aiFaction, layout: settings.layout,
-                                                difficulty: settings.difficulty.title + (settings.quick ? " · Quick" : ""), gameTime: world.time, savedAt: Date()))
+                                                difficulty: settings.difficulty.title + (settings.quick ? " · Quick" : ""), gameTime: world.time, savedAt: Date(),
+                                                factions: settings.factions, teams: settings.teams))
         lastAutosave = world.time
     }
 
@@ -241,9 +286,9 @@ final class GameController: ObservableObject {
 
     init(settings: GameSettings, spectate: Bool = false, aiPlayers: Bool) {
         self.settings = settings
-        let cfg = MatchConfig(factions: [settings.playerFaction, settings.aiFaction], layout: settings.layout, seed: settings.seed,
-                              mapSize: settings.quick ? GameData.quickMapSize : MatchConfig.defaultMapSize)
-        var ai: [(player: Int, difficulty: Difficulty, strategy: AIStrategy)] = [(1, settings.difficulty, settings.strategy)]
+        let cfg = MatchConfig(factions: settings.factions, teams: settings.teams, victory: settings.victory, layout: settings.layout,
+                              seed: settings.seed, mapSize: settings.mapSize)
+        var ai: [(player: Int, difficulty: Difficulty, strategy: AIStrategy)] = settings.slots.indices.dropFirst().map { (player: $0, difficulty: settings.difficulty, strategy: settings.strategy) }
         if spectate { ai.insert((0, settings.difficulty, .balanced), at: 0) }
         if !aiPlayers { ai = [] }
         spectating = spectate
@@ -335,10 +380,10 @@ final class GameController: ObservableObject {
             let (x, y) = spot(9 + Double(k / 6) * 1.8, (Double(k % 6) - 2.5) * 1.7)
             world.commandHold([world.spawnUnit(u, owner: me, x: x, y: y).id])
         }
-        let foes = data.unitIDs(world.players[1 - me].faction).filter { data.units[$0].domain == .ground && ["heavy", "assault", "infantry"].contains(data.units[$0].role) }
+        let foes = data.unitIDs(world.players[enemyPlayer].faction).filter { data.units[$0].domain == .ground && ["heavy", "assault", "infantry"].contains(data.units[$0].role) }
         for k in 0..<6 {
             let (x, y) = spot(17, (Double(k) - 2.5) * 1.7)
-            world.commandHold([world.spawnUnit(foes[k % foes.count], owner: 1 - me, x: x, y: y).id])
+            world.commandHold([world.spawnUnit(foes[k % foes.count], owner: enemyPlayer, x: x, y: y).id])
         }
         labFocus = spot(12, 0)
         let workers = world.units(of: me).filter { world.traits[$0.type].worker }
@@ -419,11 +464,12 @@ final class GameController: ObservableObject {
         processEvents()
         if world.time - lastHUD > 0.2 { lastHUD = world.time; refreshHUD() }
         if canSave && world.time - lastAutosave >= 60 { saveNow() }
-        if let w = world.winner, gameOver == nil {
-            gameOver = (w == me, world.victoryReason)
+        if world.winner != nil, gameOver == nil {
+            let won = world.won(by: me) ?? false
+            gameOver = (won, world.victoryReason)
             if !spectating { SaveStore.delete() }
-            if w == me { Haptics.success() } else { Haptics.error() }
-            SoundEngine.shared?.play(w == me ? "victory" : "defeat", at: nil, minGap: 0)
+            if won { Haptics.success() } else { Haptics.error() }
+            SoundEngine.shared?.play(won ? "victory" : "defeat", at: nil, minGap: 0)
         }
     }
 
@@ -434,7 +480,9 @@ final class GameController: ObservableObject {
         for ev in world.events {
             switch ev {
             case .captured(let site, let owner):
-                if owner == me { toast("Site captured") } else { toast("Enemy captured a site", warning: true) }
+                if owner == me { toast("Site captured") }
+                else if world.isAlly(me, owner) { toast("\(world.players[owner].name) captured a site") }
+                else { toast("Enemy captured a site", warning: true) }
                 _ = site
             case .researched(let owner, let u):
                 if owner == me { toast("Research complete: \(data.upgrades[u].name)"); Haptics.success() }
@@ -811,12 +859,14 @@ final class GameController: ObservableObject {
         h.time = world.time
         h.sitesTotal = world.sites.count
         h.sitesOwned = world.sites.filter { $0.owner == me && $0.control >= 1 }.count
-        h.sitesEnemy = world.sites.filter { $0.owner >= 0 && $0.owner != me && $0.control >= 1 }.count
+        h.sitesAllied = world.sitesHeld(team: p.team) - h.sitesOwned
+        h.sitesEnemy = world.sites.filter { $0.owner >= 0 && world.isEnemy(me, $0.owner) && $0.control >= 1 }.count
         h.dominanceNeed = world.dominanceRequirement
+        h.dominanceMode = world.config.victory == .dominance
         h.myDominance = p.dominanceTimer
-        h.enemyDominance = world.players.filter { $0.index != me }.map { $0.dominanceTimer }.max() ?? 0
+        h.enemyDominance = world.players.filter { world.isEnemy(me, $0.index) }.map { $0.dominanceTimer }.max() ?? 0
         h.dominanceSeconds = data.rules.territory.dominanceSeconds
-        h.dominanceActive = world.time >= data.rules.territory.dominanceStart
+        h.dominanceActive = h.dominanceMode && world.time >= data.rules.territory.dominanceStart
         // Income per minute from a sliding window.
         incomeWindow.append((world.time, p.stats.gathered.enumerated().map { $0.element + Int(p.stats.territoryIncome[$0.offset]) }))
         incomeWindow.removeAll { world.time - $0.0 > 60 }
@@ -830,7 +880,7 @@ final class GameController: ObservableObject {
             for e in world.entities where e.isUnit && e.alive && !e.isMine && e.owner == pl.index && !world.traits[e.type].worker {
                 n += 1; v += data.units[e.type].cost.value(data.rules.economy) * e.hp / max(1, e.maxHp)
             }
-            return (pl.faction, n, v, pl.stats.kills)
+            return (pl.faction, n, v, pl.stats.kills, pl.team, pl.defeated)
         }
         h.siteOwners = world.sites.map { $0.control >= 1 ? $0.owner : -1 }
         h.siteProgress = world.sites.map { $0.owner >= 0 ? $0.control : ($0.capturer >= 0 ? -$0.control : 0) }
@@ -856,7 +906,7 @@ final class GameController: ObservableObject {
         if let si = selectedSite {
             let s = world.sites[si]
             h.selectionTitle = "Strategic Site"
-            let owner = s.owner < 0 ? "Neutral" : (s.owner == me ? "Yours" : "Enemy")
+            let owner = s.owner < 0 ? "Neutral" : (s.owner == me ? "Yours" : (world.isAlly(me, s.owner) ? "Allied" : "Enemy"))
             h.selectionSubtitle = "\(owner) · control \(Int(s.control * 100))%" + (s.contested ? " · CONTESTED" : "")
             let tr = data.rules.territory
             let f = world.players[me].faction
@@ -1100,5 +1150,11 @@ final class GameController: ObservableObject {
 }
 
 extension World {
-    func isEnemyPublic(_ a: Int, _ b: Int) -> Bool { a >= 0 && b >= 0 && a != b }
+    /// Renderer/UI shorthand for the core's team check.
+    func isEnemyPublic(_ a: Int, _ b: Int) -> Bool { isEnemy(a, b) }
+}
+
+extension GameController {
+    /// The first enemy commander (tutorial, labs and other 1v1 tools spawn their practice targets for them).
+    var enemyPlayer: Int { world.players.first { world.isEnemy(me, $0.index) }?.index ?? (me == 0 ? 1 : 0) }
 }

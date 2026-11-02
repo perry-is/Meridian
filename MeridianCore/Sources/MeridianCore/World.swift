@@ -51,16 +51,60 @@ public struct UnitTraits: Sendable {
     }
 }
 
+/// How a match is won. Every mode ends when only one team still has structures standing.
+public enum VictoryMode: String, Codable, CaseIterable, Sendable {
+    /// Destroy every enemy structure.
+    case annihilation
+    /// Annihilation, or hold most of the strategic sites long enough once the dominance protocol activates.
+    case dominance
+    public var title: String { self == .annihilation ? "Annihilation" : "Dominance" }
+    public var blurb: String {
+        switch self {
+        case .annihilation: return "Destroy every enemy structure. The last team standing wins."
+        case .dominance: return "Destroy every enemy structure, or hold most of the strategic sites once the dominance protocol activates."
+        }
+    }
+}
+
 public struct MatchConfig: Sendable {
     public var factions: [Faction]
+    /// Team of each player (same number = allies). Defaults to every player on their own team.
+    public var teams: [Int]
+    public var victory: VictoryMode
     public var layout: MapLayout
     public var seed: UInt64
     public var mapSize: Int
     public var swapStarts: Bool
     public static let defaultMapSize = 112
-    public init(factions: [Faction], layout: MapLayout = .crossroads, seed: UInt64 = 1, mapSize: Int = MatchConfig.defaultMapSize, swapStarts: Bool = false) {
-        self.factions = factions; self.layout = layout; self.seed = seed; self.mapSize = mapSize; self.swapStarts = swapStarts
+    public static let maxPlayers = 4
+    public init(factions: [Faction], teams: [Int]? = nil, victory: VictoryMode = .annihilation, layout: MapLayout = .crossroads, seed: UInt64 = 1,
+                mapSize: Int? = nil, swapStarts: Bool = false) {
+        self.factions = factions
+        self.teams = MatchConfig.normalizedTeams(teams, players: factions.count)
+        self.victory = victory
+        self.layout = layout; self.seed = seed
+        self.mapSize = mapSize ?? MatchConfig.mapSize(players: factions.count, quick: false)
+        self.swapStarts = swapStarts
     }
+
+    /// Battlefield side length: more commanders need more ground.
+    public static func mapSize(players: Int, quick: Bool) -> Int {
+        switch max(2, min(maxPlayers, players)) {
+        case 2: return quick ? GameData.quickMapSize : defaultMapSize
+        case 3: return quick ? 96 : 128
+        default: return quick ? 108 : 144
+        }
+    }
+
+    /// A full-length team list (free-for-all when nothing is given).
+    static func normalizedTeams(_ teams: [Int]?, players: Int) -> [Int] {
+        guard let t = teams, t.count == players else { return Array(0..<players) }
+        return t
+    }
+
+    public var players: Int { factions.count }
+    /// Number of distinct teams.
+    public var teamCount: Int { Set(teams).count }
 }
 
 /// Tactical behaviour switches (all on by default). Used by the harness for A/B measurement.
@@ -108,6 +152,9 @@ public final class World {
     public var sandbox = false
     public var victoryReason = ""
     public let traits: [UnitTraits]
+    /// Team of each player, and the players sharing each player's team (self included): allies share vision and never fight.
+    public let teamOf: [Int]
+    let teammates: [[Int]]
     /// Tile -> building/resource id occupying it (-1 = none).
     public var occupant: [Int32]
     var nextID = 1
@@ -125,12 +172,15 @@ public final class World {
     public init(config: MatchConfig, data: GameData = .shared) {
         self.data = data
         self.config = config
-        var m = MapData.generate(layout: config.layout, seed: config.seed, size: config.mapSize)
-        if config.swapStarts { m.starts.swapAt(0, 1) }
+        var m = MapData.generate(layout: config.layout, seed: config.seed, size: config.mapSize, players: config.factions.count)
+        if config.swapStarts && m.starts.count >= 2 { m.starts.swapAt(0, 1) }
         self.map = m
         self.nav = NavGrid(map: m)
         self.rng = RNG(seed: config.seed &* 7919)
         self.traits = data.units.map { UnitTraits($0) }
+        let teams = MatchConfig.normalizedTeams(config.teams, players: config.factions.count)
+        self.teamOf = teams
+        self.teammates = teams.indices.map { p in teams.indices.filter { teams[$0] == teams[p] } }
         occupant = Array(repeating: -1, count: m.size * m.size)
         cellsW = (m.size + cellSize - 1) / cellSize
         cellStart = Array(repeating: 0, count: cellsW * cellsW + 1)
@@ -143,7 +193,10 @@ public final class World {
 
     private func setup() {
         for (i, f) in config.factions.enumerated() {
-            players.append(Player(index: i, faction: f, data: data, mapSize: map.size))
+            let p = Player(index: i, faction: f, team: teamOf[i], data: data, mapSize: map.size)
+            // Two commanders of the same faction are told apart by their player number.
+            if config.factions.filter({ $0 == f }).count > 1 { p.name += " \(i + 1)" }
+            players.append(p)
         }
         let e = data.rules.economy
         for r in map.resources {
@@ -360,9 +413,9 @@ public final class World {
         return ty * map.size + tx
     }
 
-    /// Whether `viewer` can currently see (and therefore target) entity e.
+    /// Whether `viewer` can currently see (and therefore target) entity e. Allies always see each other.
     public func canSee(_ viewer: Int, _ e: Entity) -> Bool {
-        if e.owner == viewer { return true }
+        if e.owner == viewer || (e.owner >= 0 && teamOf[e.owner] == teamOf[viewer]) { return true }
         let p = players[viewer]
         if e.isBuilding {
             // Any visible tile of the footprint.
@@ -376,7 +429,16 @@ public final class World {
         return true
     }
 
-    @inline(__always) func isEnemy(_ a: Int, _ b: Int) -> Bool { a >= 0 && b >= 0 && a != b }
+    /// Players on different teams. Neutral (-1) is nobody's enemy.
+    @inline(__always) public func isEnemy(_ a: Int, _ b: Int) -> Bool { a >= 0 && b >= 0 && teamOf[a] != teamOf[b] }
+    /// Different players on the same team.
+    @inline(__always) public func isAlly(_ a: Int, _ b: Int) -> Bool { a >= 0 && b >= 0 && a != b && teamOf[a] == teamOf[b] }
+    /// The team that won, once the match is over (nil while it runs or after mutual destruction).
+    public var winningTeam: Int? { winner.flatMap { $0 >= 0 ? teamOf[$0] : nil } }
+    /// Whether `player` is on the winning side (nil while the match runs).
+    public func won(by player: Int) -> Bool? { winner.map { $0 >= 0 && teamOf[$0] == teamOf[player] } }
+    /// Players still in the fight on the given team.
+    public func activePlayers(team: Int) -> [Player] { players.filter { $0.team == team && !$0.defeated } }
 
     func emit(_ ev: GameEvent) { if collectEvents { events.append(ev) } }
 

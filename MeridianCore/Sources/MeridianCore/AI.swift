@@ -265,13 +265,24 @@ public final class AIController {
         return (Double(w.map.size) / 2, Double(w.map.size) / 2)
     }
 
+    /// The nearest enemy commander's start (start positions are public knowledge). With several enemies the AI
+    /// concentrates on the closest one still in the fight.
     func enemyBase(_ w: World) -> (Double, Double) {
-        // Start positions are public knowledge on a two-player map.
-        for e in w.players where e.index != player && !e.defeated {
+        let (bx, by) = baseCenter(w)
+        var best: (Double, Double)? = nil
+        var bd = Double.infinity
+        for e in w.players where w.isEnemy(player, e.index) && !e.defeated {
             let s = w.map.starts[e.index % w.map.starts.count]
-            return (Double(s.x) + 2, Double(s.y) + 2)
+            let p = (Double(s.x) + 2, Double(s.y) + 2)
+            let d = dist2(p.0, p.1, bx, by)
+            if d < bd { bd = d; best = p }
         }
-        return (Double(w.map.size) / 2, Double(w.map.size) / 2)
+        return best ?? (Double(w.map.size) / 2, Double(w.map.size) / 2)
+    }
+
+    /// Structures of allied commanders (defended when they are within reach of our own base).
+    func allyBuildings(_ w: World) -> [Entity] {
+        w.entities.filter { $0.isBuilding && $0.alive && w.isAlly(player, $0.owner) }
     }
 
     func findSpot(_ w: World, _ p: Player, _ type: Int, _ kind: BuildingKind, _ buildings: [Entity]) -> (Int, Int)? {
@@ -514,12 +525,15 @@ public final class AIController {
         let value = armyValue(w, army)
 
         if difficulty == .hard { micro(w, army) }
-        // 1. Defence: enemies near our structures take priority.
+        // 1. Defence: enemies near our structures take priority; an ally's base within reach counts too
+        //    (the AI only sees what its team sees).
         var threat: Entity? = nil
         var threatCount = 0
         var threatValue = 0.0
+        let (hx0, hy0) = baseCenter(w)
+        let guarded = buildings + allyBuildings(w).filter { dist2($0.x, $0.y, hx0, hy0) < 55 * 55 }
         for e in w.entities where e.isUnit && e.onMap && !e.isMine && w.isEnemy(player, e.owner) && w.canSee(player, e) {
-            if buildings.contains(where: { dist2($0.x, $0.y, e.x, e.y) < 13 * 13 }) {
+            if guarded.contains(where: { dist2($0.x, $0.y, e.x, e.y) < 13 * 13 }) {
                 threatCount += 1
                 let role = w.udef(e).role
                 if role != "scout" && role != "worker" { threatValue += w.udef(e).cost.value(w.data.rules.economy) }
@@ -711,8 +725,9 @@ public final class AIController {
         }
         let known = w.entities.filter { $0.isBuilding && $0.alive && w.isEnemy(player, $0.owner) && w.players[player].explored[w.tileIndex($0.x, $0.y)] }
         if let b = known.min(by: { dist2($0.x, $0.y, bx, by) < dist2($1.x, $1.y, bx, by) }) { return (b.x, b.y) }
-        // Fall back to any enemy building (AI scouting assumption on 2-player maps).
-        if let b = w.entities.first(where: { $0.isBuilding && $0.alive && w.isEnemy(player, $0.owner) }) { return (b.x, b.y) }
+        // Fall back to the nearest enemy building (the AI assumes a scout would have found it by now).
+        if let b = w.entities.filter({ $0.isBuilding && $0.alive && w.isEnemy(player, $0.owner) })
+            .min(by: { dist2($0.x, $0.y, bx, by) < dist2($1.x, $1.y, bx, by) }) { return (b.x, b.y) }
         return nil
     }
 

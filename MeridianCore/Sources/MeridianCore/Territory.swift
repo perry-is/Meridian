@@ -157,20 +157,25 @@ extension World {
         for p in players {
             for i in 0..<(n * n) { p.visible[i] = 0; p.detected[i] = false }
         }
+        // Allies share vision and detection: everything a team member sees is stamped into every teammate's grid.
         for e in entities where e.alive && e.onMap && e.kind != .resource && e.owner >= 0 {
-            let p = players[e.owner]
             let s = e.isMine ? 1.5 : sight(e)
-            stamp(&p.visible, e.x, e.y, s, 1)
             var det = 0.0
             if e.isUnit && !e.isMine { det = traits[e.type].detectRange }
             else if e.isBuilding && e.complete && e.jammedMult == 1 && e.disruptedUntil <= time { det = bdef(e).params?["detectRange"] ?? 0 }
-            if det > 0 { stampDetect(p, e.x, e.y, det) }
+            for pi in teammates[e.owner] {
+                let p = players[pi]
+                stamp(&p.visible, e.x, e.y, s, 1)
+                if det > 0 { stampDetect(p, e.x, e.y, det) }
+            }
         }
         for s in sites where s.owner >= 0 && s.control >= 1 {
-            let p = players[s.owner]
             let v = s.installation == .watchpost ? tr.watchVision : tr.vision
-            stamp(&p.visible, s.x, s.y, v, 1)
-            if s.installation == .watchpost { stampDetect(p, s.x, s.y, v) }
+            for pi in teammates[s.owner] {
+                let p = players[pi]
+                stamp(&p.visible, s.x, s.y, v, 1)
+                if s.installation == .watchpost { stampDetect(p, s.x, s.y, v) }
+            }
         }
         for p in players {
             for i in 0..<(n * n) where p.visible[i] != 0 { p.explored[i] = true }
@@ -197,11 +202,16 @@ extension World {
                 guard o.isUnit, o.onMap, !o.isMine, traits[o.type].canCapture, dist2(o.x, o.y, s.x, s.y) <= tr.captureRadius * tr.captureRadius else { return }
                 present[o.owner] += 1
             }
-            let who = present.indices.filter { present[$0] > 0 }
-            sites[i].contested = who.count > 1
-            if who.count == 1 {
-                let p = who[0]
-                let rate = step / tr.captureTime * min(tr.maxCaptureMult, 1 + 0.5 * Double(present[p] - 1))
+            // Allies capture together: a site is contested only when two different teams stand on it.
+            let teamsPresent = Set(present.indices.filter { present[$0] > 0 }.map { teamOf[$0] })
+            sites[i].contested = teamsPresent.count > 1
+            if teamsPresent.count == 1 {
+                let team = teamsPresent.first!
+                let members = present.indices.filter { present[$0] > 0 }
+                let strength = members.reduce(0) { $0 + present[$1] }
+                // The site goes to the ally with the most units on it (an allied owner keeps it).
+                let p = s.owner >= 0 && teamOf[s.owner] == team ? s.owner : members.max { (present[$0], -$0) < (present[$1], -$1) }!
+                let rate = step / tr.captureTime * min(tr.maxCaptureMult, 1 + 0.5 * Double(strength - 1))
                 if s.owner == p {
                     sites[i].control = min(1, s.control + rate)
                 } else if s.owner >= 0 {
@@ -228,7 +238,7 @@ extension World {
                         refreshZonesSoon = true
                     }
                 }
-            } else if who.isEmpty {
+            } else if teamsPresent.isEmpty {
                 if s.owner < 0 { sites[i].control = max(0, s.control - step / tr.captureTime * 0.5) }
                 else { sites[i].control = min(1, s.control + step / tr.captureTime * 0.5) }
             }
@@ -247,19 +257,23 @@ extension World {
                 }
             }
         }
-        // Dominance victory.
-        let need = Int((Double(sites.count) * tr.dominanceFraction).rounded(.up))
+        // Dominance victory (optional mode): a team holding enough sites runs down a shared countdown.
+        guard config.victory == .dominance, !sandbox else { return }
+        let need = dominanceRequirement
+        var teamOwned: [Int: Int] = [:]
+        for s in sites where s.owner >= 0 && s.control >= 1 { teamOwned[teamOf[s.owner], default: 0] += 1 }
         for p in players where !p.defeated {
-            let owned = sites.filter { $0.owner == p.index && $0.control >= 1 }.count
-            if owned >= need && time >= tr.dominanceStart { p.dominanceTimer += step } else { p.dominanceTimer = 0 }
+            if (teamOwned[p.team] ?? 0) >= need && time >= tr.dominanceStart { p.dominanceTimer += step } else { p.dominanceTimer = 0 }
             if p.dominanceTimer >= tr.dominanceSeconds && winner == nil {
-                winner = p.index
+                winner = activePlayers(team: p.team).first?.index ?? p.index
                 victoryReason = "Territorial dominance"
             }
         }
     }
 
     public var dominanceRequirement: Int { Int((Double(sites.count) * data.rules.territory.dominanceFraction).rounded(.up)) }
+    /// Sites held (fully controlled) by a team.
+    public func sitesHeld(team: Int) -> Int { sites.filter { $0.owner >= 0 && $0.control >= 1 && teamOf[$0.owner] == team }.count }
 
     // MARK: Site installations
 
@@ -292,22 +306,32 @@ extension World {
 
     // MARK: Victory
 
+    /// A commander with no structures left is out of the fight: their remaining forces disband and their
+    /// production stops. The match ends when a single team remains.
     func checkVictory() {
         guard winner == nil, !sandbox else { return }
         for p in players where !p.defeated {
             let hasBuilding = entities.contains { $0.isBuilding && $0.alive && $0.owner == p.index && $0.siteIndex < 0 }
-            if !hasBuilding {
-                p.defeated = true
-                emit(.message(owner: p.index, text: "\(p.name) has been eliminated"))
-            }
+            if !hasBuilding { eliminate(p) }
         }
-        let alive = players.filter { !$0.defeated }
-        if alive.count == 1 {
-            winner = alive[0].index
-            victoryReason = "Enemy base destroyed"
-        } else if alive.isEmpty {
+        let teamsAlive = Set(players.filter { !$0.defeated }.map { $0.team })
+        if teamsAlive.count == 1 {
+            let team = teamsAlive.first!
+            winner = activePlayers(team: team).first?.index ?? -1
+            victoryReason = players.count > 2 ? "All enemies eliminated" : "Enemy base destroyed"
+        } else if teamsAlive.isEmpty {
             winner = -1
             victoryReason = "Mutual destruction"
         }
+    }
+
+    func eliminate(_ p: Player) {
+        p.defeated = true
+        for e in entities where e.alive && e.owner == p.index {
+            if e.isUnit { kill(e, killer: -1) }
+            else if e.isBuilding { e.queue.removeAll() }
+        }
+        p.researching.removeAll()
+        for pl in players { emit(.message(owner: pl.index, text: "\(p.name) has been eliminated")) }
     }
 }

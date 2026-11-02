@@ -37,7 +37,9 @@ enum Tips {
     static let all = [
         "Tap a tree or ore with workers selected to put them to work — a ring confirms the order.",
         "Press and hold, then drag, to draw a selection box. A quick drag moves the camera.",
-        "Captured sites trickle all three resources. Hold most of them to win by dominance.",
+        "Captured sites trickle all three resources. In Dominance mode, holding most of them wins the match.",
+        "Up to four commanders can fight. Allies share vision and capture sites together.",
+        "Destroy every enemy structure to win. A commander with no buildings left is out of the fight.",
         "Idle workers wear a small amber marker. Tap Idle to find one.",
         "Tap an enemy with combat units selected to focus your attack on it.",
         "Attack-Move sends units to a spot while fighting everything on the way.",
@@ -456,12 +458,17 @@ struct SetupView: View {
                     .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 6)
                     ScrollView {
                         VStack(spacing: 16) {
-                            section(watch ? "SIDE A" : "YOUR FACTION")
+                            section(watch ? "COMMANDER 1" : "YOUR FACTION")
                             factionGrid(selection: $settings.playerFaction, wide: wide)
-                            section(watch ? "SIDE B" : "OPPONENT")
-                            factionGrid(selection: $settings.aiFaction, wide: wide, compact: true)
+                            section(settings.slots.count > 2 ? "OTHER COMMANDERS" : "OPPONENT")
+                            commanders
                             GlassPanel(accent: Theme.faction(settings.playerFaction), padding: 12) {
                                 VStack(alignment: .leading, spacing: 12) {
+                                    labeled("VICTORY") {
+                                        Picker("Victory", selection: $settings.victory) { ForEach(VictoryMode.allCases, id: \.self) { Text($0.title).tag($0) } }
+                                            .pickerStyle(.segmented).accessibilityIdentifier("victoryMode")
+                                        Text(settings.victory.blurb).font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
+                                    }
                                     labeled("MATCH LENGTH") {
                                         Picker("Match length", selection: $settings.quick) {
                                             Text("Standard").tag(false); Text("Quick").tag(true)
@@ -476,6 +483,8 @@ struct SetupView: View {
                                     }
                                     labeled("BATTLEFIELD") {
                                         Picker("Map", selection: $settings.layout) { ForEach(MapLayout.playable, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                                        Text("\(settings.layout.blurb) \(settings.slots.count)-commander version, \(settings.mapSize)×\(settings.mapSize) tiles.")
+                                            .font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
                                     }
                                     labeled("TEMPERAMENT") {
                                         Picker("Temperament", selection: $settings.strategy) { ForEach(AIStrategy.allCases, id: \.self) { Text($0.temperament).tag($0) } }.pickerStyle(.segmented)
@@ -484,7 +493,7 @@ struct SetupView: View {
                                     Toggle(isOn: $watch) {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("AI VS AI").font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
-                                            Text("Sit back and watch two computer commanders fight.").font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
+                                            Text("Sit back and watch the computer commanders fight.").font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
                                         }
                                     }
                                     .tint(Theme.faction(settings.playerFaction))
@@ -492,6 +501,10 @@ struct SetupView: View {
                                 }
                             }
                             .padding(.horizontal)
+                            if !settings.hasOpposingTeams {
+                                Text("Everyone is on the same team — give at least one commander another team.")
+                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.orange).multilineTextAlignment(.center).padding(.horizontal)
+                            }
                             Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); onDeploy() } label: {
                                 Text(watch ? "WATCH" : "DEPLOY").font(.system(size: 21, weight: .black)).tracking(6)
                                     .frame(maxWidth: 380).padding(.vertical, 15)
@@ -501,6 +514,8 @@ struct SetupView: View {
                                     .foregroundColor(.black)
                             }
                             .buttonStyle(.plain)
+                            .disabled(!settings.hasOpposingTeams)
+                            .opacity(settings.hasOpposingTeams ? 1 : 0.4)
                             .accessibilityLabel(watch ? "WATCH" : "DEPLOY")
                             .padding(.top, 4)
                             Spacer(minLength: 40)
@@ -519,6 +534,103 @@ struct SetupView: View {
             Text(s).font(.system(size: 11, weight: .heavy)).tracking(4).foregroundColor(.white.opacity(0.75))
             Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
         }.padding(.horizontal)
+    }
+
+    /// Teams are shown as letters, in the colour of the player's own team's first member.
+    static let teamNames = ["A", "B", "C", "D"]
+
+    /// The commander roster: the player's team, then every computer commander with a faction and a team,
+    /// plus an Add button for up to four in all.
+    var commanders: some View {
+        VStack(spacing: 8) {
+            teamRow(0, label: watch ? "Commander 1" : "You")
+            ForEach(Array(settings.slots.indices.dropFirst()), id: \.self) { i in
+                commanderRow(i)
+            }
+            if settings.slots.count < MatchConfig.maxPlayers {
+                Button { settings.addSlot(); SoundEngine.shared?.play("click", at: nil) } label: {
+                    HStack(spacing: 6) { Image(systemName: "plus.circle.fill"); Text("ADD COMMANDER").tracking(2) }
+                        .font(.system(size: 12, weight: .heavy)).padding(.vertical, 10).frame(maxWidth: .infinity)
+                        .background(Chamfer(cut: 10).fill(Color.black.opacity(0.5)))
+                        .overlay(Chamfer(cut: 10).stroke(Theme.accent.opacity(0.5), lineWidth: 1))
+                }
+                .buttonStyle(.plain).foregroundColor(.white).accessibilityLabel("Add commander").accessibilityIdentifier("addCommander")
+            }
+            Text(teamSummary).font(.system(size: 11)).foregroundColor(.white.opacity(0.6)).multilineTextAlignment(.center)
+        }
+        .padding(.horizontal)
+    }
+
+    /// "2v2", "Free-for-all", "You and 1 ally against 2".
+    var teamSummary: String {
+        let n = settings.slots.count
+        let sizes = Dictionary(grouping: settings.slots, by: { $0.team }).values.map { $0.count }.sorted(by: >)
+        if n == 2 { return "A classic duel." }
+        if sizes.count == n { return "Free-for-all: \(n) commanders, every one for themselves." }
+        if sizes.count == 1 { return "" }
+        return sizes.map(String.init).joined(separator: "v") + (watch ? "" : " — you have \(settings.allyIndices.count) \(settings.allyIndices.count == 1 ? "ally" : "allies") against \(settings.enemyIndices.count).")
+    }
+
+    /// Slot 0: only the team can change here (the faction is picked above).
+    func teamRow(_ i: Int, label: String) -> some View {
+        HStack(spacing: 10) {
+            Text(label.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(1.5).foregroundColor(Theme.faction(settings.slots[i].faction))
+                .frame(minWidth: 70, alignment: .leading)
+            Text(data.faction(settings.slots[i].faction).name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            Spacer(minLength: 4)
+            teamPicker(i)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .background(Chamfer(cut: 10).fill(Color.black.opacity(0.55)))
+        .overlay(Chamfer(cut: 10).stroke(Theme.faction(settings.slots[i].faction).opacity(0.6), lineWidth: 1))
+        .foregroundColor(.white)
+    }
+
+    /// A computer commander: faction, team and (when there are more than two commanders) a remove button.
+    func commanderRow(_ i: Int) -> some View {
+        let f = settings.slots[i].faction
+        let ally = settings.slots[i].team == settings.slots[0].team
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text((watch ? "COMMANDER \(i + 1)" : (ally ? "ALLY" : "OPPONENT")) + " · AI").font(.system(size: 11, weight: .heavy)).tracking(1.5).foregroundColor(Theme.faction(f))
+                Spacer(minLength: 4)
+                teamPicker(i)
+                if settings.slots.count > 2 {
+                    Button { settings.removeSlot(i); SoundEngine.shared?.play("cancel", at: nil) } label: {
+                        Image(systemName: "xmark.circle.fill").font(.system(size: 18)).foregroundColor(.white.opacity(0.55))
+                    }.buttonStyle(.plain).accessibilityLabel("Remove commander \(i + 1)")
+                }
+            }
+            Picker("Faction", selection: Binding(get: { settings.slots[i].faction }, set: { settings.slots[i].faction = $0; SoundEngine.shared?.play("click", at: nil) })) {
+                ForEach(Faction.allCases, id: \.self) { Text(data.faction($0).name).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("faction\(i)")
+            Text(data.faction(f).tagline.uppercased()).font(.system(size: 8, weight: .heavy)).tracking(2).foregroundColor(Theme.faction(f))
+        }
+        .padding(12)
+        .background(Chamfer(cut: 10).fill(ally ? Theme.faction(settings.playerFaction).opacity(0.12) : Color.black.opacity(0.55)))
+        .overlay(Chamfer(cut: 10).stroke(Theme.faction(f).opacity(0.5), lineWidth: 1))
+        .foregroundColor(.white)
+    }
+
+    /// Four team letters; the selected one is lit.
+    func teamPicker(_ i: Int) -> some View {
+        HStack(spacing: 3) {
+            ForEach(0..<MatchConfig.maxPlayers, id: \.self) { t in
+                let on = settings.slots[i].team == t
+                Button { settings.slots[i].team = t; SoundEngine.shared?.play("click", at: nil) } label: {
+                    Text(SetupView.teamNames[t]).font(.system(size: 11, weight: .heavy))
+                        .frame(width: 26, height: 24)
+                        .background(Chamfer(cut: 5).fill(on ? Theme.accent : Color.white.opacity(0.08)))
+                        .foregroundColor(on ? .black : .white.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Team \(SetupView.teamNames[t])")
+                .accessibilityIdentifier("team\(i)_\(t)")
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 
     func labeled<C: View>(_ t: String, @ViewBuilder _ c: () -> C) -> some View {

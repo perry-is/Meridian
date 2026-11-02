@@ -103,6 +103,8 @@ public struct PlayerStats: Sendable, Codable {
 public final class Player {
     public let index: Int
     public let faction: Faction
+    /// Players sharing a team number are allies.
+    public let team: Int
     public var name: String
     public var res: [Int]
     public var incomeAcc: [Double] = [0, 0, 0]
@@ -124,9 +126,10 @@ public final class Player {
     /// Zone grids: bit 0 = bloom (aliens), bit 1 = staging (humans), bit 2 = network (machines), bit 3 = build zone
     public var zones: [UInt8]
 
-    init(index: Int, faction: Faction, data: GameData, mapSize: Int) {
+    init(index: Int, faction: Faction, team: Int, data: GameData, mapSize: Int) {
         self.index = index
         self.faction = faction
+        self.team = team
         self.name = data.faction(faction).name
         let e = data.rules.economy
         res = [e.startIron, e.startGold, e.startWood]

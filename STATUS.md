@@ -69,7 +69,7 @@ Equal-cost combat simulations (`meridian-sim combat --counters`, `comps`): 21/24
 - AI never uses transports, Bastion brace, or Sentry Tower modes (players can); it doesn't build expansion HQs.
 - Pathing is flow-field + local separation: large blobs can congest in narrow chokes; no formation-preserving avoidance.
 - Remembered enemy buildings show their live state rather than a last-seen snapshot.
-- No audio, no save/load, 1v1 only, no multiplayer.
+- No multiplayer (humans only command slot 1; the other commanders are AI).
 - Sprites face left/right only (mirrored), no per-frame animation beyond bobbing, recoil flash and effects.
 
 ## Next priorities
@@ -174,3 +174,14 @@ Renderer-only; the simulation, stats, AI and controls are unchanged. Full write-
 - **Persistent pooled battle scars:** craters, scorch, residue, tread marks, lingering wrecks, smouldering ruins.
 - **Unit personality:** weapon charge-up, hover bob, idle glances; support and worker role rings.
 - **Ambient wildlife:** flocks with shadows, fish, critters that flee troops, sky-rays.
+
+## Mission 6: more commanders (teams, free-for-all, victory modes)
+
+- **Two to four commanders** per match, each with a faction and a team letter (A–D). Same letter = allies: they share vision and detection, never damage each other, capture sites together (the ally with the most units on a site takes it) and win together. Free-for-all is the default when everyone has their own team. The setup screen has an **Add Commander** button, a team picker per slot, and refuses to deploy while everyone is on one team.
+- **Victory modes.** *Annihilation* (the standard mode): destroy every enemy structure; a commander with no structures left is eliminated and their remaining forces disband; the last team standing wins. *Dominance* (optional): the previous territorial countdown, counted per team, on top of annihilation.
+- **Bigger battlefields.** 2 players 112², 3 players 128², 4 players 144² (Quick: 84/96/108). The generator now builds every layout with N-fold rotational symmetry around the centre, so every base has the same ground, resources, sites and distances to its neighbours; two-player maps keep their original layouts. Three-player maps are round (the corners are crag) because a square cannot be made three-fold symmetric. Sites: 7 on two-player maps, 2N+1 otherwise (centre + a home flank and a contested boundary site per commander); Riverbend grows a river along every boundary with fords.
+- **AI** aims at the nearest enemy commander still in the fight and defends an ally's base within reach of its own.
+- **Saves** store teams and the victory mode (older saves load as 1v1 Dominance). The game-over screen shows a column per commander; the spectator HUD groups them by team.
+- **Harness:** `meridian-sim match --p0 humans --p1 machines --p2 aliens --p3 humans --teams 0,0,1,1 --victory annihilation --map riverbend`. App: `-players 4 -teams 0,0,1,1 -victory annihilation`.
+- **Tests:** `TeamTests` (four-player maps rotate onto themselves tile for tile; 3- and 4-player starts are supplied and connected; shared vision; no friendly fire; team capture; elimination and team victory; victory modes; team save round trip; a 2v2 AI match completes).
+- **Not measured:** phone performance with four commanders (up to 800 units and a 144² map) and the texture atlas for four team-coloured rosters.

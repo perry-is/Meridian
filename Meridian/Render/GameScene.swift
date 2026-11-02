@@ -550,7 +550,8 @@ final class GameScene: SKScene {
                     v.root.addChild(r)
                     v.ring = r
                 }
-                v.ring!.color = e.owner == ctl.me ? SKColor(red: 0.35, green: 1, blue: 0.45, alpha: 1) : (e.owner < 0 ? .yellow : SKColor(red: 1, green: 0.3, blue: 0.25, alpha: 1))
+                v.ring!.color = e.owner == ctl.me ? SKColor(red: 0.35, green: 1, blue: 0.45, alpha: 1)
+                    : (e.owner < 0 ? .yellow : (world.isEnemyPublic(ctl.me, e.owner) ? SKColor(red: 1, green: 0.3, blue: 0.25, alpha: 1) : SKColor(red: 0.45, green: 0.8, blue: 1, alpha: 1)))
                 v.ring!.isHidden = false
             } else { v.ring?.isHidden = true }
             // Health / progress bars for damaged, selected or constructing things.
