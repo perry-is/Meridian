@@ -88,7 +88,11 @@ final class TeamTests: XCTestCase {
         for _ in 0..<10 { w.step() }
         XCTAssertGreaterThan(w.players[0].visible[w.tileIndex(50, 50)], 0, "an ally's unit reveals the map for its teammate")
         XCTAssertTrue(w.canSee(0, foe), "a teammate's sighting is shared")
-        XCTAssertFalse(w.canSee(3, scout) && w.players[3].visible[w.tileIndex(50, 50)] > 0, "enemies do not get the shared vision")
+        // The foe stands next to the scout, so its own team sees the scout; check a tile only the scout can see
+        // (9 tiles west of it, beyond the mantis's sight of 8).
+        XCTAssertGreaterThan(w.players[0].visible[w.tileIndex(41, 50)], 0)
+        XCTAssertEqual(w.players[3].visible[w.tileIndex(41, 50)], 0, "enemies do not get the shared vision")
+        XCTAssertGreaterThan(w.players[3].visible[w.tileIndex(52, 50)], 0, "the foe's teammate shares its sight")
 
         // Two allied soldiers side by side stay unharmed; an enemy next to them does not.
         let a = w.spawnUnit(data.unitIndex["h_ranger"]!, owner: 0, x: 20, y: 20)
