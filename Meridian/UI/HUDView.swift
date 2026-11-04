@@ -119,24 +119,31 @@ struct TopBar: View {
     }
 }
 
-/// Seven diamond pips coloured by site owner, with the dominance countdown when active.
+/// Strategic sites grouped by side: the player's team first, then neutral, then each enemy team, with a small
+/// gap between groups so a 2v2 reads at a glance. Pips are coloured by owner; a capture in progress fills the
+/// neutral pip from the bottom. The dominance countdown appears beside it when that mode is on.
 struct SiteStrip: View {
     let h: HUDState
     let compact: Bool
+
+    /// Site indices in display order: mine, allies, neutral, then enemy teams.
+    var groups: [[Int]] {
+        let idx = Array(h.siteOwners.indices)
+        let mine = idx.filter { h.siteTeams[$0] == h.myTeam }.sorted { (h.siteOwners[$0] == h.myOwner ? 0 : 1, $0) < (h.siteOwners[$1] == h.myOwner ? 0 : 1, $1) }
+        let neutral = idx.filter { h.siteTeams[$0] < 0 }
+        let enemyTeams = Set(idx.map { h.siteTeams[$0] }.filter { $0 >= 0 && $0 != h.myTeam }).sorted()
+        return [mine, neutral] + enemyTeams.map { t in idx.filter { h.siteTeams[$0] == t } }
+    }
+
     var body: some View {
         HStack(spacing: 4) {
-            HStack(spacing: 2.5) {
-                ForEach(Array(h.siteOwners.enumerated()), id: \.offset) { i, o in
-                    let pr = i < h.siteProgress.count ? h.siteProgress[i] : 0
-                    Rectangle()
-                        .fill(o >= 0 ? Theme.team(o) : Color.white.opacity(0.15))
-                        .overlay(Rectangle().stroke(Color.white.opacity(o >= 0 ? 0.5 : 0.25), lineWidth: 0.6))
-                        .overlay(alignment: .bottom) {
-                            if o < 0 && abs(pr) > 0.02 { Rectangle().fill(Color.white.opacity(0.6)).frame(height: 7 * CGFloat(abs(pr))) }
+            HStack(spacing: compact ? 4 : 6) {
+                ForEach(Array(groups.enumerated()), id: \.offset) { _, g in
+                    if !g.isEmpty {
+                        HStack(spacing: 2) {
+                            ForEach(g, id: \.self) { i in pip(i) }
                         }
-                        .frame(width: 7, height: 7)
-                        .rotationEffect(.degrees(45))
-                        .frame(width: compact ? 8 : 10, height: 10)
+                    }
                 }
             }
             if h.dominanceMode && (h.myDominance > 0 || h.enemyDominance > 0) {
@@ -150,6 +157,20 @@ struct SiteStrip: View {
             }
         }
         .accessibilityLabel("Sites: \(h.sitesOwned) yours, \(h.sitesAllied) allied, \(h.sitesEnemy) enemy")
+    }
+
+    func pip(_ i: Int) -> some View {
+        let o = h.siteOwners[i]
+        let pr = i < h.siteProgress.count ? h.siteProgress[i] : 0
+        return Rectangle()
+            .fill(o >= 0 ? Theme.team(o) : Color.white.opacity(0.15))
+            .overlay(Rectangle().stroke(Color.white.opacity(o >= 0 ? 0.5 : 0.25), lineWidth: 0.6))
+            .overlay(alignment: .bottom) {
+                if o < 0 && abs(pr) > 0.02 { Rectangle().fill(Color.white.opacity(0.6)).frame(height: 7 * CGFloat(abs(pr))) }
+            }
+            .frame(width: 7, height: 7)
+            .rotationEffect(.degrees(45))
+            .frame(width: compact ? 8 : 10, height: 10)
     }
 }
 

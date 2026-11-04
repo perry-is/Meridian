@@ -175,6 +175,10 @@ struct HUDState {
     var tutorialRail: String? = nil
     var siteOwners: [Int] = []
     var siteProgress: [Double] = []
+    /// Team of each held site (-1 neutral) and the player's own team, for the grouped site strip.
+    var siteTeams: [Int] = []
+    var myTeam = 0
+    var myOwner = 0
     var tileHP: [Int: Double] = [:]
     var idleWorkers = 0
     var armyCount = 0
@@ -885,6 +889,9 @@ final class GameController: ObservableObject {
             return (pl.faction, n, v, pl.stats.kills, pl.team, pl.defeated, pl.name)
         }
         h.siteOwners = world.sites.map { $0.control >= 1 ? $0.owner : -1 }
+        h.siteTeams = h.siteOwners.map { $0 >= 0 ? world.teamOf[$0] : -1 }
+        h.myTeam = p.team
+        h.myOwner = me
         h.siteProgress = world.sites.map { $0.owner >= 0 ? $0.control : ($0.capturer >= 0 ? -$0.control : 0) }
         let mine = world.units(of: me)
         h.idleWorkers = mine.filter { world.traits[$0.type].worker && $0.order == .idle }.count

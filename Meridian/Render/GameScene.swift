@@ -470,7 +470,10 @@ final class GameScene: SKScene {
                 v.root.insertChild(f, at: 0); v.field = f
             }
             ring.size = CGSize(width: rw, height: rw / 2)
-            ring.color = TeamColor.sk(e.owner); ring.colorBlendFactor = 1
+            // Allies' rings lean toward the player's own colour so "our side" reads at a glance in team games.
+            var ringColor = TeamColor.sk(e.owner)
+            if !ctl.spectating && world.isAlly(ctl.me, e.owner) { ringColor = ringColor.blend(TeamColor.sk(ctl.me), 0.45) }
+            ring.color = ringColor; ring.colorBlendFactor = 1
             ring.alpha = e.isAir ? 0.45 : 0.75
             ring.zPosition = -0.1
             v.root.insertChild(ring, at: 0)
