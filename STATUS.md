@@ -50,7 +50,7 @@ Pairings: Humans–Aliens 16-8, Humans–Machines 10-14, Machines–Aliens 11-13
 
 Mixed AI strategies (72 games): Humans 65%, Machines 50%, Aliens 35% — see *Known problems*.
 
-Difficulty (mirror matches): Normal beat Easy 10-2; Hard vs Easy 9-3; **Hard vs Normal 13-11** (only marginally stronger).
+Difficulty (`meridian-sim ladder`, all pairings and maps, Mission 7): Normal beat Easy 27-0; Hard beat Easy 27-0; **Hard beat Normal 40-14** (66-15 over 81 games). Earlier mirror-match figures (2026-10-20): Normal 10-2 Easy, Hard 13-11 Normal.
 
 Equal-cost combat simulations (`meridian-sim combat --counters`, `comps`): 21/24 designed counter relationships hold (e.g. Lancer > Colossus, Flak > Harrier, Skitter > Coil Cannon); exceptions: Spinecaster loses to Bastion, Ranger loses to Mantis at equal cost, Bastion–Ravager draw. Mixed-army equal-cost battles: Humans–Aliens 9-1, Humans–Machines 3-7, Machines–Aliens 5-5 (equal-cost fights ignore production speed and regeneration, which full matches include).
 
@@ -65,7 +65,6 @@ Equal-cost combat simulations (`meridian-sim combat --counters`, `comps`): 21/24
 - **Fold transitions not verified**: the layout adapts to size changes and was checked at the cover-screen size (Duo simulator) and an inner-screen-like size (iPad mini simulator), but live fold/unfold could not be exercised (toggling simulator screen power crashed SpringBoard). Device rotation also did not take effect on the Duo cover screen in the simulator.
 - AI-vs-AI games median **~15.5 min**, below the 20–30 min target (human-vs-AI games are expected to run longer; not measured).
 - Strategy/faction interaction: aggressive Humans 11/12 wins, aggressive Aliens 2/12 (small samples).
-- Hard AI only marginally stronger than Normal.
 - AI never uses transports, Bastion brace, or Sentry Tower modes (players can); it doesn't build expansion HQs.
 - Pathing is flow-field + local separation: large blobs can congest in narrow chokes; no formation-preserving avoidance.
 - Remembered enemy buildings show their live state rather than a last-seen snapshot.
@@ -198,7 +197,7 @@ Renderer-only; the simulation, stats, AI and controls are unchanged. Full write-
 - CI: `.github/workflows/core-tests.yml` builds and tests `MeridianCore` on every push and runs a short 3-player headless match.
 - Known and accepted: two-player maps keep their layouts but rocks and forests differ from the old generator for the same seed; saves from before this branch are not offered (format 2).
 
-## Mission 7 (verified, Highlands open): a Hard AI worth the name
+## Mission 7: a Hard AI worth the name
 
 Decision-making only; Hard still gets no stat or resource bonus.
 - **Raids.** Between attacks, three or four fast units (Buggies, Runners, Skitters) slip out to kill workers at an enemy mineral line or an unguarded enemy site, retarget when there is nothing to hunt, and run as soon as a defence worth more than half the party shows up or they lose 45% of their value.
@@ -208,10 +207,14 @@ Decision-making only; Hard still gets no stat or resource bonus.
 - **Verified on macOS (Xcode 27.1):** both commits compile as written; `swift test` 30/30 after loosening the test above; app builds; UI tests 3 pass, 2 opt-in captures skipped.
 - **Ladder results** (`meridian-sim ladder`, every faction pairing × 3 maps, both start slots):
 
-| Matchup | Games | Result | Before |
-|---|---|---|---|
-| Hard vs Normal (`--seeds 2`) | 54 | **Hard 35–19 (65%)** | 13–11 |
-| Normal vs Easy (`--seeds 1`) | 27 | Normal 27–0 | 10–2 |
+| Matchup | Games | Result |
+|---|---|---|
+| Hard vs Normal (`--seeds 2`) | 54 | **Hard 40–14 (74%)** |
+| Hard vs Normal (`--seeds 3`) | 81 | Hard 66–15 (81%) |
+| Hard vs Easy (`--seeds 1`) | 27 | Hard 27–0 |
+| Normal vs Easy (`--seeds 1`) | 27 | Normal 27–0 |
 
-  Hard vs Normal by map: Riverbend 17–1, Crossroads 13–5, **Highlands 5–13** (Hard is worse there). By Hard's faction: Aliens 13–5, Humans 12–6, Machines 10–8. Median game 16:08.
-- Raids are rare: a raid needs three idle fast units, and Hard seldom builds them (Humans Hard vs Normal on Riverbend, seeds 1–4: one raid in four games, a split attack in three). `meridian-sim match` now prints each commander's raid and split counts at the end.
+  Hard vs Normal by map (`--seeds 3`): Crossroads 24–3, Riverbend 23–4, Highlands 19–8. Median game 15:58.
+- **Raids, splits and team play don't move the 1v1 ladder.** The pre-Mission-7 AI (448f4b9) scores the same 35–19 on `--seeds 2` with the same winner in every game; only timings change. Turning raids and splits off on Highlands (`--disable raids,prongs`, 36 games) changes nothing either. The old 13–11 line above dates from 2026-10-20; the step up to 35–19 came from AI work before Mission 7. Raids are rare: a raid needs three idle fast units, and Hard seldom builds them (Humans Hard vs Normal on Riverbend, seeds 1–4: one raid in four games, a split attack in three).
+- **Highlands fix: no more retreating home at low health.** Hard lost Highlands 5–13 (13–14 on `--seeds 3`), mostly on territorial dominance. A/B on Highlands (36 games each) by switching off one Hard behaviour at a time: as is 13–23; no micro 20–16; no low-health retreat 18–18; no territory-holding rush 19–17; no attack-confidence check, a single squad slot, or no assembling 13–23 (no effect). Hard units under 25% health walked home alone to heal; on the crags they were picked off on the way and their damage left the fight. Dropping the retreat (focus fire stays) took the full ladder from 59–22 to 66–15 (`--seeds 3`) with no loss on Crossroads or Riverbend. Dropping the territory rush as well added nothing.
+- Harness: `meridian-sim match` prints each commander's raid and split counts at the end; `ladder --maps highlands` limits a ladder to some maps; `--disable raids,prongs` switches the Hard behaviours off for A/B runs.
