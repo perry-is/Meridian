@@ -71,7 +71,8 @@ func runMatch(factions: [Faction], teams: [Int]?, victory: VictoryMode, layout: 
         for p in m.world.players {
             let s = p.stats
             let prod = s.producedByType.sorted { $0.value > $1.value }.map { "\(data.units[$0.key].name) \($0.value)/\(s.lostByType[$0.key] ?? 0)" }.joined(separator: ", ")
-            print("P\(p.index) \(p.faction.rawValue): valueKilled \(Int(s.valueKilled)) valueLost \(Int(s.valueLost)) gathered \(s.gathered) territory \(s.territoryIncome.map { Int($0) })\n   produced/lost: \(prod)")
+            let ai = m.ais[p.index]
+            print("P\(p.index) \(p.faction.rawValue): valueKilled \(Int(s.valueKilled)) valueLost \(Int(s.valueLost)) gathered \(s.gathered) territory \(s.territoryIncome.map { Int($0) }) raids \(ai.raidsLaunched) prongs \(ai.prongsLaunched)\n   produced/lost: \(prod)")
         }
     }
     let winners = m.world.winningTeam.map { t in m.world.players.indices.filter { m.world.teamOf[$0] == t } } ?? []
