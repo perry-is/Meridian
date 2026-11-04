@@ -182,7 +182,10 @@ final class HardAITests: XCTestCase {
         m.timeLimit = 1500
         while m.world.winner == nil && m.world.time < 1500 { m.step() }
         let hard = m.ais[0]
-        XCTAssertGreaterThan(hard.raidsLaunched, 0, "Hard AI never raided")
-        XCTAssertGreaterThan(hard.prongsLaunched + (m.world.winner == 0 ? 1 : 0), 0, "Hard AI never split an attack (and did not win outright)")
+        // Raids need three idle fast units and splits need an 18-unit attack; against a weak opponent Hard can win
+        // before fielding either, which is fine. Otherwise both behaviours must have fired.
+        let wonOutright = m.world.winner == 0
+        XCTAssertTrue(hard.raidsLaunched > 0 || wonOutright, "Hard AI never raided (and did not win outright)")
+        XCTAssertTrue(hard.prongsLaunched > 0 || wonOutright, "Hard AI never split an attack (and did not win outright)")
     }
 }
