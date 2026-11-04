@@ -667,15 +667,25 @@ final class GameController: ObservableObject {
         return nil
     }
 
-    /// Fog check used for drawing and picking enemy objects.
-    var seenBuildings = Set<Int>()
+    /// Fog check used for drawing and picking enemy objects. Enemy buildings stay on the map once seen, shown
+    /// as they were the last time the player's team had eyes on them (hit points and construction progress are
+    /// not updated through the fog).
+    struct SeenBuilding { var hp: Double; var maxHp: Double; var progress: Double; var complete: Bool }
+    var seenBuildings: [Int: SeenBuilding] = [:]
     func isShown(_ e: Entity) -> Bool {
         if e.owner == me || e.owner < 0 || spectating { return true }
         if world.canSee(me, e) {
-            if e.isBuilding { seenBuildings.insert(e.id) }
+            if e.isBuilding { seenBuildings[e.id] = SeenBuilding(hp: e.hp, maxHp: e.maxHp, progress: e.buildProgress, complete: e.complete) }
             return true
         }
-        return e.isBuilding && seenBuildings.contains(e.id)
+        return e.isBuilding && seenBuildings[e.id] != nil
+    }
+
+    /// What the player is entitled to know about an entity's condition: live for own, allied, neutral and visible
+    /// things; the last-seen snapshot for enemy buildings remembered through the fog.
+    func displayState(_ e: Entity) -> SeenBuilding {
+        if e.isBuilding, world.isEnemy(me, e.owner), !spectating, !world.canSee(me, e), let s = seenBuildings[e.id] { return s }
+        return SeenBuilding(hp: e.hp, maxHp: e.maxHp, progress: e.buildProgress, complete: e.complete)
     }
 
     func selectBox(_ a: (Double, Double), _ b: (Double, Double), screenRect: Bool = true, corners: [(Double, Double)]? = nil) {
@@ -704,6 +714,12 @@ final class GameController: ObservableObject {
 
     func selectArmy() {
         select(world.units(of: me).filter { !world.traits[$0.type].worker && !$0.isMine }.map { $0.id })
+    }
+
+    /// Soldiers standing around with nothing to do (long-press Army, or Y on a keyboard).
+    func selectIdleArmy() {
+        let idle = world.units(of: me).filter { !world.traits[$0.type].worker && !$0.isMine && ($0.order == .idle || $0.order == .hold) && $0.target < 0 }
+        if idle.isEmpty { toast("No idle soldiers") } else { select(idle.map { $0.id }); if let f = idle.first { focusCamera?(f.x, f.y) } }
     }
 
     func selectWorkers() {
@@ -933,7 +949,8 @@ final class GameController: ObservableObject {
         guard let first = ents.first else { return }
         if ents.count == 1 {
             let e = first
-            h.selectionHP = (e.hp, e.maxHp)
+            let shown = displayState(e)
+            h.selectionHP = (shown.hp, shown.maxHp)
             h.portrait = (e.type, e.isBuilding, e.owner, e.isUnit)
             if e.isUnit {
                 let d = world.udef(e)
@@ -969,7 +986,8 @@ final class GameController: ObservableObject {
                 h.stats.append(("shield.fill", fmt(world.armor(e))))
                 if e.linked { h.tags.append("LINKED") }
                 h.selectionTitle = d.name
-                h.selectionSubtitle = e.complete ? (world.modeName(e).map { "Mode: \($0)" } ?? d.kind.rawValue.capitalized) : "Under construction \(Int(e.buildProgress * 100))%"
+                h.selectionSubtitle = shown.complete ? (world.modeName(e).map { "Mode: \($0)" } ?? d.kind.rawValue.capitalized) : "Under construction \(Int(shown.progress * 100))%"
+                if world.isEnemy(me, e.owner) && !world.canSee(me, e) && !spectating { h.selectionSubtitle += " · last seen"
                 var det = d.description
                 if let w = world.weapon(e) { det = "Dmg \(fmt(w.damage))  Range \(fmt(w.range))" + (e.linked ? " (network linked)" : "") + "\n" + det }
                 h.selectionDetail = det

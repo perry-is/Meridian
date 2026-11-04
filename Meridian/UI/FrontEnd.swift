@@ -42,6 +42,7 @@ enum Tips {
         "Destroy every enemy structure to win. A commander with no buildings left is out of the fight.",
         "Idle workers wear a small amber marker. Tap Idle to find one.",
         "Tap an enemy with combat units selected to focus your attack on it.",
+        "Long-press Army to grab only the soldiers standing idle.",
         "Attack-Move sends units to a spot while fighting everything on the way.",
         "Patrol: tap two points and your units will guard the path between them.",
         "Concord units fight harder near their HQ, forward posts and captured sites.",

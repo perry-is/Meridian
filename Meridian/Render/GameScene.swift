@@ -559,8 +559,9 @@ final class GameScene: SKScene {
                 v.ring!.isHidden = false
             } else { v.ring?.isHidden = true }
             // Health / progress bars for damaged, selected or constructing things.
-            let hurt = e.hp < e.maxHp - 0.5
-            let showBar = isSel || (e.isBuilding && (hurt || !e.complete)) || (hurt && (e.hp < e.maxHp * 0.7 || zoom < 0.8))
+            let shownState = ctl.displayState(e)   // remembered enemy buildings show their last-seen condition
+            let hurt = shownState.hp < shownState.maxHp - 0.5
+            let showBar = isSel || (e.isBuilding && (hurt || !shownState.complete)) || (hurt && (shownState.hp < shownState.maxHp * 0.7 || zoom < 0.8))
             if !e.isResource && !e.isMine && showBar {
                 let bar = bar(bars); bars += 1
                 let w: CGFloat = e.isBuilding ? CGFloat(e.size) * 22 : 20
@@ -568,10 +569,10 @@ final class GameScene: SKScene {
                     (e.isAir ? 38 + v.body.size.height * 0.45 : v.body.size.height * 0.9)
                 bar.0.position = CGPoint(x: v.root.position.x, y: v.root.position.y + top)
                 bar.0.size = CGSize(width: w + 2, height: e.isBuilding ? 6 : 4)
-                let frac = CGFloat(e.isBuilding && !e.complete ? e.buildProgress : e.hp / max(1, e.maxHp))
+                let frac = CGFloat(e.isBuilding && !shownState.complete ? shownState.progress : shownState.hp / max(1, shownState.maxHp))
                 bar.1.size = CGSize(width: max(0.5, w * frac), height: e.isBuilding ? 4 : 2.2)
                 bar.1.position = CGPoint(x: bar.0.position.x - w / 2, y: bar.0.position.y)
-                bar.1.color = e.isBuilding && !e.complete ? SKColor(red: 0.4, green: 0.8, blue: 1, alpha: 1) :
+                bar.1.color = e.isBuilding && !shownState.complete ? SKColor(red: 0.4, green: 0.8, blue: 1, alpha: 1) :
                     (e.owner == ctl.me ? (frac > 0.5 ? SKColor(red: 0.3, green: 0.95, blue: 0.4, alpha: 1) : (frac > 0.25 ? .yellow : .red)) : TeamColor.sk(e.owner))
                 bar.0.isHidden = false; bar.1.isHidden = false
             }

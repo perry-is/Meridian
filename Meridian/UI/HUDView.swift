@@ -24,7 +24,7 @@ struct HUDView: View {
                 if controller.tutorial != nil { TutorialCard(controller: controller, onExit: { controller.exitTutorial?() }) }
                 if let g = controller.hud.guide { GuideCard(text: g, accent: accent) { controller.guideDismissed = true; controller.refreshHUD() } }
                 HStack(alignment: .top) {
-                    SideRail(controller: controller, accent: accent)
+                    SideRail(controller: controller, accent: accent, compact: compact)
                     Spacer()
                 }
                 Spacer(minLength: 0)
@@ -242,16 +242,20 @@ struct ToastStack: View {
 struct SideRail: View {
     @ObservedObject var controller: GameController
     let accent: Color
+    /// Narrow screens keep four control groups; others get six.
+    var compact = false
     var body: some View {
         VStack(spacing: 6) {
             railButton("figure.walk.motion", "Army", badge: controller.hud.armyCount) { controller.selectArmy() }
+                .simultaneousGesture(LongPressGesture(minimumDuration: 0.45).onEnded { _ in controller.selectIdleArmy(); SoundEngine.shared?.play("confirm", at: nil) })
                 .overlay { if controller.hud.tutorialRail == "army" { GlowFrame(cut: 6) } }
+                .accessibilityHint("Long press to select idle soldiers")
             if ProcessInfo.processInfo.arguments.contains("-uitest") {
                 // UI tests cannot perform hold-and-drag box selection; this stands in for a box select of the workers.
                 railButton("person.3", "Workers", badge: 0) { controller.selectWorkers() }.accessibilityIdentifier("test_select_workers")
             }
             railButton("hammer.circle", "Idle", badge: controller.hud.idleWorkers, alert: controller.hud.idleWorkers > 0) { controller.selectIdleWorker() }
-            ForEach(1...4, id: \.self) { n in
+            ForEach(1...(compact ? 4 : 6), id: \.self) { n in
                 let g = controller.controlGroups[n]?.compactMap { controller.world.entity($0) } ?? []
                 ZStack(alignment: .topTrailing) {
                     VStack(spacing: 0) {

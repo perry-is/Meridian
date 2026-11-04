@@ -361,7 +361,7 @@ struct GameView: View {
                     }
                 }
                 if showPause {
-                    PauseView(controller: controller, onResume: { showPause = false; controller.paused = false }, onQuit: onQuit)
+                    PauseView(controller: controller, onResume: { showPause = false; controller.paused = false }, onQuit: onQuit, onRestart: onRestart)
                 }
                 if let over = controller.gameOver {
                     GameOverView(controller: controller, won: over.won, reason: over.reason, onQuit: onQuit, onRematch: onRestart)

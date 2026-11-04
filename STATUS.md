@@ -67,7 +67,7 @@ Equal-cost combat simulations (`meridian-sim combat --counters`, `comps`): 21/24
 - Strategy/faction interaction: aggressive Humans 11/12 wins, aggressive Aliens 2/12 (small samples).
 - AI never uses transports, Bastion brace, or Sentry Tower modes (players can); it doesn't build expansion HQs.
 - Pathing is flow-field + local separation: large blobs can congest in narrow chokes; no formation-preserving avoidance.
-- Remembered enemy buildings show their live state rather than a last-seen snapshot.
+- Remembered enemy buildings keep their last-seen hit points and construction progress; a building destroyed out of sight still disappears from the map at once (no wreck ghost yet).
 - No multiplayer (humans only command slot 1; the other commanders are AI).
 - Sprites face left/right only (mirrored), no per-frame animation beyond bobbing, recoil flash and effects.
 
@@ -218,3 +218,11 @@ Decision-making only; Hard still gets no stat or resource bonus.
 - **Raids, splits and team play don't move the 1v1 ladder.** The pre-Mission-7 AI (448f4b9) scores the same 35–19 on `--seeds 2` with the same winner in every game; only timings change. Turning raids and splits off on Highlands (`--disable raids,prongs`, 36 games) changes nothing either. The old 13–11 line above dates from 2026-10-20; the step up to 35–19 came from AI work before Mission 7. Raids are rare: a raid needs three idle fast units, and Hard seldom builds them (Humans Hard vs Normal on Riverbend, seeds 1–4: one raid in four games, a split attack in three).
 - **Highlands fix: no more retreating home at low health.** Hard lost Highlands 5–13 (13–14 on `--seeds 3`), mostly on territorial dominance. A/B on Highlands (36 games each) by switching off one Hard behaviour at a time: as is 13–23; no micro 20–16; no low-health retreat 18–18; no territory-holding rush 19–17; no attack-confidence check, a single squad slot, or no assembling 13–23 (no effect). Hard units under 25% health walked home alone to heal; on the crags they were picked off on the way and their damage left the fight. Dropping the retreat (focus fire stays) took the full ladder from 59–22 to 66–15 (`--seeds 3`) with no loss on Crossroads or Riverbend. Dropping the territory rush as well added nothing.
 - Harness: `meridian-sim match` prints each commander's raid and split counts at the end; `ladder --maps highlands` limits a ladder to some maps; `--disable raids,prongs` switches the Hard behaviours off for A/B runs.
+
+## Mission 8: menus and interface (in progress, written without a compiler; verify on macOS)
+
+- **Setup screen**: a live battlefield preview (generated off the main thread, isometric like the minimap, each start in its commander's colour with the team letter) that redraws for layout, commander count, length and seed; a seed field and a dice to re-roll; the seed is fixed on this screen so the preview is the real map. Phones get Commanders / Rules pages with a one-line summary and a fixed Deploy bar.
+- **HUD**: the site strip groups pips by side (mine, allies, neutral, each enemy team); allies' unit rings lean toward the player's colour; the rail shows six control groups where there is room; long-press Army (or Y) selects idle soldiers.
+- **Game over**: the fog lifts and the camera tours the bases; team games show team totals with a toggle to every commander; Rematch replays the same commanders, rules and seed.
+- **Pause**: the match line (shape, map, mode, difficulty, seed), every commander with their team letter, and a two-tap Restart.
+- **Fog**: enemy buildings remembered through the fog show their last-seen hit points and construction progress ("· last seen" in the selection panel) instead of their live state.

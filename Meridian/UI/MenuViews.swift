@@ -122,7 +122,7 @@ struct HelpView: View {
                     group("Desktop controls", [
                         "Left-click select, drag to box-select, right-click to command.",
                         "Scroll/trackpad to pan, pinch or ⌘-scroll to zoom, arrow keys pan.",
-                        "A attack-move · S stop · H hold · P patrol · B build · M mode · E EMP · X select army · I idle worker · ⌘1-9 assign group · 1-9 recall · Space pause · T tech tree.",
+                        "A attack-move · S stop · H hold · P patrol · B build · M mode · E EMP · X select army · Y idle soldiers · I idle worker · ⌘1-9 assign group · 1-9 recall · Space pause · T tech tree.",
                     ])
                     group("Economy", [
                         "Workers gather Iron, Gold and Wood and return them to your HQ, depots or forward structures.",
@@ -154,14 +154,32 @@ struct PauseView: View {
     @ObservedObject var controller: GameController
     var onResume: () -> Void
     var onQuit: () -> Void
+    var onRestart: (() -> Void)? = nil
+    @State private var confirmRestart = false
+
+    /// "2v2 · Riverbend · Annihilation · Hard · seed 48213", then each commander with a team letter.
+    var matchLine: String {
+        let st = controller.settings, w = controller.world
+        let sizes = Dictionary(grouping: st.slots, by: { $0.team }).values.map { $0.count }.sorted(by: >)
+        let shape = sizes.count == st.slots.count && st.slots.count > 2 ? "\(st.slots.count)-way FFA" : sizes.map(String.init).joined(separator: "v")
+        return [shape, w.map.name, st.victory.title, st.difficulty.title, "seed \(st.seed)"].joined(separator: "  ·  ")
+    }
+    var commanderLine: String {
+        controller.world.players.map { "\($0.name) (\(SetupView.teamNames[min($0.team, 3)]))" }.joined(separator: "  ·  ")
+    }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
             GlassPanel(accent: Theme.faction(controller.hud.faction), padding: 22, cut: 16) {
                 VStack(spacing: 14) {
                     Text("PAUSED").font(.system(size: 26, weight: .black)).tracking(8)
-                    Text(String(format: "%d:%02d  ·  %@", Int(controller.world.time) / 60, Int(controller.world.time) % 60, controller.world.map.name))
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                    VStack(spacing: 3) {
+                        Text(String(format: "%d:%02d  ·  %@", Int(controller.world.time) / 60, Int(controller.world.time) % 60, matchLine))
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                        Text(commanderLine).font(.system(size: 10)).foregroundColor(.white.opacity(0.5))
+                    }
+                    .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
                     VStack(alignment: .leading, spacing: 5) {
                         Text("GAME SPEED").font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
                         Picker("Speed", selection: $controller.speed) {
@@ -176,6 +194,11 @@ struct PauseView: View {
                     HStack(spacing: 10) {
                         if controller.canSave {
                             Button("Save & quit") { controller.saveNow(); onQuit() }.buttonStyle(.bordered).tint(.white)
+                        }
+                        if let r = onRestart {
+                            Button(confirmRestart ? "Restart: sure?" : "Restart") {
+                                if confirmRestart { if !controller.spectating { SaveStore.delete() }; r() } else { confirmRestart = true }
+                            }.buttonStyle(.bordered).tint(confirmRestart ? .orange : .white)
                         }
                         Button("Surrender", role: .destructive) { if !controller.spectating { SaveStore.delete() }; onQuit() }.buttonStyle(.bordered)
                     }

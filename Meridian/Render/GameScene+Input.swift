@@ -255,6 +255,7 @@ extension GameScene {
         case "w": pan(by: CGPoint(x: 0, y: step))
         case "x": ctl.selectArmy()
         case "i": ctl.selectIdleWorker()
+        case "y": ctl.selectIdleArmy()
         case "t": ctl.showTech.toggle()
         default:
             if let b = ctl.hud.buttons.first(where: { $0.hotkey == ch && $0.enabled }) { b.action() }
