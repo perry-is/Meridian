@@ -533,7 +533,7 @@ public final class AIController {
 
     func manageArmy(_ w: World, _ p: Player, _ allArmy: [Entity], _ buildings: [Entity]) {
         guard !allArmy.isEmpty else { return }
-        if difficulty == .hard { micro(w, allArmy); manageRaid(w, p, allArmy) }
+        if difficulty == .hard { micro(w, allArmy); if w.tactics.raids { manageRaid(w, p, allArmy) } }
         // The raiding party runs its own errand; everything else is the field army.
         let army = allArmy.filter { !raidGroup.contains($0.id) }
         guard !army.isEmpty else { return }
@@ -604,7 +604,7 @@ public final class AIController {
             // Hard: a big enough force attacks on two fronts. Aircraft and about a third of the ground units
             // take a second objective far enough from the first that one defence cannot cover both.
             prongGroup = []; prongTarget = nil
-            if difficulty == .hard, force.count >= 18, let main = attackTarget, let second = chooseProngTarget(w, avoiding: main) {
+            if difficulty == .hard, w.tactics.prongs, force.count >= 18, let main = attackTarget, let second = chooseProngTarget(w, avoiding: main) {
                 let flyers = force.filter { $0.isAir }
                 let ground = force.filter { !$0.isAir && w.udef($0).role != "siege" }.sorted { $0.id < $1.id }
                 let take = max(0, Int(Double(force.count) * 0.35) - flyers.count)

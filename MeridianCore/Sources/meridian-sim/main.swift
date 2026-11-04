@@ -162,9 +162,10 @@ case "ladder":
     var w0 = 0, w1 = 0, draws = 0, n = 0
     var durations: [Double] = []
     var reasons: [String: Int] = [:]
+    let maps = opt("maps", "").split(separator: ",").compactMap { MapLayout(rawValue: String($0)) }
     for a in Faction.allCases {
         for b in Faction.allCases {
-            for layout in MapLayout.playable {
+            for layout in (maps.isEmpty ? MapLayout.playable : maps) {
                 for s in 0..<seeds {
                     let swap = (n % 2) == 1
                     let r = runMatch(a, b, layout: layout, seed: UInt64(300 + s * 11), diff: [d0, d1], strat: [.balanced, .balanced], swap: swap, limit: limit, verbose: false)

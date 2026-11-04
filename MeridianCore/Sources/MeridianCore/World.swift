@@ -110,6 +110,8 @@ public struct MatchConfig: Sendable {
 /// Tactical behaviour switches (all on by default). Used by the harness for A/B measurement.
 public struct TacticsFlags: Sendable {
     public var kite = true, surround = true, cohesion = true, avoidance = true, massSeparation = true, targetSpread = false, airStrafe = true, formations = true, frontline = false
+    /// Hard AI behaviours (A/B switches for the harness).
+    public var raids = true, prongs = true
     public init() {}
     public init(disabling names: [String]) {
         for n in names {
@@ -123,6 +125,8 @@ public struct TacticsFlags: Sendable {
             case "strafe": airStrafe = false
             case "formations": formations = false
             case "frontline": frontline = false
+            case "raids": raids = false
+            case "prongs": prongs = false
             default: break
             }
         }
