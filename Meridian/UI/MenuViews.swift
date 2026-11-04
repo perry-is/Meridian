@@ -117,7 +117,7 @@ struct HelpView: View {
                         "Tap or drag the minimap to jump the camera.",
                         "Attack-Move: tap the button, then the destination; units fight everything on the way.",
                         "Build: select workers → Build → choose a structure → drag the ghost → Confirm.",
-                        "Tap a site's platform to inspect it; owned sites can be configured as Extractor, Watchpost or Bulwark.",
+                        "Tap a site's platform to inspect it; owned sites can be configured as Extractor (income), Watchpost (vision), Bulwark (a tower) or Beacon (a forward base with a wide build zone).",
                     ])
                     group("Desktop controls", [
                         "Left-click select, drag to box-select, right-click to command.",

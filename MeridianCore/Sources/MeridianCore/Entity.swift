@@ -166,8 +166,18 @@ public struct Site: Sendable, Codable {
     public var incomeAcc: [Double] = [0, 0, 0]
 }
 
-public enum Installation: Int, Sendable, CaseIterable { case none, extractor, watchpost, bulwark
-    public var title: String { ["None", "Extractor", "Watchpost", "Bulwark"][rawValue] }
+public enum Installation: Int, Sendable, CaseIterable { case none, extractor, watchpost, bulwark, beacon
+    public var title: String { ["None", "Extractor", "Watchpost", "Bulwark", "Beacon"][rawValue] }
+    /// What it does, for the site panel.
+    public var blurb: String {
+        switch self {
+        case .none: return "Nothing built here yet."
+        case .extractor: return "Richer income from the site."
+        case .watchpost: return "Far vision and detection."
+        case .bulwark: return "An armed tower that holds the site."
+        case .beacon: return "A forward base: build and tower zones reach much further around the site."
+        }
+    }
 }
 
 /// Transient visual events for the renderer.

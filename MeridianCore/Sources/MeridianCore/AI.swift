@@ -519,7 +519,9 @@ public final class AIController {
             let cost = w.data.rules.territory.installCost
             guard p.res[0] > cost.iron + 250, p.res[1] > cost.gold + 60, p.res[2] > cost.wood + 100 else { return }
             let nearEnemy = dist2(s.x, s.y, ex, ey) < dist2(s.x, s.y, bx, by)
-            let inst: Installation = nearEnemy ? .bulwark : (i == 0 ? .watchpost : .extractor)
+            // Expansionists make their first forward site a Beacon and build out from it; others fortify or farm.
+            let hasBeacon = w.sites.contains { $0.owner == player && $0.installation == .beacon }
+            let inst: Installation = nearEnemy ? (strategy == .territorial && !hasBeacon && difficulty != .easy ? .beacon : .bulwark) : (i == 0 ? .watchpost : .extractor)
             w.configureSite(i, player: player, installation: inst)
             return
         }

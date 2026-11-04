@@ -59,8 +59,10 @@ extension World {
                 }
             }
             for s in sites where s.owner == p.index && s.control >= 1 {
-                stamp(&z, s.x, s.y, 9, Zone.build)
-                stamp(&z, s.x, s.y, data.rules.combat.towerBuildRadius * 0.7, Zone.tower)
+                // A Beacon turns the site into a forward base: a much wider build zone and a full tower zone.
+                let beacon = s.installation == .beacon
+                stamp(&z, s.x, s.y, beacon ? 17 : 9, Zone.build)
+                stamp(&z, s.x, s.y, data.rules.combat.towerBuildRadius * (beacon ? 1.15 : 0.7), Zone.tower)
                 switch f {
                 case .aliens: stamp(&z, s.x, s.y, tr.alienBloomRadius + p.mods.bloomAdd, Zone.bloom)
                 case .humans: stamp(&z, s.x, s.y, tr.humanStagingRadius + p.mods.stagingAdd, Zone.staging)

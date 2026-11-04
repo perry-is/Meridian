@@ -219,3 +219,22 @@ final class ReplayTests: XCTestCase {
         XCTAssertEqual(back.world.players[0].stats.unitsProduced, live.world.players[0].stats.unitsProduced)
     }
 }
+
+final class InstallationTests: XCTestCase {
+    /// A Beacon widens a site's build zone so a forward base can go up around it.
+    func testBeaconExtendsBuildZone() {
+        let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .crossroads, seed: 8))
+        let p = w.players[0]
+        p.res = [9999, 9999, 9999]
+        w.sites[1].owner = 0; w.sites[1].control = 1
+        let s = w.sites[1]
+        for i in 0..<w.players.count { for k in w.players[i].explored.indices { w.players[i].explored[k] = true } }
+        w.refreshZones()
+        let far = w.tileIndex(s.x + 14, s.y)
+        XCTAssertEqual(p.zones[far] & Zone.build, 0, "14 tiles out is beyond a plain site's build zone")
+        XCTAssertNil(w.configureSite(1, player: 0, installation: .beacon))
+        w.refreshZones()
+        XCTAssertNotEqual(p.zones[far] & Zone.build, 0, "a Beacon reaches 14 tiles out")
+        XCTAssertNotEqual(p.zones[far] & Zone.tower, 0)
+    }
+}

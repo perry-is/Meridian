@@ -962,7 +962,7 @@ final class GameController: ObservableObject {
             case .machines: perk = "Network node: links machines within \(Int(tr.machineNodeRadius)) tiles"
             case .aliens: perk = "Bloom: regeneration and +\(Int(tr.alienSpeedBonus * 100))% speed within \(Int(tr.alienBloomRadius)) tiles"
             }
-            h.selectionDetail = "Income +\(fmt(tr.income[0] * 60))/\(fmt(tr.income[1] * 60))/\(fmt(tr.income[2] * 60)) iron/gold/wood per min. Vision \(Int(tr.vision)). \(perk). Installation: \(s.installation.title)."
+            h.selectionDetail = "Income +\(fmt(tr.income[0] * 60))/\(fmt(tr.income[1] * 60))/\(fmt(tr.income[2] * 60)) iron/gold/wood per min. Vision \(Int(tr.vision)). \(perk). Installation: \(s.installation.title) — \(s.installation.blurb)"
             return
         }
         let ents = selectedEntities
@@ -1070,9 +1070,9 @@ final class GameController: ObservableObject {
             if s.owner == me && s.control >= 1 && s.installation == .none {
                 h.menuTitle = "Configure installation"
                 let c = data.rules.territory.installCost
-                let items: [(Installation, String, String)] = [(.extractor, "Extractor", "shippingbox.fill"), (.watchpost, "Watchpost", "eye.fill"), (.bulwark, "Bulwark", "shield.lefthalf.filled")]
+                let items: [(Installation, String, String)] = [(.extractor, "Extractor", "shippingbox.fill"), (.watchpost, "Watchpost", "eye.fill"), (.bulwark, "Bulwark", "shield.lefthalf.filled"), (.beacon, "Beacon", "antenna.radiowaves.left.and.right")]
                 for (inst, title, sym) in items {
-                    b.append(CommandButton(id: "inst\(inst.rawValue)", title: title, symbol: sym, cost: c, enabled: p.canAfford(c), reason: shortfall(c)) { [weak self] in
+                    b.append(CommandButton(id: "inst\(inst.rawValue)", title: title, symbol: sym, cost: c, enabled: p.canAfford(c), reason: shortfall(c), detail: inst.blurb) { [weak self] in
                         guard let self = self else { return }
                         if let err = self.issue(.configureSite(site: si, player: self.me, installation: inst)) { self.toast(err, warning: true) }
                         self.refreshHUD()
