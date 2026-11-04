@@ -198,10 +198,20 @@ Renderer-only; the simulation, stats, AI and controls are unchanged. Full write-
 - CI: `.github/workflows/core-tests.yml` builds and tests `MeridianCore` on every push and runs a short 3-player headless match.
 - Known and accepted: two-player maps keep their layouts but rocks and forests differ from the old generator for the same seed; saves from before this branch are not offered (format 2).
 
-## Mission 7 (in progress): a Hard AI worth the name
+## Mission 7 (verified, Highlands open): a Hard AI worth the name
 
 Decision-making only; Hard still gets no stat or resource bonus.
 - **Raids.** Between attacks, three or four fast units (Buggies, Runners, Skitters) slip out to kill workers at an enemy mineral line or an unguarded enemy site, retarget when there is nothing to hunt, and run as soon as a defence worth more than half the party shows up or they lose 45% of their value.
 - **Two-pronged attacks.** An attack of 18 or more units sends its aircraft and about a third of its ground units (never siege) at a second objective at least 18 tiles from the first; the prong rejoins the main body when its objective falls.
 - **Team play (all difficulties).** Commanders join an ally's push when five or more allied soldiers are already at an enemy structure, leave sites an ally is capturing alone, and Hard answers an ally's call for help from up to 90 tiles away (55 for the others).
-- `HardAITests.testHardAIRaidsAndSplitsAttacks` checks both behaviours fire against a passive opponent. Measure the step up with `meridian-sim ladder --d0 hard --d1 normal --seeds 2` (was 13–11 in STATUS; the target is a clear majority). Not yet compiled on this host; verify on macOS.
+- `HardAITests.testHardAIRaidsAndSplitsAttacks` checks both behaviours fire against a passive opponent, or that Hard won outright first (on its seed Hard wins at 9:30 without ever fielding three fast units, so it never raids).
+- **Verified on macOS (Xcode 27.1):** both commits compile as written; `swift test` 30/30 after loosening the test above; app builds; UI tests 3 pass, 2 opt-in captures skipped.
+- **Ladder results** (`meridian-sim ladder`, every faction pairing × 3 maps, both start slots):
+
+| Matchup | Games | Result | Before |
+|---|---|---|---|
+| Hard vs Normal (`--seeds 2`) | 54 | **Hard 35–19 (65%)** | 13–11 |
+| Normal vs Easy (`--seeds 1`) | 27 | Normal 27–0 | 10–2 |
+
+  Hard vs Normal by map: Riverbend 17–1, Crossroads 13–5, **Highlands 5–13** (Hard is worse there). By Hard's faction: Aliens 13–5, Humans 12–6, Machines 10–8. Median game 16:08.
+- Raids are rare: a raid needs three idle fast units, and Hard seldom builds them (Humans Hard vs Normal on Riverbend, seeds 1–4: one raid in four games, a split attack in three). `meridian-sim match` now prints each commander's raid and split counts at the end.
