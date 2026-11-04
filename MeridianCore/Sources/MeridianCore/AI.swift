@@ -716,15 +716,12 @@ public final class AIController {
         if !loose.isEmpty { w.commandMove(loose.map { $0.id }, x: st.0, y: st.1, attack: true) }
     }
 
-    /// Hard AI: focus fire on the weakest enemy in range and pull badly damaged units back to heal.
+    /// Hard AI: focus fire on the weakest enemy in range.
+    /// (Badly damaged units used to walk home alone to heal; on broken ground like Highlands they were picked off on
+    /// the way and their damage left the fight. Ladder, 81 games: Hard vs Normal 59-22 with the retreat, 66-15 without.)
     func micro(_ w: World, _ army: [Entity]) {
-        let (bx, by) = baseCenter(w)
         for u in army {
             guard let wpn = w.weapon(u), u.target >= 0 else { continue }
-            if u.hp < u.maxHp * 0.25 && w.players[player].faction != .machines && dist2(u.x, u.y, bx, by) > 400 {
-                w.commandMove([u.id], x: bx, y: by, attack: false)   // regenerate / repair at home
-                continue
-            }
             var best: Entity? = nil
             var bestHP = Double.infinity
             for e in w.entities where e.isUnit && e.onMap && !e.isMine && w.isEnemy(player, e.owner) {
