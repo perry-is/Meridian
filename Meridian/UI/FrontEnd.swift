@@ -456,13 +456,54 @@ struct SetupView: View {
                         Color.clear.frame(width: 80, height: 1)
                     }
                     .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 6)
+                    summaryStrip
+                    if !wide {
+                        Picker("Page", selection: $page) { Text("COMMANDERS").tag(0); Text("RULES").tag(1) }
+                            .pickerStyle(.segmented).padding(.horizontal, 14).padding(.bottom, 4)
+                            .accessibilityIdentifier("setupPage")
+                    }
                     ScrollView {
                         VStack(spacing: 16) {
-                            section(watch ? "COMMANDER 1" : "YOUR FACTION")
-                            factionGrid(selection: $settings.playerFaction, wide: wide)
-                            section(settings.slots.count > 2 ? "OTHER COMMANDERS" : "OPPONENT")
-                            commanders
-                            GlassPanel(accent: Theme.faction(settings.playerFaction), padding: 12) {
+                            if wide || page == 0 {
+                                section(watch ? "COMMANDER 1" : "YOUR FACTION")
+                                factionGrid(selection: $settings.playerFaction, wide: wide)
+                                section(settings.slots.count > 2 ? "OTHER COMMANDERS" : "OPPONENT")
+                                commanders
+                            }
+                            if wide || page == 1 {
+                                rulesPanel(wide: wide)
+                            }
+                            Spacer(minLength: 24)
+                        }
+                        .frame(maxWidth: 900)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
+                    }
+                    deployBar
+                }
+            }
+        }
+        .onAppear { if !settings.seedLocked { settings.seed = UInt64.random(in: 1...999_999) } }
+    }
+
+    @State private var page = 0
+
+    /// One line that says what the next battle is: "2v2 · Riverbend · Annihilation · Hard · Standard".
+    var summaryStrip: some View {
+        let sizes = Dictionary(grouping: settings.slots, by: { $0.team }).values.map { $0.count }.sorted(by: >)
+        let shape = sizes.count == settings.slots.count && settings.slots.count > 2 ? "\(settings.slots.count)-way FFA" : sizes.map(String.init).joined(separator: "v")
+        let parts = [shape, settings.layout.title, settings.victory.title, settings.difficulty.title, settings.quick ? "Quick" : "Standard"]
+        return Text(parts.joined(separator: "  ·  "))
+            .font(.system(size: 10.5, weight: .heavy, design: .monospaced)).tracking(0.5)
+            .foregroundColor(Theme.faction(settings.playerFaction))
+            .lineLimit(1).minimumScaleFactor(0.7)
+            .padding(.horizontal, 14).padding(.bottom, 6)
+            .accessibilityIdentifier("setupSummary")
+    }
+
+    /// Mode, length, difficulty, battlefield (with preview and seed), temperament and the AI-vs-AI switch.
+    func rulesPanel(wide: Bool) -> some View {
+        GlassPanel(accent: Theme.faction(settings.playerFaction), padding: 12) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     labeled("VICTORY") {
                                         Picker("Victory", selection: $settings.victory) { ForEach(VictoryMode.allCases, id: \.self) { Text($0.title).tag($0) } }
@@ -510,33 +551,31 @@ struct SetupView: View {
                                     .accessibilityIdentifier("aiVsAi")
                                 }
                             }
-                            .padding(.horizontal)
-                            if !settings.hasOpposingTeams {
-                                Text("Everyone is on the same team — give at least one commander another team.")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.orange).multilineTextAlignment(.center).padding(.horizontal)
-                            }
-                            Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); onDeploy() } label: {
-                                Text(watch ? "WATCH" : "DEPLOY").font(.system(size: 21, weight: .black)).tracking(6)
-                                    .frame(maxWidth: 380).padding(.vertical, 15)
-                                    .background(Chamfer(cut: 14).fill(LinearGradient(colors: [Theme.faction(settings.playerFaction), Theme.faction(settings.playerFaction).opacity(0.7)], startPoint: .top, endPoint: .bottom)))
-                                    .overlay(Chamfer(cut: 14).stroke(Color.white.opacity(0.6), lineWidth: 1))
-                                    .shadow(color: Theme.faction(settings.playerFaction).opacity(0.6), radius: 14)
-                                    .foregroundColor(.black)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(!settings.hasOpposingTeams)
-                            .opacity(settings.hasOpposingTeams ? 1 : 0.4)
-                            .accessibilityLabel(watch ? "WATCH" : "DEPLOY")
-                            .padding(.top, 4)
-                            Spacer(minLength: 40)
-                        }
-                        .frame(maxWidth: 900)
-                        .frame(maxWidth: .infinity)
-                    }
-                }
+        .padding(.horizontal)
+    }
+
+    /// Deploy sits under the content so it is always one tap away, with the team warning when needed.
+    var deployBar: some View {
+        VStack(spacing: 6) {
+            if !settings.hasOpposingTeams {
+                Text("Everyone is on the same team — give at least one commander another team.")
+                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.orange).multilineTextAlignment(.center).padding(.horizontal)
             }
+            Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); onDeploy() } label: {
+                Text(watch ? "WATCH" : "DEPLOY").font(.system(size: 21, weight: .black)).tracking(6)
+                    .frame(maxWidth: 380).padding(.vertical, 13)
+                    .background(Chamfer(cut: 14).fill(LinearGradient(colors: [Theme.faction(settings.playerFaction), Theme.faction(settings.playerFaction).opacity(0.7)], startPoint: .top, endPoint: .bottom)))
+                    .overlay(Chamfer(cut: 14).stroke(Color.white.opacity(0.6), lineWidth: 1))
+                    .shadow(color: Theme.faction(settings.playerFaction).opacity(0.6), radius: 14)
+                    .foregroundColor(.black)
+            }
+            .buttonStyle(.plain)
+            .disabled(!settings.hasOpposingTeams)
+            .opacity(settings.hasOpposingTeams ? 1 : 0.4)
+            .accessibilityLabel(watch ? "WATCH" : "DEPLOY")
         }
-        .onAppear { if !settings.seedLocked { settings.seed = UInt64.random(in: 1...999_999) } }
+        .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 10)
+        .background(LinearGradient(colors: [.clear, Color.black.opacity(0.7)], startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .bottom))
     }
 
     /// Seed: type one to replay a battlefield you liked, or roll the dice for a fresh one.
