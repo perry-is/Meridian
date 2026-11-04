@@ -280,8 +280,11 @@ struct TitleView: View {
     var onPlay: () -> Void
     var onContinue: () -> Void = {}
     var onTutorial: () -> Void = {}
+    var onReplay: (Replay) -> Void = { _ in }
     @State private var offerTutorial = false
     @State private var saved = SaveStore.info
+    @State private var replays = ReplayStore.list()
+    @State private var showReplays = false
     @State private var showHelp = false
     @State private var showSettings = false
     @State private var appear = false
@@ -336,14 +339,27 @@ struct TitleView: View {
                                 .foregroundColor(.black)
                         }
                         .buttonStyle(.plain).accessibilityLabel(saved == nil ? "PLAY" : "NEW BATTLE")
-                        Button { SoundEngine.shared?.play("click", at: nil); showHelp = true } label: {
-                            Text("HOW TO PLAY").font(.system(size: 15, weight: .heavy)).tracking(5)
-                                .frame(maxWidth: 300).padding(.vertical, 13)
-                                .background(Chamfer(cut: 12).fill(Color.black.opacity(0.55)))
-                                .overlay(Chamfer(cut: 12).stroke(Theme.accent.opacity(0.6), lineWidth: 1))
-                                .foregroundColor(.white)
+                        HStack(spacing: 10) {
+                            Button { SoundEngine.shared?.play("click", at: nil); showHelp = true } label: {
+                                Text("HOW TO PLAY").font(.system(size: 13, weight: .heavy)).tracking(3)
+                                    .frame(maxWidth: .infinity).padding(.vertical, 13)
+                                    .background(Chamfer(cut: 12).fill(Color.black.opacity(0.55)))
+                                    .overlay(Chamfer(cut: 12).stroke(Theme.accent.opacity(0.6), lineWidth: 1))
+                                    .foregroundColor(.white)
+                            }
+                            .buttonStyle(.plain)
+                            if !replays.isEmpty {
+                                Button { SoundEngine.shared?.play("click", at: nil); showReplays = true } label: {
+                                    Text("REPLAYS").font(.system(size: 13, weight: .heavy)).tracking(3)
+                                        .frame(maxWidth: .infinity).padding(.vertical, 13)
+                                        .background(Chamfer(cut: 12).fill(Color.black.opacity(0.55)))
+                                        .overlay(Chamfer(cut: 12).stroke(Theme.accent.opacity(0.6), lineWidth: 1))
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain).accessibilityLabel("REPLAYS")
+                            }
                         }
-                        .buttonStyle(.plain)
+                        .frame(maxWidth: 300)
                     }
                     .padding(.horizontal, 30)
                     .opacity(appear ? 1 : 0).offset(y: appear ? 0 : 20)
@@ -358,6 +374,9 @@ struct TitleView: View {
             }
         }
         .sheet(isPresented: $showHelp) { HelpView(onTutorial: onTutorial) }
+        .sheet(isPresented: $showReplays) {
+            ReplayListView(replays: $replays) { r in showReplays = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { onReplay(r) } }
+        }
         .sheet(isPresented: $showSettings) {
             VStack(spacing: 16) { Text("Settings").font(.title3.bold()); AudioSettings() }.padding(30).presentationDetents([.medium])
         }
@@ -369,7 +388,41 @@ struct TitleView: View {
                     .transition(.opacity)
             }
         }
-        .onAppear { saved = SaveStore.info; withAnimation(.easeOut(duration: 0.9)) { appear = true } }
+        .onAppear { saved = SaveStore.info; replays = ReplayStore.list(); withAnimation(.easeOut(duration: 0.9)) { appear = true } }
+    }
+}
+
+/// Recorded matches, newest first. Tap one to watch it; swipe to delete.
+struct ReplayListView: View {
+    @Binding var replays: [ReplayStore.Info]
+    var onWatch: (Replay) -> Void
+    @Environment(\.dismiss) var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(replays) { r in
+                    Button {
+                        if let full = ReplayStore.read(r.id) { SoundEngine.shared?.play("built", at: nil, minGap: 0); onWatch(full) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Circle().fill(Theme.faction(r.faction)).frame(width: 10, height: 10)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(r.line).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+                                Text(r.recordedAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            if let w = r.won { Text(w ? "W" : "L").font(.system(size: 12, weight: .black)).foregroundColor(w ? .green : .red) }
+                            Image(systemName: "play.fill").foregroundColor(Theme.accent)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                .onDelete { idx in for i in idx { ReplayStore.delete(replays[i].id) }; replays.remove(atOffsets: idx) }
+            }
+            .navigationTitle("Replays")
+            .toolbar { ToolbarItem { Button("Done") { dismiss() } } }
+            .overlay { if replays.isEmpty { Text("Finished matches are recorded here.").foregroundColor(.secondary) } }
+        }
     }
 }
 

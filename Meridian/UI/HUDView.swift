@@ -414,7 +414,7 @@ struct SelectionPanel: View {
                     }
                     .padding(.horizontal, 6).padding(.vertical, 4)
                     .background(Chamfer(cut: 5).fill(Color.white.opacity(0.07)))
-                    .onTapGesture { if let b = controller.selection.first { controller.world.commandCancel(b, index: q.id); controller.refreshHUD(); SoundEngine.shared?.play("cancel", at: nil) } }
+                    .onTapGesture { if let b = controller.selection.first { controller.issue(.cancel(building: b, index: q.id)); controller.refreshHUD(); SoundEngine.shared?.play("cancel", at: nil) } }
                     .accessibilityElement(children: .combine).accessibilityIdentifier("queue_\(q.id)")
                 }
             }

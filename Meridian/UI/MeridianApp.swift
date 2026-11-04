@@ -173,6 +173,24 @@ struct RootView: View {
         }
     }
 
+    /// Watch a recording: the match is rebuilt from its settings and the recorded orders replay as it runs.
+    func startReplay(_ r: Replay) {
+        loadArt = .faction(r.factions[r.human])
+        tip = "Replay: the match plays back exactly as it was fought. Use the speed controls to skip ahead."
+        step = "Rewinding the battle…"; progress = 0.1
+        screen = .loading
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            backdrop.stop()
+            let c = GameController(replay: r)
+            step = "Assembling the armies…"; progress = 0.5
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                _ = TextureBank.make(data: GameData.shared, factions: c.world.players.map { $0.faction })
+                progress = 1; watch = true; controller = c
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { screen = .game }
+            }
+        }
+    }
+
     func startTutorial() {
         loadArt = .faction(.humans)
         tip = "Boot Camp: follow the gold markers. You can skip at any time."
@@ -207,7 +225,8 @@ struct RootView: View {
                         let n = c.battleSize, f0 = c.settings.playerFaction, f1 = c.settings.aiFaction
                         controller = nil
                         DispatchQueue.main.async { startBattle(n, f0, f1) }
-                    } : (c.tutorial == nil && !c.stressMode ? {
+                    } : (c.isReplay ? { if let r = c.match.replay { controller = nil; DispatchQueue.main.async { startReplay(r) } } }
+                      : c.tutorial == nil && !c.stressMode ? {
                         // Rematch: the same commanders, rules and battlefield.
                         settings = c.settings; watch = c.spectating
                         controller = nil
@@ -218,7 +237,7 @@ struct RootView: View {
             case .boot:
                 LoadingView(title: "Preparing the frontier", step: step, progress: progress, art: .threeFronts).transition(.opacity)
             case .title:
-                TitleView(backdrop: backdrop, onPlay: { screen = .setup }, onContinue: resumeMatch, onTutorial: startTutorial).transition(.opacity)
+                TitleView(backdrop: backdrop, onPlay: { screen = .setup }, onContinue: resumeMatch, onTutorial: startTutorial, onReplay: startReplay).transition(.opacity)
             case .setup:
                 SetupView(settings: $settings, watch: $watch, backdrop: backdrop, onBack: { screen = .title }, onDeploy: startMatch).transition(.opacity)
             case .loading:

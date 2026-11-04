@@ -30,6 +30,17 @@ struct SpectatorHUD: View {
                             teamColumn(teams(h).last ?? 1, h, alignment: .trailing)
                         }
                         tug(h)
+                        if controller.isReplay {
+                            HStack(spacing: 6) {
+                                Text("REPLAY").font(.system(size: 9, weight: .heavy)).tracking(2).foregroundColor(Theme.accent)
+                                GeometryReader { g in
+                                    ZStack(alignment: .leading) {
+                                        Capsule().fill(Color.white.opacity(0.12))
+                                        Capsule().fill(Theme.accent).frame(width: g.size.width * CGFloat(controller.match.replayProgress))
+                                    }
+                                }.frame(height: 3)
+                            }
+                        }
                     }
                 }
             }

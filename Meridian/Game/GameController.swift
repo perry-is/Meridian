@@ -204,6 +204,11 @@ final class GameController: ObservableObject {
     var formation: Formation = .balanced
 
     var spectating = false
+    /// Every order from the UI goes through here so a recording can be made of the match (see Replay).
+    @discardableResult
+    func issue(_ c: Command) -> String? { match.issue(c) }
+    /// Watching a recording: the match re-issues the recorded orders itself.
+    var isReplay: Bool { match.isReplay }
     var selection: [Int] = []
     var selectedSite: Int? = nil
     var mode: InputMode = .normal { didSet { if mode != .patrol { patrolFirst = nil }; refreshHUD() } }
@@ -243,6 +248,7 @@ final class GameController: ObservableObject {
         if let g = save.extras["groups"]?.data(using: .utf8), let groups = try? JSONDecoder().decode([Int: [Int]].self, from: g) { controlGroups = groups }
         if let f = save.extras["formation"].flatMap({ Formation(rawValue: $0) }) { formation = f }
         guideDismissed = save.extras["guideDismissed"] == "1"
+        if let rs = save.extras["replay"]?.data(using: .utf8), let r = try? JSONDecoder().decode(Replay.self, from: rs) { match.recording = r }
         lastAutosave = world.time
         refreshHUD()
         toast("Welcome back, commander")
@@ -254,7 +260,7 @@ final class GameController: ObservableObject {
     /// The scene reports the camera (world x, y, zoom) for saves.
     var cameraState: (() -> (Double, Double, Double))? = nil
     var lastAutosave = 0.0
-    var canSave: Bool { !spectating && !stressMode && !battleMode && !world.sandbox && gameOver == nil && tutorial == nil }
+    var canSave: Bool { !spectating && !stressMode && !battleMode && !world.sandbox && gameOver == nil && tutorial == nil && !isReplay }
 
     func saveNow() {
         guard canSave else { return }
@@ -266,6 +272,7 @@ final class GameController: ObservableObject {
         if let g = try? JSONEncoder().encode(controlGroups), let gs = String(data: g, encoding: .utf8) { s.extras["groups"] = gs }
         s.extras["formation"] = formation.rawValue
         s.extras["guideDismissed"] = guideDismissed ? "1" : "0"
+        if let r = match.recording, let d = try? JSONEncoder().encode(r), let rs = String(data: d, encoding: .utf8) { s.extras["replay"] = rs }
         SaveStore.write(s, info: SaveStore.Info(playerFaction: settings.playerFaction, aiFaction: settings.aiFaction, layout: settings.layout,
                                                 difficulty: settings.difficulty.title + (settings.quick ? " · Quick" : ""), gameTime: world.time, savedAt: Date(),
                                                 factions: settings.factions, teams: settings.teams))
@@ -299,6 +306,19 @@ final class GameController: ObservableObject {
         if !aiPlayers { ai = [] }
         spectating = spectate
         match = Match(config: cfg, ai: ai, data: settings.quick ? .quick : .shared)
+        if !spectate && aiPlayers { match.record(human: me, quick: settings.quick) }
+        refreshHUD()
+    }
+
+    /// Watch a recording: a spectator view of the match it was made from.
+    init(replay r: Replay) {
+        var st = GameSettings()
+        st.slots = r.factions.enumerated().map { PlayerSlot(faction: $0.element, team: r.teams[$0.offset]) }
+        st.victory = r.victory; st.layout = r.layout; st.seed = r.seed; st.quick = r.quick; st.seedLocked = true
+        if let a = r.ais.first { st.difficulty = a.difficulty; st.strategy = a.strategy }
+        settings = st
+        spectating = true
+        match = Match.load(replay: r)
         refreshHUD()
     }
 
@@ -474,6 +494,7 @@ final class GameController: ObservableObject {
             let won = world.won(by: me) ?? false
             gameOver = (won, world.victoryReason)
             if !spectating { SaveStore.delete() }
+            if let r = match.finishedRecording(), world.time > 60 { ReplayStore.add(r) }
             if won { Haptics.success() } else { Haptics.error() }
             SoundEngine.shared?.play(won ? "victory" : "defeat", at: nil, minGap: 0)
         }
@@ -759,23 +780,23 @@ final class GameController: ObservableObject {
                 refreshHUD()
                 return
             }
-            world.commandPatrol(ids, from: a, to: (x, y), formation: formation)
+            issue(.patrol(ids: ids, ax: a.0, ay: a.1, bx: x, by: y, formation: formation))
             commandPing = (x, y, false, world.time)
             mode = .normal
             return
         case .attackMove:
             let ids = myUnitSelection()
-            if let t = pick(x, y, radius: r), world.isEnemyPublic(me, t.owner) { world.commandAttack(ids, target: t.id) }
-            else { world.commandMove(ids, x: x, y: y, attack: true, formation: formation) }
+            if let t = pick(x, y, radius: r), world.isEnemyPublic(me, t.owner) { issue(.attack(ids: ids, target: t.id)) }
+            else { issue(.move(ids: ids, x: x, y: y, attack: true, formation: formation)) }
             mode = .normal
             return
         case .unload:
-            for e in selectedEntities where world.traits[e.type].capacity > 0 { world.commandUnload(e.id, x: x, y: y) }
+            for e in selectedEntities where world.traits[e.type].capacity > 0 { issue(.unload(transport: e.id, x: x, y: y)) }
             mode = .normal; return
         case .emp:
-            world.commandEMP(selection, x: x, y: y); mode = .normal; return
+            issue(.emp(ids: selection, x: x, y: y)); mode = .normal; return
         case .rally:
-            for e in selectedEntities where e.isBuilding { world.setRally(e.id, x: x, y: y) }
+            for e in selectedEntities where e.isBuilding { issue(.rally(building: e.id, x: x, y: y)) }
             mode = .normal; toast("Rally point set"); return
         case .normal: break
         }
@@ -817,17 +838,17 @@ final class GameController: ObservableObject {
             // Rally on a resource (or right beside one): new workers go straight to gathering it.
             let node = target.flatMap { $0.isResource ? $0 : nil } ?? pickResource(x, y, within: 1.2)
             if let n = node {
-                for e in selectedEntities { world.setRally(e.id, x: n.x, y: n.y) }
+                for e in selectedEntities { issue(.rally(building: e.id, x: n.x, y: n.y)) }
                 targetPings.append(n.id)
                 let kind = ["Iron", "Gold", "Wood"][n.type]
                 toast("Rally set: new workers will gather \(kind)")
             } else {
-                for e in selectedEntities { world.setRally(e.id, x: x, y: y) }
+                for e in selectedEntities { issue(.rally(building: e.id, x: x, y: y)) }
                 toast("Rally point set")
             }
             return
         }
-        world.commandSmart(selection, x: x, y: y, targetID: target?.id, player: me, formation: formation)
+        issue(.smart(ids: selection, x: x, y: y, target: target?.id, player: me, formation: formation))
         if let t = target, selectedEntities.contains(where: { $0.isUnit && world.traits[$0.type].worker }),
            t.isResource || (t.owner == me && t.isBuilding && (!t.complete || t.hp < t.maxHp)) {
             targetPings.append(t.id)
@@ -854,7 +875,7 @@ final class GameController: ObservableObject {
         guard case .place(let type) = mode, let g = ghostTile else { return }
         // Every selected worker goes to help build it.
         let workers = selectedEntities.filter { $0.isUnit && $0.owner == me && world.traits[$0.type].worker }
-        if let err = world.commandBuild(workers.map { $0.id }, type: type, tileX: g.0, tileY: g.1) {
+        if let err = issue(.build(workers: workers.map { $0.id }, type: type, tileX: g.0, tileY: g.1)) {
             toast(err, warning: true)
         } else {
             mode = .normal
@@ -1053,7 +1074,7 @@ final class GameController: ObservableObject {
                 for (inst, title, sym) in items {
                     b.append(CommandButton(id: "inst\(inst.rawValue)", title: title, symbol: sym, cost: c, enabled: p.canAfford(c), reason: shortfall(c)) { [weak self] in
                         guard let self = self else { return }
-                        if let err = self.world.configureSite(si, player: self.me, installation: inst) { self.toast(err, warning: true) }
+                        if let err = self.issue(.configureSite(site: si, player: self.me, installation: inst)) { self.toast(err, warning: true) }
                         self.refreshHUD()
                     })
                 }
@@ -1068,7 +1089,7 @@ final class GameController: ObservableObject {
             let d = world.bdef(e)
             if !e.complete {
                 b.append(CommandButton(id: "cancelBuild", title: "Cancel", symbol: "xmark.octagon", hotkey: "\u{1b}") { [weak self] in
-                    self?.world.commandCancelConstruction(e.id); self?.clearSelection() })
+                    self?.issue(.cancelConstruction(building: e.id)); self?.clearSelection() })
                 return b
             }
             for u in data.unitIDs(p.faction) where data.units[u].producedAt == d.kind {
@@ -1080,7 +1101,7 @@ final class GameController: ObservableObject {
                                        badge: ud.batch.map { "×\($0)" }, progress: prog, queued: q,
                                        detail: "\(ud.role.capitalized) · strong vs \(ud.strongVs)") { [weak self] in
                     guard let self = self else { return }
-                    if let err = self.world.commandTrain(e.id, unitType: u) { self.toast(err, warning: true) }
+                    if let err = self.issue(.train(building: e.id, unit: u)) { self.toast(err, warning: true) }
                     self.refreshHUD()
                 })
             }
@@ -1092,13 +1113,13 @@ final class GameController: ObservableObject {
                 b.append(CommandButton(id: "g\(g)", title: gd.name, symbol: "upgrade:\(gd.tier)", cost: gd.cost, enabled: reason == nil, reason: reason,
                                        highlighted: p.researching.contains(g), progress: gp, detail: gd.description) { [weak self] in
                     guard let self = self else { return }
-                    if let err = self.world.commandResearch(e.id, upgrade: g) { self.toast(err, warning: true) }
+                    if let err = self.issue(.research(building: e.id, upgrade: g)) { self.toast(err, warning: true) }
                     self.refreshHUD()
                 })
             }
             if world.modeName(e) != nil {
                 b.append(CommandButton(id: "mode", title: "Mode: \(world.modeName(e)!)", symbol: "dial.medium", hotkey: "m") { [weak self] in
-                    self?.world.commandToggleMode([e.id]); self?.refreshHUD() })
+                    self?.issue(.toggleMode(ids: [e.id])); self?.refreshHUD() })
             }
             if [.infantry, .heavy, .air, .hq].contains(d.kind) {
                 b.append(CommandButton(id: "rally", title: "Rally", symbol: "flag.fill", hotkey: "r") { [weak self] in self?.mode = .rally })
@@ -1132,9 +1153,9 @@ final class GameController: ObservableObject {
         guard !units.isEmpty else { return b }
         b.append(CommandButton(id: "amove", title: "Attack-Move", symbol: "scope", hotkey: "a") { [weak self] in self?.mode = .attackMove })
         b.append(CommandButton(id: "stop", title: "Stop", symbol: "stop.fill", hotkey: "s") { [weak self] in
-            guard let self = self else { return }; self.world.commandStop(self.selection) })
+            guard let self = self else { return }; self.issue(.stop(ids: self.selection)) })
         b.append(CommandButton(id: "hold", title: "Hold", symbol: "hand.raised.fill", hotkey: "h") { [weak self] in
-            guard let self = self else { return }; self.world.commandHold(self.selection) })
+            guard let self = self else { return }; self.issue(.hold(ids: self.selection)) })
         b.append(CommandButton(id: "patrol", title: "Patrol", symbol: "arrow.triangle.2.circlepath", hotkey: "p") { [weak self] in self?.mode = .patrol })
         if units.filter({ !world.traits[$0.type].worker }).count >= 4 {
             let sym: String = { switch formation { case .balanced: return "square.grid.3x2.fill"; case .assault: return "arrowtriangle.up.fill"; case .defensive: return "shield.lefthalf.filled" } }()
@@ -1152,7 +1173,7 @@ final class GameController: ObservableObject {
         if units.contains(where: { world.traits[$0.type].modes > 0 }) {
             let names = Set(units.compactMap { world.modeName($0) })
             b.append(CommandButton(id: "mode", title: names.count == 1 ? names.first! : "Toggle Mode", symbol: "dial.medium", hotkey: "m") { [weak self] in
-                guard let self = self else { return }; self.world.commandToggleMode(self.selection); self.refreshHUD() })
+                guard let self = self else { return }; self.issue(.toggleMode(ids: self.selection)); self.refreshHUD() })
         }
         if units.contains(where: { world.traits[$0.type].emp }) {
             let ready = units.contains { world.traits[$0.type].emp && $0.abilityCooldown <= 0 }

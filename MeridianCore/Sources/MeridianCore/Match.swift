@@ -6,6 +6,13 @@ public final class Match {
     public var ais: [AIController]
     /// Hard time limit for headless runs (seconds of game time); nil = unlimited.
     public var timeLimit: Double?
+    /// The human's orders being recorded (see `record(human:quick:)`), and a recording being played back.
+    public var recording: Replay? = nil
+    public internal(set) var replay: Replay? = nil
+    var replayCursor = 0
+    public var isReplay: Bool { replay != nil }
+    /// Replay playback: how far through the recorded orders we are (0...1).
+    public var replayProgress: Double { replay.map { r in r.duration > 0 ? min(1, world.time / r.duration) : 1 } ?? 0 }
 
     public init(config: MatchConfig, ai: [(player: Int, difficulty: Difficulty, strategy: AIStrategy)], data: GameData = .shared) {
         world = World(config: config, data: data)
@@ -13,6 +20,7 @@ public final class Match {
     }
 
     public func step() {
+        applyReplayCommands()
         for a in ais { a.update(world) }
         world.step()
         if let lim = timeLimit, world.time >= lim, world.winner == nil {

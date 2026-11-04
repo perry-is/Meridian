@@ -189,3 +189,33 @@ final class HardAITests: XCTestCase {
         XCTAssertTrue(hard.prongsLaunched > 0 || wonOutright, "Hard AI never split an attack (and did not win outright)")
     }
 }
+
+/// Recorded orders replayed on their ticks reproduce the match exactly.
+final class ReplayTests: XCTestCase {
+    func testReplayReproducesMatch() throws {
+        let cfg = MatchConfig(factions: [.humans, .aliens], layout: .crossroads, seed: 31)
+        let live = Match(config: cfg, ai: [(player: 1, difficulty: .normal, strategy: .balanced)])
+        live.record(human: 0, quick: false)
+        let d = live.world.data
+        let hq = live.world.buildings(of: 0)[0]
+        for t in 0..<(20 * 200) {
+            if t == 40 { live.issue(.train(building: hq.id, unit: d.worker(.humans))) }
+            if t == 400 {
+                let ws = live.world.units(of: 0).filter { live.world.traits[$0.type].worker }.map { $0.id }
+                live.issue(.move(ids: Array(ws.prefix(2)), x: hq.x + 10, y: hq.y + 6, attack: false, formation: .balanced))
+            }
+            if t == 1200 {
+                let s = live.world.sites[1]
+                live.issue(.smart(ids: live.world.units(of: 0).map { $0.id }, x: s.x, y: s.y, target: nil, player: 0, formation: .assault))
+            }
+            live.step()
+        }
+        var r = try XCTUnwrap(live.finishedRecording())
+        XCTAssertEqual(r.commands.count, 3)
+        r = try JSONDecoder().decode(Replay.self, from: JSONEncoder().encode(r))   // survives disk
+        let back = Match.load(replay: r)
+        for _ in 0..<(20 * 200) { back.step() }
+        XCTAssertEqual(back.world.stateHash(), live.world.stateHash(), "replay diverged from the live match")
+        XCTAssertEqual(back.world.players[0].stats.unitsProduced, live.world.players[0].stats.unitsProduced)
+    }
+}
