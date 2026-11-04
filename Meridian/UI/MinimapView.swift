@@ -62,6 +62,11 @@ struct MinimapView: View {
 
     func terrainImage() -> CGImage {
         let m = controller.world.map
+        return Self.image(Self.terrainPixels(m), m.size)
+    }
+
+    /// RGBA pixels of a map's terrain and resources (one pixel per tile). Shared with the setup screen's preview.
+    static func terrainPixels(_ m: MapData) -> [UInt8] {
         let n = m.size
         var px = [UInt8](repeating: 0, count: n * n * 4)
         for y in 0..<n {
@@ -88,7 +93,7 @@ struct MinimapView: View {
             case .wood: px[i] = 28; px[i + 1] = 70; px[i + 2] = 40
             }
         }
-        return Self.image(px, n)
+        return px
     }
 
     func fogImage() -> CGImage {

@@ -36,6 +36,8 @@ struct GameSettings {
     /// Quick Match: smaller map and a faster clock (about ten minutes).
     var quick = false
     var seed: UInt64 = UInt64(Date().timeIntervalSince1970) % 100_000
+    /// The player chose or re-rolled this seed (or it came from `-seed`): keep it instead of drawing a fresh one.
+    var seedLocked = false
 
     /// The player's faction (slot 0) and the first opponent's — kept for the 1v1 code paths, tests and tools.
     var playerFaction: Faction {

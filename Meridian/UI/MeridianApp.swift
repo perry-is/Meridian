@@ -81,7 +81,6 @@ enum Screen { case boot, title, setup, loading, game }
 struct RootView: View {
     @State private var settings = GameSettings()
     @State private var controller: GameController? = nil
-    @State private var fixedSeed = false
     @State private var screen: Screen = .boot
     @State private var watch = false
     @State private var progress = 0.0
@@ -129,7 +128,6 @@ struct RootView: View {
         let t0 = Date()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             backdrop.stop()
-            if !fixedSeed { settings.seed = UInt64(Date().timeIntervalSince1970 * 1000) % 1_000_000 }
             // A real match always uses a playable battlefield (the test arena has no resources).
             if !MapLayout.playable.contains(settings.layout) { settings.layout = .crossroads }
             let c = GameController(settings: settings, spectate: watch)
@@ -245,7 +243,7 @@ struct RootView: View {
                 let c = GameController(tutorial: true); c.exitTutorial = { backToMenu() }
                 controller = c; screen = .game; return
             }
-            if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; fixedSeed = true }
+            if let sd = arg("-seed"), let v = UInt64(sd) { settings.seed = v; settings.seedLocked = true }
             if let h = arg("-holdload") {
                 // Development: hold a loading screen for review (boot, humans, machines, aliens).
                 loadArt = Faction(rawValue: h).map { .faction($0) } ?? .threeFronts

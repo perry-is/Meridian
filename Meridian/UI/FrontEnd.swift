@@ -483,8 +483,18 @@ struct SetupView: View {
                                     }
                                     labeled("BATTLEFIELD") {
                                         Picker("Map", selection: $settings.layout) { ForEach(MapLayout.playable, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
-                                        Text("\(settings.layout.blurb) \(settings.slots.count)-commander version, \(settings.mapSize)×\(settings.mapSize) tiles.")
-                                            .font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
+                                        HStack(alignment: .top, spacing: 10) {
+                                            MapPreview(layout: settings.layout, seed: settings.seed, players: settings.slots.count, quick: settings.quick, teams: settings.teams)
+                                                .frame(width: wide ? 220 : 150, height: wide ? 120 : 84)
+                                                .background(Chamfer(cut: 8).fill(Color.black.opacity(0.55)))
+                                                .overlay(Chamfer(cut: 8).stroke(Color.white.opacity(0.14), lineWidth: 1))
+                                                .clipShape(Chamfer(cut: 8))
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                Text("\(settings.layout.blurb) \(settings.slots.count)-commander version, \(settings.mapSize)×\(settings.mapSize) tiles.")
+                                                    .font(.system(size: 11)).foregroundColor(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                                                seedControls
+                                            }
+                                        }
                                     }
                                     labeled("TEMPERAMENT") {
                                         Picker("Temperament", selection: $settings.strategy) { ForEach(AIStrategy.allCases, id: \.self) { Text($0.temperament).tag($0) } }.pickerStyle(.segmented)
@@ -526,6 +536,32 @@ struct SetupView: View {
                 }
             }
         }
+        .onAppear { if !settings.seedLocked { settings.seed = UInt64.random(in: 1...999_999) } }
+    }
+
+    /// Seed: type one to replay a battlefield you liked, or roll the dice for a fresh one.
+    var seedControls: some View {
+        HStack(spacing: 6) {
+            Text("SEED").font(.system(size: 9, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+            TextField("seed", text: Binding(get: { String(settings.seed) }, set: { v in
+                if let n = UInt64(v.filter { $0.isNumber }.prefix(9)) { settings.seed = n; settings.seedLocked = true }
+            }))
+            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .background(Chamfer(cut: 4).fill(Color.white.opacity(0.08)))
+            .frame(maxWidth: 110)
+            #if os(iOS)
+            .keyboardType(.numberPad)
+            #endif
+            .accessibilityIdentifier("seedField")
+            Button { settings.seed = UInt64.random(in: 1...999_999); settings.seedLocked = true; SoundEngine.shared?.play("click", at: nil) } label: {
+                Image(systemName: "dice.fill").font(.system(size: 15, weight: .semibold)).frame(width: 30, height: 26)
+                    .background(Chamfer(cut: 5).fill(Color.white.opacity(0.1)))
+            }
+            .buttonStyle(.plain).foregroundColor(Theme.accent).accessibilityLabel("New battlefield")
+        }
+        .foregroundColor(.white)
     }
 
     func section(_ s: String) -> some View {
