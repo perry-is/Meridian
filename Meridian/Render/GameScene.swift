@@ -327,7 +327,8 @@ final class GameScene: SKScene {
         lastUpdate = currentTime
         if ctl.stressMode || ctl.battleMode || GameScene.flags.contains("log") { perfLog(dt) }
         if ctl.spectating && !backdropStatic { battleCam.update(self, dt: min(dt, 0.05)) }
-        fogNode?.isHidden = ctl.spectating
+        if ctl.gameOver != nil && !backdrop { finaleTour(dt) }
+        fogNode?.isHidden = ctl.spectating || ctl.gameOver != nil
         let tSim0 = CACurrentMediaTime()
         ctl.advance(dt)
         let tSim1 = CACurrentMediaTime()
@@ -669,6 +670,33 @@ final class GameScene: SKScene {
     }
 
     // MARK: Camera
+
+    /// After the match: the fog lifts and the camera drifts slowly from base to base over the final battlefield,
+    /// pulled out wide, while the result panel sits on top.
+    var finaleT: Double = -1
+    func finaleTour(_ dt: Double) {
+        let starts = world.map.starts.map { (Double($0.x) + 2, Double($0.y) + 2) }
+        guard starts.count >= 2 else { return }
+        // Visit the winner's base first, then the others in order, then back to the start.
+        let first = world.winner.map { $0 >= 0 ? $0 % starts.count : 0 } ?? 0
+        let order = (0..<starts.count).map { starts[(first + $0) % starts.count] }
+        let path = order + [order[0]]
+        if finaleT < 0 {
+            finaleT = 0
+            battleCam.enabled = false
+            zoom = max(zoom, 2.2); applyZoom()
+            focus(path[0].0, path[0].1)
+        }
+        finaleT += dt
+        let legSeconds = 9.0
+        let leg = Int(finaleT / legSeconds) % (path.count - 1)
+        let u = (finaleT - Double(leg) * legSeconds).truncatingRemainder(dividingBy: legSeconds) / legSeconds
+        let e = u * u * (3 - 2 * u)   // ease in/out per leg
+        let a = path[leg], b = path[leg + 1]
+        let target = Iso.scene(a.0 + (b.0 - a.0) * e, a.1 + (b.1 - a.1) * e)
+        cam.position = CGPoint(x: cam.position.x + (target.x - cam.position.x) * 0.08, y: cam.position.y + (target.y - cam.position.y) * 0.08)
+        clampCamera()
+    }
 
     func focus(_ x: Double, _ y: Double) {
         cam.position = Iso.scene(x, y)

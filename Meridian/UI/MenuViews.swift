@@ -219,47 +219,137 @@ struct GameOverView: View {
     let won: Bool
     let reason: String
     var onQuit: () -> Void
+    var onRematch: (() -> Void)? = nil
     @State private var appear = false
+    @State private var details = false
+
     var body: some View {
         let accent = won ? Theme.faction(controller.hud.faction) : Color(red: 1, green: 0.35, blue: 0.28)
-        ZStack {
-            Color.black.opacity(0.68).ignoresSafeArea()
-            GlassPanel(accent: accent, padding: 22, cut: 18) {
-                VStack(spacing: 12) {
-                    Text(won ? "VICTORY" : "DEFEAT").font(.system(size: 46, weight: .black, design: .rounded)).tracking(10)
-                        .foregroundStyle(LinearGradient(colors: [.white, accent], startPoint: .top, endPoint: .bottom))
-                        .shadow(color: accent.opacity(0.7), radius: 12)
-                        .scaleEffect(appear ? 1 : 1.4).opacity(appear ? 1 : 0)
-                    Text(reason.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(3).foregroundColor(accent)
-                    Text(String(format: "Match time %d:%02d", Int(controller.world.time) / 60, Int(controller.world.time) % 60)).font(.system(size: 11, design: .monospaced)).foregroundColor(.white.opacity(0.6))
-                    VStack(spacing: 6) {
-                        HStack {
-                            Text("").frame(width: 110, alignment: .leading)
-                            ForEach(controller.world.players.indices, id: \.self) { p in
-                                Text(columnTitle(p)).frame(maxWidth: .infinity).foregroundColor(Theme.team(p))
-                            }
+        let w = controller.world
+        let teamGame = w.players.count > 2
+        ZStack(alignment: .bottom) {
+            // The battlefield stays visible behind the panel while the camera tours it.
+            LinearGradient(colors: [Color.black.opacity(0.25), Color.black.opacity(0.7)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+                .allowsHitTesting(false)
+            ScrollView {
+                GlassPanel(accent: accent, padding: 20, cut: 18) {
+                    VStack(spacing: 12) {
+                        Text(controller.spectating ? "MATCH OVER" : (won ? "VICTORY" : "DEFEAT")).font(.system(size: controller.spectating ? 34 : 46, weight: .black, design: .rounded)).tracking(10)
+                            .foregroundStyle(LinearGradient(colors: [.white, accent], startPoint: .top, endPoint: .bottom))
+                            .shadow(color: accent.opacity(0.7), radius: 12)
+                            .scaleEffect(appear ? 1 : 1.4).opacity(appear ? 1 : 0)
+                        Text(reason.uppercased()).font(.system(size: 11, weight: .heavy)).tracking(3).foregroundColor(accent)
+                        if let t = w.winningTeam, teamGame {
+                            Text(winnerLine(t)).font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8)).multilineTextAlignment(.center)
                         }
-                        .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
-                        row("Units produced") { $0.unitsProduced }
-                        row("Units lost") { $0.unitsLost }
-                        row("Kills") { $0.kills }
-                        row("Buildings built") { $0.buildingsBuilt }
-                        row("Iron gathered") { $0.gathered[0] }
-                        row("Wood gathered") { $0.gathered[2] }
-                        row("Gold gathered") { $0.gathered[1] }
-                        row("Peak army") { $0.peakUnits }
+                        Text(String(format: "Match time %d:%02d", Int(w.time) / 60, Int(w.time) % 60)).font(.system(size: 11, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                        if teamGame && !details { teamTable } else { commanderTable }
+                        if teamGame {
+                            Button { withAnimation(.easeInOut(duration: 0.2)) { details.toggle() }; SoundEngine.shared?.play("click", at: nil) } label: {
+                                Text(details ? "SHOW TEAMS" : "SHOW EVERY COMMANDER").font(.system(size: 10, weight: .heavy)).tracking(2)
+                                    .padding(.horizontal, 12).padding(.vertical, 6)
+                                    .background(Chamfer(cut: 6).fill(Color.white.opacity(0.08)))
+                            }.buttonStyle(.plain).foregroundColor(.white.opacity(0.8))
+                        }
+                        HStack(spacing: 10) {
+                            if let r = onRematch {
+                                Button { SoundEngine.shared?.play("built", at: nil, minGap: 0); r() } label: {
+                                    Text("REMATCH").font(.system(size: 14, weight: .black)).tracking(3)
+                                        .padding(.horizontal, 18).padding(.vertical, 11)
+                                        .background(Chamfer(cut: 9).fill(Color.black.opacity(0.5)))
+                                        .overlay(Chamfer(cut: 9).stroke(accent.opacity(0.7), lineWidth: 1))
+                                        .foregroundColor(.white)
+                                }.buttonStyle(.plain).accessibilityLabel("Rematch")
+                            }
+                            Button(action: onQuit) {
+                                Text("RETURN TO COMMAND").font(.system(size: 14, weight: .black)).tracking(3)
+                                    .padding(.horizontal, 18).padding(.vertical, 11)
+                                    .background(Chamfer(cut: 9).fill(accent)).foregroundColor(.black)
+                            }.buttonStyle(.plain)
+                        }
+                        .padding(.top, 6)
                     }
-                    Button(action: onQuit) {
-                        Text("RETURN TO COMMAND").font(.system(size: 14, weight: .black)).tracking(3)
-                            .padding(.horizontal, 22).padding(.vertical, 11)
-                            .background(Chamfer(cut: 9).fill(accent)).foregroundColor(.black)
-                    }.buttonStyle(.plain).padding(.top, 6)
+                    .foregroundColor(.white)
                 }
-                .foregroundColor(.white)
+                .frame(maxWidth: teamGame && details ? 480 : 380)
+                .padding(.horizontal, 16).padding(.vertical, 24)
             }
-            .frame(maxWidth: 380)
         }
         .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { appear = true } }
+    }
+
+    /// "Team B wins: The Lattice and Terran Concord 4".
+    func winnerLine(_ team: Int) -> String {
+        let names = controller.world.players.filter { $0.team == team }.map { $0.name }
+        let list = names.count > 1 ? names.dropLast().joined(separator: ", ") + " and " + names.last! : (names.first ?? "")
+        return "Team \(SetupView.teamNames[min(team, SetupView.teamNames.count - 1)]) wins: \(list)"
+    }
+
+    /// Distinct teams, the player's first.
+    var teams: [Int] {
+        var out: [Int] = []
+        let me = controller.world.players[controller.me].team
+        for p in controller.world.players.sorted(by: { ($0.team == me ? 0 : 1, $0.team) < ($1.team == me ? 0 : 1, $1.team) }) where !out.contains(p.team) { out.append(p.team) }
+        return out
+    }
+
+    /// Team totals: one column per team.
+    var teamTable: some View {
+        let w = controller.world
+        let me = w.players[controller.me].team
+        return VStack(spacing: 6) {
+            HStack {
+                Text("").frame(width: 110, alignment: .leading)
+                ForEach(teams, id: \.self) { t in
+                    let first = w.players.first { $0.team == t }?.index ?? 0
+                    Text(controller.spectating ? "TEAM \(SetupView.teamNames[min(t, 3)])" : (t == me ? "YOUR TEAM" : (teams.count > 2 ? "TEAM \(SetupView.teamNames[min(t, 3)])" : "ENEMY")))
+                        .frame(maxWidth: .infinity).foregroundColor(Theme.team(first))
+                }
+            }
+            .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+            teamRow("Units produced") { $0.unitsProduced }
+            teamRow("Units lost") { $0.unitsLost }
+            teamRow("Kills") { $0.kills }
+            teamRow("Buildings built") { $0.buildingsBuilt }
+            teamRow("Iron gathered") { $0.gathered[0] }
+            teamRow("Wood gathered") { $0.gathered[2] }
+            teamRow("Gold gathered") { $0.gathered[1] }
+            teamRow("Peak army") { $0.peakUnits }
+        }
+    }
+
+    func teamRow(_ t: String, _ f: @escaping (PlayerStats) -> Int) -> some View {
+        let w = controller.world
+        let values = teams.map { team in w.players.filter { $0.team == team }.reduce(0) { $0 + f($1.stats) } }
+        let m = Double(max(1, values.max() ?? 1))
+        return HStack(spacing: 8) {
+            Text(t).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).frame(width: 110, alignment: .leading)
+            ForEach(values.indices, id: \.self) { i in
+                let first = w.players.first { $0.team == teams[i] }?.index ?? 0
+                bar(values[i], m, Theme.team(first))
+            }
+        }
+    }
+
+    /// Per-commander columns.
+    var commanderTable: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Text("").frame(width: 110, alignment: .leading)
+                ForEach(controller.world.players.indices, id: \.self) { p in
+                    Text(columnTitle(p)).frame(maxWidth: .infinity).foregroundColor(Theme.team(p))
+                }
+            }
+            .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
+            row("Units produced") { $0.unitsProduced }
+            row("Units lost") { $0.unitsLost }
+            row("Kills") { $0.kills }
+            row("Buildings built") { $0.buildingsBuilt }
+            row("Iron gathered") { $0.gathered[0] }
+            row("Wood gathered") { $0.gathered[2] }
+            row("Gold gathered") { $0.gathered[1] }
+            row("Peak army") { $0.peakUnits }
+        }
     }
 
     /// Column heading per commander: YOU / ALLY / ENEMY (numbered when there are several).

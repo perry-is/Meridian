@@ -207,7 +207,12 @@ struct RootView: View {
                         let n = c.battleSize, f0 = c.settings.playerFaction, f1 = c.settings.aiFaction
                         controller = nil
                         DispatchQueue.main.async { startBattle(n, f0, f1) }
-                    } : nil)
+                    } : (c.tutorial == nil && !c.stressMode ? {
+                        // Rematch: the same commanders, rules and battlefield.
+                        settings = c.settings; watch = c.spectating
+                        controller = nil
+                        DispatchQueue.main.async { startMatch() }
+                    } : nil))
                     .transition(.opacity)
                 }
             case .boot:
@@ -359,7 +364,7 @@ struct GameView: View {
                     PauseView(controller: controller, onResume: { showPause = false; controller.paused = false }, onQuit: onQuit)
                 }
                 if let over = controller.gameOver {
-                    GameOverView(controller: controller, won: over.won, reason: over.reason, onQuit: onQuit)
+                    GameOverView(controller: controller, won: over.won, reason: over.reason, onQuit: onQuit, onRematch: onRestart)
                 }
             }
             .onAppear {
