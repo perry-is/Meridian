@@ -197,3 +197,11 @@ Renderer-only; the simulation, stats, AI and controls are unchanged. Full write-
 - Spectators see the whole minimap instead of commander 1's explored area.
 - CI: `.github/workflows/core-tests.yml` builds and tests `MeridianCore` on every push and runs a short 3-player headless match.
 - Known and accepted: two-player maps keep their layouts but rocks and forests differ from the old generator for the same seed; saves from before this branch are not offered (format 2).
+
+## Mission 7 (in progress): a Hard AI worth the name
+
+Decision-making only; Hard still gets no stat or resource bonus.
+- **Raids.** Between attacks, three or four fast units (Buggies, Runners, Skitters) slip out to kill workers at an enemy mineral line or an unguarded enemy site, retarget when there is nothing to hunt, and run as soon as a defence worth more than half the party shows up or they lose 45% of their value.
+- **Two-pronged attacks.** An attack of 18 or more units sends its aircraft and about a third of its ground units (never siege) at a second objective at least 18 tiles from the first; the prong rejoins the main body when its objective falls.
+- **Team play (all difficulties).** Commanders join an ally's push when five or more allied soldiers are already at an enemy structure, leave sites an ally is capturing alone, and Hard answers an ally's call for help from up to 90 tiles away (55 for the others).
+- `HardAITests.testHardAIRaidsAndSplitsAttacks` checks both behaviours fire against a passive opponent. Measure the step up with `meridian-sim ladder --d0 hard --d1 normal --seeds 2` (was 13–11 in STATUS; the target is a clear majority). Not yet compiled on this host; verify on macOS.

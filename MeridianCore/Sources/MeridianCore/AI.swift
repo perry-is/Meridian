@@ -45,6 +45,18 @@ public final class AIController {
     var raided = false
     var assembling = false
     var assembleSince = 0.0
+    /// Hard AI: a small raiding party that harasses enemy workers and lightly held sites between attacks.
+    var raidGroup = Set<Int>()
+    var raidTarget: (Double, Double)? = nil
+    var raidStart = 0.0
+    var raidStartValue = 0.0
+    var lastRaidEnd = -1000.0
+    /// Hard AI: the second prong of a large attack and its objective.
+    var prongGroup = Set<Int>()
+    var prongTarget: (Double, Double)? = nil
+    /// Counters for the harness and tests (not saved).
+    public private(set) var raidsLaunched = 0
+    public private(set) var prongsLaunched = 0
 
     public init(player: Int, difficulty: Difficulty, strategy: AIStrategy = .balanced, seed: UInt64 = 1) {
         self.player = player
@@ -519,19 +531,22 @@ public final class AIController {
         units.reduce(0) { $0 + w.udef($1).cost.value(w.data.rules.economy) * ($1.hp / max(1, $1.maxHp)) }
     }
 
-    func manageArmy(_ w: World, _ p: Player, _ army: [Entity], _ buildings: [Entity]) {
+    func manageArmy(_ w: World, _ p: Player, _ allArmy: [Entity], _ buildings: [Entity]) {
+        guard !allArmy.isEmpty else { return }
+        if difficulty == .hard { micro(w, allArmy); manageRaid(w, p, allArmy) }
+        // The raiding party runs its own errand; everything else is the field army.
+        let army = allArmy.filter { !raidGroup.contains($0.id) }
         guard !army.isEmpty else { return }
-        let ids = army.map { $0.id }
         let value = armyValue(w, army)
 
-        if difficulty == .hard { micro(w, army) }
         // 1. Defence: enemies near our structures take priority; an ally's base within reach counts too
-        //    (the AI only sees what its team sees).
+        //    (the AI only sees what its team sees). Hard commanders answer calls from further away.
         var threat: Entity? = nil
         var threatCount = 0
         var threatValue = 0.0
         let (hx0, hy0) = baseCenter(w)
-        let guarded = buildings + allyBuildings(w).filter { dist2($0.x, $0.y, hx0, hy0) < 55 * 55 }
+        let reach = difficulty == .hard ? 90.0 : 55.0
+        let guarded = buildings + allyBuildings(w).filter { dist2($0.x, $0.y, hx0, hy0) < reach * reach }
         for e in w.entities where e.isUnit && e.onMap && !e.isMine && w.isEnemy(player, e.owner) && w.canSee(player, e) {
             if guarded.contains(where: { dist2($0.x, $0.y, e.x, e.y) < 13 * 13 }) {
                 threatCount += 1
@@ -586,6 +601,18 @@ public final class AIController {
             }
             attackStartValue = armyValue(w, force)
             attackTarget = chooseAttackTarget(w)
+            // Hard: a big enough force attacks on two fronts. Aircraft and about a third of the ground units
+            // take a second objective far enough from the first that one defence cannot cover both.
+            prongGroup = []; prongTarget = nil
+            if difficulty == .hard, force.count >= 18, let main = attackTarget, let second = chooseProngTarget(w, avoiding: main) {
+                let flyers = force.filter { $0.isAir }
+                let ground = force.filter { !$0.isAir && w.udef($0).role != "siege" }.sorted { $0.id < $1.id }
+                let take = max(0, Int(Double(force.count) * 0.35) - flyers.count)
+                let picked = ground.enumerated().filter { $0.offset % 3 == 0 }.prefix(take).map { $0.element }
+                prongGroup = Set((flyers + picked).map { $0.id })
+                prongTarget = second
+                prongsLaunched += 1
+            }
             if difficulty == .hard {
                 assembling = true
                 assembleSince = clock(w)
@@ -602,9 +629,15 @@ public final class AIController {
             if Double(near) < Double(force.count) * 0.7 && clock(w) - assembleSince < 25 { return }
             assembling = false
             guard let t = attackTarget else { attacking = false; return }
+            // Second prong leaves for its own objective.
+            if let pt = prongTarget {
+                let prong = force.filter { prongGroup.contains($0.id) }
+                if !prong.isEmpty { w.commandMove(prong.map { $0.id }, x: pt.0, y: pt.1, attack: true, formation: .assault) }
+            }
+            let body = force.filter { !prongGroup.contains($0.id) }
             // Main body advances in doctrine formation; fast raiders swing around a flank.
-            let fast = force.filter { w.udef($0).role == "fast" }
-            let main = force.filter { w.udef($0).role != "fast" }.map { $0.id }
+            let fast = body.filter { w.udef($0).role == "fast" }
+            let main = body.filter { w.udef($0).role != "fast" }.map { $0.id }
             w.commandMove(main, x: t.0, y: t.1, attack: true, formation: doctrine(w, p))
             if !fast.isEmpty {
                 let dx = t.0 - st.0, dy = t.1 - st.1
@@ -633,7 +666,18 @@ public final class AIController {
             // Re-target when the current objective is gone.
             if let t = attackTarget, !targetStillValid(w, t) { attackTarget = chooseAttackTarget(w) }
             guard let t = attackTarget else { attacking = false; return }
-            let laggards = force.filter { ($0.order == .idle && $0.target < 0) || ($0.order == .attackMove && dist2($0.ox, $0.oy, t.0, t.1) > 9) || $0.order == .move }
+            func straggling(_ u: Entity, _ goal: (Double, Double)) -> Bool {
+                (u.order == .idle && u.target < 0) || (u.order == .attackMove && dist2(u.ox, u.oy, goal.0, goal.1) > 9) || u.order == .move
+            }
+            // The second prong keeps its own objective while it stands; once it falls the prong rejoins the main body.
+            if let pt = prongTarget {
+                if !targetStillValid(w, pt) { prongTarget = chooseProngTarget(w, avoiding: t); if prongTarget == nil { prongGroup = [] } }
+                if let pt2 = prongTarget {
+                    let lag = force.filter { prongGroup.contains($0.id) && straggling($0, pt2) }
+                    if !lag.isEmpty { w.commandMove(lag.map { $0.id }, x: pt2.0, y: pt2.1, attack: true, formation: .assault) }
+                }
+            }
+            let laggards = force.filter { !prongGroup.contains($0.id) && straggling($0, t) }
             if !laggards.isEmpty { w.commandMove(laggards.map { $0.id }, x: t.0, y: t.1, attack: true, formation: doctrine(w, p)) }
             return
         }
@@ -647,6 +691,9 @@ public final class AIController {
         var assigned = Set(siteSquads.values.flatMap { $0 })
         let (ex0, ey0) = enemyBase(w)
         for (i, s) in candidates.prefix(maxSquads) where siteSquads[i] == nil {
+            // Leave a site an ally is already taking to them.
+            if s.capturer >= 0 && w.isAlly(player, s.capturer) { continue }
+            if w.entities.contains(where: { $0.isUnit && $0.onMap && w.isAlly(player, $0.owner) && w.traits[$0.type].canCapture && dist2($0.x, $0.y, s.x, s.y) < 16 }) { continue }
             let ours = dist2(s.x, s.y, bx, by) < dist2(s.x, s.y, ex0, ey0)
             let squadSize = s.owner >= 0 ? 8 : (ours ? 2 : (difficulty == .hard ? 4 : 5))
             let fragile: Set<String> = ["siege", "support", "scout", "transport"]
@@ -718,6 +765,12 @@ public final class AIController {
 
     func chooseAttackTarget(_ w: World) -> (Double, Double)? {
         let (bx, by) = baseCenter(w)
+        // Team play: join an ally's push when a few of their soldiers are already at an enemy structure.
+        if w.players.contains(where: { w.isAlly(player, $0.index) && !$0.defeated }) {
+            let allied = w.entities.filter { $0.isUnit && $0.onMap && !$0.isMine && w.isAlly(player, $0.owner) && !w.traits[$0.type].worker }
+            let pushed = w.entities.filter { b in b.isBuilding && b.alive && w.isEnemy(player, b.owner) && allied.filter { dist2($0.x, $0.y, b.x, b.y) < 14 * 14 }.count >= 5 }
+            if let b = pushed.min(by: { dist2($0.x, $0.y, bx, by) < dist2($1.x, $1.y, bx, by) }) { return (b.x, b.y) }
+        }
         // Enemy sites first (cheap wins, and they deny dominance), then known buildings, then the enemy start.
         if let s = w.sites.filter({ w.isEnemy(player, $0.owner) }).min(by: { dist2($0.x, $0.y, bx, by) < dist2($1.x, $1.y, bx, by) }),
            strategy != .aggressive || rng.chance(0.5) {
@@ -729,6 +782,99 @@ public final class AIController {
         if let b = w.entities.filter({ $0.isBuilding && $0.alive && w.isEnemy(player, $0.owner) })
             .min(by: { dist2($0.x, $0.y, bx, by) < dist2($1.x, $1.y, bx, by) }) { return (b.x, b.y) }
         return nil
+    }
+
+    /// A second objective for a two-pronged attack: an enemy site or known structure far enough from the main
+    /// target that one defence cannot cover both, nearest to our base.
+    func chooseProngTarget(_ w: World, avoiding main: (Double, Double)) -> (Double, Double)? {
+        let (bx, by) = baseCenter(w)
+        let apart = 18.0
+        var options: [(Double, Double)] = w.sites.filter { w.isEnemy(player, $0.owner) }.map { ($0.x, $0.y) }
+        options += w.entities.filter { $0.isBuilding && $0.alive && w.isEnemy(player, $0.owner) && w.players[player].explored[w.tileIndex($0.x, $0.y)] }.map { ($0.x, $0.y) }
+        return options.filter { dist2($0.0, $0.1, main.0, main.1) > apart * apart }
+            .min { dist2($0.0, $0.1, bx, by) < dist2($1.0, $1.1, bx, by) }
+    }
+
+    // MARK: Raids (Hard)
+
+    /// Between attacks, three or four fast units slip out to kill enemy workers at a mineral line or an unguarded
+    /// site, and run the moment a real defence shows up. Cheap pressure that keeps the enemy's army at home.
+    func manageRaid(_ w: World, _ p: Player, _ army: [Entity]) {
+        raidGroup = raidGroup.filter { w.entity($0) != nil }
+        let t = clock(w)
+        if raidGroup.isEmpty {
+            guard !attacking, t > 300, t - lastRaidEnd > 75 else { return }
+            let fast = army.filter { w.udef($0).role == "fast" && !$0.isAir && [.idle, .hold, .attackMove].contains($0.order) }
+            guard fast.count >= 3, let target = chooseRaidTarget(w, not: nil) else { return }
+            let party = Array(fast.prefix(4))
+            raidGroup = Set(party.map { $0.id })
+            raidTarget = target
+            raidStart = t
+            raidStartValue = armyValue(w, party)
+            raidsLaunched += 1
+            w.commandMove(party.map { $0.id }, x: target.0, y: target.1, attack: false, formation: .assault)
+            lastPlan = "Raiding"
+            return
+        }
+        let raiders = army.filter { raidGroup.contains($0.id) }
+        guard let target = raidTarget, !raiders.isEmpty else { endRaid(w, raiders); return }
+        // A defence worth more than half the party, within striking distance, ends the raid.
+        var defence = 0.0
+        for e in w.entities where e.isUnit && e.onMap && !e.isMine && w.isEnemy(player, e.owner) && w.udef(e).weapon != nil && w.udef(e).role != "worker" && w.canSee(player, e) {
+            if raiders.contains(where: { dist2($0.x, $0.y, e.x, e.y) < 9 * 9 }) { defence += w.udef(e).cost.value(w.data.rules.economy) }
+        }
+        let value = armyValue(w, raiders)
+        if value < raidStartValue * 0.55 || defence > value * 0.6 || t - raidStart > 100 { endRaid(w, raiders); return }
+        var busy = false
+        for r in raiders {
+            if let wk = nearestEnemyWorker(w, r, within: 10) {
+                busy = true
+                if r.target != wk.id { w.commandAttack([r.id], target: wk.id) }
+            } else if r.order == .idle || (r.order == .move && dist2(r.ox, r.oy, target.0, target.1) > 4) {
+                w.commandMove([r.id], x: target.0, y: target.1, attack: false)
+            }
+        }
+        // Arrived and nothing to hunt: try the next spot, or go home.
+        if !busy && t - raidStart > 20 && raiders.allSatisfy({ dist2($0.x, $0.y, target.0, target.1) < 36 }) {
+            if let next = chooseRaidTarget(w, not: target) { raidTarget = next; raidStart = t } else { endRaid(w, raiders) }
+        }
+    }
+
+    func endRaid(_ w: World, _ raiders: [Entity]) {
+        let st = stagingPoint(w)
+        if !raiders.isEmpty { w.commandMove(raiders.map { $0.id }, x: st.0, y: st.1, attack: false, formation: .defensive) }
+        raidGroup = []; raidTarget = nil
+        lastRaidEnd = clock(w)
+    }
+
+    /// Somewhere enemy workers are likely and soldiers are not: an enemy site with no visible defence, or an
+    /// enemy mineral line (their iron faces away from the map centre, like ours).
+    func chooseRaidTarget(_ w: World, not skip: (Double, Double)?) -> (Double, Double)? {
+        let (bx, by) = baseCenter(w)
+        let mid = Double(w.map.size) / 2
+        var options: [(Double, Double)] = []
+        for s in w.sites where w.isEnemy(player, s.owner) {
+            let guardedSite = w.entities.contains { $0.isUnit && $0.onMap && !$0.isMine && w.isEnemy(player, $0.owner) && w.udef($0).weapon != nil && w.udef($0).role != "worker" && w.canSee(player, $0) && dist2($0.x, $0.y, s.x, s.y) < 64 }
+            if !guardedSite { options.append((s.x, s.y)) }
+        }
+        for e in w.players where w.isEnemy(player, e.index) && !e.defeated {
+            let s = w.map.starts[e.index % w.map.starts.count]
+            let hx = Double(s.x) + 2, hy = Double(s.y) + 2
+            let dx = hx - mid, dy = hy - mid, l = max(1, (dx * dx + dy * dy).squareRoot())
+            options.append((hx + dx / l * 8, hy + dy / l * 8))
+        }
+        if let sk = skip { options.removeAll { dist2($0.0, $0.1, sk.0, sk.1) < 36 } }
+        return options.min { dist2($0.0, $0.1, bx, by) < dist2($1.0, $1.1, bx, by) }
+    }
+
+    func nearestEnemyWorker(_ w: World, _ r: Entity, within d: Double) -> Entity? {
+        var best: Entity? = nil
+        var bd = d * d
+        for e in w.entities where e.isUnit && e.onMap && !e.isMine && w.isEnemy(player, e.owner) && w.traits[e.type].worker && w.canSee(player, e) {
+            let dd = dist2(e.x, e.y, r.x, r.y)
+            if dd < bd { bd = dd; best = e }
+        }
+        return best
     }
 
     func manageScout(_ w: World, _ units: [Entity]) {

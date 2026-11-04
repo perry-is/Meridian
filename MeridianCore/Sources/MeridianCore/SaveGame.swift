@@ -74,6 +74,14 @@ public struct AISnapshot: Codable {
     var raided: Bool
     var assembling: Bool
     var assembleSince: Double
+    /// Hard AI raids and two-pronged attacks (optional so earlier saves still load).
+    var raidGroup: Set<Int>?
+    var raidTarget: [Double]?
+    var raidStart: Double?
+    var raidStartValue: Double?
+    var lastRaidEnd: Double?
+    var prongGroup: Set<Int>?
+    var prongTarget: [Double]?
 }
 
 extension AIController {
@@ -83,7 +91,9 @@ extension AIController {
                    waveCap: waveCap, retreatAt: retreatAt, attackGroup: attackGroup, attacking: attacking, attackTarget: attackTarget.map { [$0.0, $0.1] },
                    attackStartValue: attackStartValue, lastAttackEnd: lastAttackEnd, scoutID: scoutID, scouted: scouted, enemySeen: enemySeen,
                    enemyTowersSeen: enemyTowersSeen, enemyCloakSeen: enemyCloakSeen, siteSquads: siteSquads, lastPlan: lastPlan, armyCount: armyCount,
-                   raided: raided, assembling: assembling, assembleSince: assembleSince)
+                   raided: raided, assembling: assembling, assembleSince: assembleSince,
+                   raidGroup: raidGroup, raidTarget: raidTarget.map { [$0.0, $0.1] }, raidStart: raidStart, raidStartValue: raidStartValue,
+                   lastRaidEnd: lastRaidEnd, prongGroup: prongGroup, prongTarget: prongTarget.map { [$0.0, $0.1] })
     }
     static func restore(_ s: AISnapshot) -> AIController {
         let a = AIController(player: s.player, difficulty: s.difficulty, strategy: s.strategy)
@@ -94,6 +104,9 @@ extension AIController {
         a.attackStartValue = s.attackStartValue; a.lastAttackEnd = s.lastAttackEnd; a.scoutID = s.scoutID; a.scouted = s.scouted
         a.enemySeen = s.enemySeen; a.enemyTowersSeen = s.enemyTowersSeen; a.enemyCloakSeen = s.enemyCloakSeen; a.siteSquads = s.siteSquads
         a.setPlan(s.lastPlan); a.armyCount = s.armyCount; a.raided = s.raided; a.assembling = s.assembling; a.assembleSince = s.assembleSince
+        a.raidGroup = s.raidGroup ?? []; a.raidTarget = s.raidTarget.flatMap { $0.count == 2 ? ($0[0], $0[1]) : nil }
+        a.raidStart = s.raidStart ?? 0; a.raidStartValue = s.raidStartValue ?? 0; a.lastRaidEnd = s.lastRaidEnd ?? -1000
+        a.prongGroup = s.prongGroup ?? []; a.prongTarget = s.prongTarget.flatMap { $0.count == 2 ? ($0[0], $0[1]) : nil }
         return a
     }
 }

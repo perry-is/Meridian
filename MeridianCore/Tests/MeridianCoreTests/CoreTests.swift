@@ -74,7 +74,7 @@ final class CoreTests: XCTestCase {
                 if ax.count != ay.count { return path + " count \(ax.count) vs \(ay.count)" }
                 // Sets and integer-keyed dictionaries encode in no particular order: compare their contents.
                 let unordered = ["completeBuildingIDs", "completedUpgrades", "researching", "attackGroup", "enemySeen", "siteSquads",
-                                 "groupRemaining", "producedByType", "lostByType", "damageByType", "completeBuildings"]
+                                 "groupRemaining", "producedByType", "lostByType", "damageByType", "completeBuildings", "raidGroup", "prongGroup"]
                 if unordered.contains(where: { path.hasSuffix("." + $0) }) {
                     return ax.map { "\($0)" }.sorted() == ay.map { "\($0)" }.sorted() ? nil : path + " contents differ"
                 }

@@ -172,3 +172,17 @@ final class TeamTests: XCTestCase {
         XCTAssertTrue(m.world.players.allSatisfy { $0.stats.unitsProduced > 5 })
     }
 }
+
+/// Hard AI behaviours: raiding parties and two-pronged attacks.
+final class HardAITests: XCTestCase {
+    /// Against a passive opponent a Hard commander sends raids out and, once its army is big, attacks on two fronts.
+    func testHardAIRaidsAndSplitsAttacks() {
+        let m = Match(config: MatchConfig(factions: [.humans, .machines], layout: .crossroads, seed: 21),
+                      ai: [(player: 0, difficulty: .hard, strategy: .aggressive), (player: 1, difficulty: .easy, strategy: .tech)])
+        m.timeLimit = 1500
+        while m.world.winner == nil && m.world.time < 1500 { m.step() }
+        let hard = m.ais[0]
+        XCTAssertGreaterThan(hard.raidsLaunched, 0, "Hard AI never raided")
+        XCTAssertGreaterThan(hard.prongsLaunched + (m.world.winner == 0 ? 1 : 0), 0, "Hard AI never split an attack (and did not win outright)")
+    }
+}
