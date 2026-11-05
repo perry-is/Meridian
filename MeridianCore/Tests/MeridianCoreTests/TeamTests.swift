@@ -231,10 +231,38 @@ final class InstallationTests: XCTestCase {
         for i in 0..<w.players.count { for k in w.players[i].explored.indices { w.players[i].explored[k] = true } }
         w.refreshZones()
         let far = w.tileIndex(s.x + 14, s.y)
+        let mid = w.tileIndex(s.x + 12, s.y)   // the Beacon's tower zone is 1.15 × the tower radius (12.65 tiles)
         XCTAssertEqual(p.zones[far] & Zone.build, 0, "14 tiles out is beyond a plain site's build zone")
+        XCTAssertEqual(p.zones[mid] & Zone.tower, 0, "12 tiles out is beyond a plain site's tower zone")
         XCTAssertNil(w.configureSite(1, player: 0, installation: .beacon))
         w.refreshZones()
-        XCTAssertNotEqual(p.zones[far] & Zone.build, 0, "a Beacon reaches 14 tiles out")
-        XCTAssertNotEqual(p.zones[far] & Zone.tower, 0)
+        XCTAssertNotEqual(p.zones[far] & Zone.build, 0, "a Beacon's build zone reaches 14 tiles out")
+        XCTAssertNotEqual(p.zones[mid] & Zone.tower, 0, "a Beacon's tower zone reaches 12 tiles out")
+    }
+
+    /// A barracks fits 14 tiles from a Beacon (on explored ground) where a plain site's zone does not reach.
+    func testBarracksFourteenTilesFromBeacon() {
+        let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .crossroads, seed: 8))
+        let p = w.players[0]
+        p.res = [9999, 9999, 9999]
+        w.unlockAll(0)
+        w.sites[1].owner = 0; w.sites[1].control = 1
+        for k in p.explored.indices { p.explored[k] = true }
+        w.refreshZones()
+        let s = w.sites[1]
+        let barracks = w.data.building(.humans, .infantry)
+        let size = Double(w.data.buildings[barracks].size)
+        // Footprints whose centre is 14 tiles from the site, all round it.
+        var spots: [(Int, Int)] = []
+        for a in stride(from: 0.0, to: 2 * Double.pi, by: Double.pi / 24) {
+            let cx = s.x + 14 * cos(a), cy = s.y + 14 * sin(a)
+            spots.append((Int((cx - size / 2).rounded()), Int((cy - size / 2).rounded())))
+        }
+        let before = spots.map { w.placementError(0, barracks, tileX: $0.0, tileY: $0.1) }
+        XCTAssertNil(w.configureSite(1, player: 0, installation: .beacon))
+        w.refreshZones()
+        let after = spots.map { w.placementError(0, barracks, tileX: $0.0, tileY: $0.1) }
+        let opened = spots.indices.filter { before[$0] == "Too far from your territory" && after[$0] == nil }
+        XCTAssertFalse(opened.isEmpty, "no spot 14 tiles out became buildable: before \(Set(before.compactMap { $0 })), after \(Set(after.compactMap { $0 }))")
     }
 }
