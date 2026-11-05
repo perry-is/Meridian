@@ -357,6 +357,8 @@ final class GameController: ObservableObject {
     /// Development "unit lab" (`-lab`): the player's whole roster beside the HQ facing a held enemy line,
     /// with workers chopping, mining and repairing — for reviewing unit animation up close.
     var labFocus: (Double, Double)? = nil
+    /// `-beaconcheck` (development): the site whose Beacon is being checked.
+    var beaconCheckSite: Int? = nil
     /// Building review (development): every building of the player's faction placed complete around the HQ,
     /// producers kept busy, and the camera on building number `focus` (the HQ is 0).
     func setupBuildLab(_ focus: Int) {
@@ -942,6 +944,7 @@ final class GameController: ObservableObject {
                 h.placementReason = world.placementError(me, t, tileX: g.0, tileY: g.1)
                 if h.placementReason == nil { h.placementReason = shortfall(world.buildingCost(me, t)) }
                 h.placementValid = h.placementReason == nil
+                if let d = beaconCheckGhostDistance { h.placementReason = (h.placementReason ?? "Valid") + " · \(Int(d.rounded())) tiles from the site" }
             } else { h.placementReason = "Tap the map to position" }
         }
         hud = h
