@@ -1008,7 +1008,7 @@ final class GameController: ObservableObject {
                 if e.linked { h.tags.append("LINKED") }
                 h.selectionTitle = d.name
                 h.selectionSubtitle = shown.complete ? (world.modeName(e).map { "Mode: \($0)" } ?? d.kind.rawValue.capitalized) : "Under construction \(Int(shown.progress * 100))%"
-                if world.isEnemy(me, e.owner) && !world.canSee(me, e) && !spectating { h.selectionSubtitle += " · last seen"
+                if world.isEnemy(me, e.owner) && !world.canSee(me, e) && !spectating { h.selectionSubtitle += " · last seen" }
                 var det = d.description
                 if let w = world.weapon(e) { det = "Dmg \(fmt(w.damage))  Range \(fmt(w.range))" + (e.linked ? " (network linked)" : "") + "\n" + det }
                 h.selectionDetail = det
