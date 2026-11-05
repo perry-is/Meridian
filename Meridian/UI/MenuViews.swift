@@ -326,7 +326,7 @@ struct GameOverView: View {
                 ForEach(teams, id: \.self) { t in
                     let first = w.players.first { $0.team == t }?.index ?? 0
                     Text(controller.spectating ? "TEAM \(SetupView.teamNames[min(t, 3)])" : (t == me ? "YOUR TEAM" : (teams.count > 2 ? "TEAM \(SetupView.teamNames[min(t, 3)])" : "ENEMY")))
-                        .frame(maxWidth: .infinity).foregroundColor(Theme.team(first))
+                        .lineLimit(1).minimumScaleFactor(0.6).frame(maxWidth: .infinity).foregroundColor(Theme.team(first))
                 }
             }
             .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
@@ -349,7 +349,7 @@ struct GameOverView: View {
             Text(t).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).frame(width: 110, alignment: .leading)
             ForEach(values.indices, id: \.self) { i in
                 let first = w.players.first { $0.team == teams[i] }?.index ?? 0
-                bar(values[i], m, Theme.team(first))
+                bar(values[i], m, Theme.team(first), columns: values.count)
             }
         }
     }
@@ -360,7 +360,7 @@ struct GameOverView: View {
             HStack {
                 Text("").frame(width: 110, alignment: .leading)
                 ForEach(controller.world.players.indices, id: \.self) { p in
-                    Text(columnTitle(p)).frame(maxWidth: .infinity).foregroundColor(Theme.team(p))
+                    Text(columnTitle(p)).lineLimit(1).minimumScaleFactor(0.6).frame(maxWidth: .infinity).foregroundColor(Theme.team(p))
                 }
             }
             .font(.system(size: 10, weight: .heavy)).tracking(2).foregroundColor(.white.opacity(0.55))
@@ -391,11 +391,12 @@ struct GameOverView: View {
         let m = Double(max(1, values.max() ?? 1))
         return HStack(spacing: 8) {
             Text(t).font(.system(size: 11)).foregroundColor(.white.opacity(0.65)).frame(width: 110, alignment: .leading)
-            ForEach(values.indices, id: \.self) { p in bar(values[p], m, Theme.team(p)) }
+            ForEach(values.indices, id: \.self) { p in bar(values[p], m, Theme.team(p), columns: values.count) }
         }
     }
 
-    func bar(_ v: Int, _ m: Double, _ c: Color) -> some View {
+    /// One stat cell: a bar and the number. Numbers stay on one line (they shrink rather than wrap on narrow screens).
+    func bar(_ v: Int, _ m: Double, _ c: Color, columns: Int) -> some View {
         HStack(spacing: 4) {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
@@ -403,7 +404,8 @@ struct GameOverView: View {
                     Capsule().fill(c.opacity(0.85)).frame(width: g.size.width * CGFloat(Double(v) / m))
                 }
             }.frame(height: 5)
-            Text("\(v)").font(.system(size: 10, weight: .semibold, design: .monospaced)).frame(width: controller.world.players.count > 2 ? 30 : 40, alignment: .trailing)
+            Text("\(v)").font(.system(size: 10, weight: .semibold, design: .monospaced)).lineLimit(1).minimumScaleFactor(0.6)
+                .frame(width: columns > 2 ? 30 : 44, alignment: .trailing)
         }.frame(maxWidth: .infinity)
     }
 }
