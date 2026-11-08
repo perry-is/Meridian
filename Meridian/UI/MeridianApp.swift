@@ -299,7 +299,7 @@ struct RootView: View {
                 if let st = arg("-stress"), let n = Int(st) { c.setupStress(n) }
                 if a.contains("-lab") { c.setupLab() }
                 if a.contains("-fogcheck") { c.setupFogCheck() }
-                if a.contains("-beaconcheck") { c.setupBeaconCheck(scouted: a.contains("-scouted")) }
+                if a.contains("-beaconcheck") { c.setupBeaconCheck() }
                 if let k = arg("-buildlab").flatMap(Int.init) { c.setupBuildLab(k) }
                 if a.contains("-showtech") { DispatchQueue.main.asyncAfter(deadline: .now() + 2) { c.showTech = true } }
                 if let u = arg("-portraitdemo") {

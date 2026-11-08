@@ -117,17 +117,16 @@ final class FeatureChecksUITests: XCTestCase {
 
     // MARK: Beacon
 
-    /// Configures a Beacon on a held site and tries a Drill Hall (barracks) 14 tiles away, first on unscouted ground,
-    /// then with the ground around the site explored.
-    func beaconFlow(scouted: Bool) -> String {
-        launch(["-autostart", "-seed", "4", "-beaconcheck"] + (scouted ? ["-scouted"] : []))
+    /// Configures a Beacon on a freshly held site and places a Drill Hall (barracks) 14 tiles away on ground nobody
+    /// has scouted: the Beacon sees across its own build zone.
+    func testBeaconForwardBase() throws {
+        launch(["-autostart", "-seed", "4", "-beaconcheck"])
         XCTAssertTrue(hud())
-        let tag = scouted ? "scouted" : "unexplored"
         let beacon = element("cmd_inst4")
         XCTAssertTrue(beacon.waitForExistence(timeout: 10), "Beacon configure button"); sleep(1)
-        if !scouted { shot("beacon_01_configure_menu") }
-        beacon.tap(); sleep(1)
-        if !scouted { shot("beacon_02_configured") }
+        shot("beacon_01_configure_menu")
+        beacon.tap(); sleep(2)
+        shot("beacon_02_configured")
         app.buttons["test_select_workers"].tap(); sleep(1)
         element("cmd_build").tap()
         let hall = app.descendants(matching: .any).matching(identifier: "cmd_b2").firstMatch
@@ -135,20 +134,12 @@ final class FeatureChecksUITests: XCTestCase {
         center().tap(); sleep(1)
         let reason = element("placementReason")
         XCTAssertTrue(reason.waitForExistence(timeout: 3))
-        print("BEACON-CHECK \(tag): \(reason.label)")
-        shot("beacon_03_barracks_" + tag)
+        let label = reason.label
+        print("BEACON-CHECK \(label)")
+        shot("beacon_03_barracks_14_tiles")
         let confirm = app.buttons["confirmPlacement"]
-        let result = reason.label + (confirm.isEnabled ? "" : " [blocked]")
-        if confirm.isEnabled { confirm.tap(); sleep(2); shot("beacon_04_barracks_placed_" + tag) }
-        return result
-    }
-
-    func testBeaconForwardBase() throws {
-        let fog = beaconFlow(scouted: false)
-        XCTAssertTrue(fog.contains("Unexplored"), "unscouted ground 14 tiles out: \(fog)")
-        app.terminate()
-        let ok = beaconFlow(scouted: true)
-        XCTAssertTrue(ok.contains("14 tiles") && !ok.contains("blocked"), "scouted ground 14 tiles out should take a barracks: \(ok)")
+        XCTAssertTrue(label.contains("14 tiles") && confirm.isEnabled, "a barracks 14 tiles from a Beacon should be placeable: \(label)")
+        if confirm.isEnabled { confirm.tap(); sleep(2); shot("beacon_04_barracks_placed") }
     }
 
     // MARK: Replay round trip

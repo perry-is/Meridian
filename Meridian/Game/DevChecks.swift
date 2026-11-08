@@ -28,9 +28,7 @@ extension GameController {
     /// `-beaconcheck`: the player holds the nearest neutral site with resources to spare; the site is selected so
     /// its installation menu shows, and the camera sits 14 tiles east of it (where a barracks should fit once a
     /// Beacon stands there).
-    /// With `scouted`, the ground around the site counts as explored (as if a scout had walked it): a site itself
-    /// only reveals 9 tiles, so 14 tiles out is fog until someone looks.
-    func setupBeaconCheck(scouted: Bool = false) {
+    func setupBeaconCheck() {
         let p = world.players[me]
         p.res = [5000, 2000, 5000]
         guard let hq = world.buildings(of: me).first else { return }
@@ -38,11 +36,6 @@ extension GameController {
             .min(by: { dist2(world.sites[$0].x, world.sites[$0].y, hq.x, hq.y) < dist2(world.sites[$1].x, world.sites[$1].y, hq.x, hq.y) }) else { return }
         world.sites[i].owner = me; world.sites[i].control = 1
         for _ in 0..<4 { match.step() }
-        if scouted {
-            let (sx, sy) = (Int(world.sites[i].x), Int(world.sites[i].y)), n = world.map.size
-            for y in max(0, sy - 18)...min(n - 1, sy + 18) { for x in max(0, sx - 18)...min(n - 1, sx + 18) where (x - sx) * (x - sx) + (y - sy) * (y - sy) <= 18 * 18 {
-                p.explored[world.map.idx(x, y)] = true } }
-        }
         beaconCheckSite = i
         labFocus = (world.sites[i].x + 14, world.sites[i].y)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.selectSite(i) }
