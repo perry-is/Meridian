@@ -240,6 +240,31 @@ final class InstallationTests: XCTestCase {
         XCTAssertNotEqual(p.zones[mid] & Zone.tower, 0, "a Beacon's tower zone reaches 12 tiles out")
     }
 
+    /// A Beacon sees across its own build zone, so ground 14 tiles out is open to build on without scouting it.
+    func testBeaconRevealsItsBuildZone() {
+        let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .crossroads, seed: 8))
+        let p = w.players[0]
+        p.res = [9999, 9999, 9999]
+        w.unlockAll(0)
+        w.sites[1].owner = 0; w.sites[1].control = 1
+        let s = w.sites[1]
+        let barracks = w.data.building(.humans, .infantry)
+        let size = Double(w.data.buildings[barracks].size)
+        var spots: [(Int, Int)] = []
+        for a in stride(from: 0.0, to: 2 * Double.pi, by: Double.pi / 24) {
+            let cx = s.x + 14 * cos(a), cy = s.y + 14 * sin(a)
+            spots.append((Int((cx - size / 2).rounded()), Int((cy - size / 2).rounded())))
+        }
+        for _ in 0..<10 { w.step() }
+        let ring = w.tileIndex(s.x + 14, s.y)
+        XCTAssertFalse(p.explored[ring], "a plain site only sees 9 tiles")
+        XCTAssertNil(w.configureSite(1, player: 0, installation: .beacon))
+        for _ in 0..<10 { w.step() }
+        XCTAssertTrue(p.explored[ring], "a Beacon sees 14 tiles out")
+        XCTAssertTrue(spots.contains { w.placementError(0, barracks, tileX: $0.0, tileY: $0.1) == nil },
+                      "some spot 14 tiles out should take a barracks: \(Set(spots.compactMap { w.placementError(0, barracks, tileX: $0.0, tileY: $0.1) }))")
+    }
+
     /// A barracks fits 14 tiles from a Beacon (on explored ground) where a plain site's zone does not reach.
     func testBarracksFourteenTilesFromBeacon() {
         let w = World(config: MatchConfig(factions: [.humans, .machines], layout: .crossroads, seed: 8))

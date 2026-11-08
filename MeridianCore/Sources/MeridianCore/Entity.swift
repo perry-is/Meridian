@@ -175,7 +175,7 @@ public enum Installation: Int, Sendable, CaseIterable { case none, extractor, wa
         case .extractor: return "Richer income from the site."
         case .watchpost: return "Far vision and detection."
         case .bulwark: return "An armed tower that holds the site."
-        case .beacon: return "A forward base: build and tower zones reach much further around the site."
+        case .beacon: return "A forward base: build and tower zones reach much further around the site, and it sees across them."
         }
     }
 }

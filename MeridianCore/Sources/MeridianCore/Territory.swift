@@ -9,6 +9,9 @@ public enum Zone {
     public static let tower: UInt8 = 16
 }
 
+/// A Beacon's reach: its build zone, and how far it sees (so the forward base it opens is not hidden in fog).
+public let beaconRadius = 17.0
+
 nonisolated(unsafe) private var circleCache: [Int: [(Int, Int)]] = [:]
 
 func circleOffsets(_ r: Double) -> [(Int, Int)] {
@@ -61,7 +64,7 @@ extension World {
             for s in sites where s.owner == p.index && s.control >= 1 {
                 // A Beacon turns the site into a forward base: a much wider build zone and a full tower zone.
                 let beacon = s.installation == .beacon
-                stamp(&z, s.x, s.y, beacon ? 17 : 9, Zone.build)
+                stamp(&z, s.x, s.y, beacon ? beaconRadius : 9, Zone.build)
                 stamp(&z, s.x, s.y, data.rules.combat.towerBuildRadius * (beacon ? 1.15 : 0.7), Zone.tower)
                 switch f {
                 case .aliens: stamp(&z, s.x, s.y, tr.alienBloomRadius + p.mods.bloomAdd, Zone.bloom)
@@ -172,7 +175,7 @@ extension World {
             }
         }
         for s in sites where s.owner >= 0 && s.control >= 1 {
-            let v = s.installation == .watchpost ? tr.watchVision : tr.vision
+            let v = s.installation == .watchpost ? tr.watchVision : (s.installation == .beacon ? beaconRadius : tr.vision)
             for pi in teammates[s.owner] {
                 let p = players[pi]
                 stamp(&p.visible, s.x, s.y, v, 1)
