@@ -9,8 +9,9 @@ Meridian is a 2D SpriteKit game, but every unit, building and prop is a 3D model
 | Asset | Source |
 |---|---|
 | All 45 units | Concept image from a prompt ([prompts](TRIPO_IMAGE_PROMPTS.md)), turned into a model with [Tripo](https://www.tripo3d.ai)'s Image to 3D and rigged there where it could be (the first soldiers came from text prompts and were rigged in Mixamo or Blender) |
-| Buildings (24) | Modelled procedurally in Blender Python (`tools/blender/buildings.py`), with a shared material kit per faction |
-| Rocks, trees, ore, crystals and plants | Modelled procedurally in Blender Python (`tools/blender/props.py`) |
+| Buildings (24) | Tripo image-to-3D models (`art/tripo/buildings`), placed by `tools/blender/buildings.py`. Each is scaled to fill its footprint and shrunk if needed to fit under the canvas top. The original procedural builders remain as a fallback |
+| Iron and gold deposits | Tripo models (`art/tripo/props`), three variants each, rendered by `tools/blender/props.py` |
+| Rocks, trees and plants | Modelled procedurally in Blender Python (`tools/blender/props.py`). Hundreds appear on a map, and code gives endless variation |
 
 Nothing is placed by hand in the Blender UI. Every asset can be rebuilt from scripts with one command, so changing a camera angle or material re-renders the whole game consistently.
 
@@ -56,7 +57,11 @@ In game, `ModelPortrait` crossfades between head turns as the unit glances aroun
 
 ## Team colours
 
-Each sprite has a matching grayscale mask marking where team colour goes. The mask comes from a hue detector that finds the bright blue panels on Tripo models (buildings, built in code, flag their team material instead). Masks render with Blender's Raw view transform so their values stay linear. In game, SpriteKit multiplies the team colour through the mask, so one set of renders serves every player colour.
+Each sprite has a matching grayscale mask marking where team colour goes. The mask comes from a hue detector that finds the bright blue panels on Tripo models and buildings. Building masks start the hue ramp further from cyan, because Lattice buildings carry a lot of turquoise glow. Procedural models flag their team material instead. Masks render with Blender's Raw view transform so their values stay linear. In game, SpriteKit multiplies the team colour through the mask, so one set of renders serves every player colour.
+
+## Building lights
+
+Buildings have pulsing glow points: beacons, cores and glowing pores. For Tripo buildings they are found automatically in the lit render. The script picks the brightest saturated spots and skips blue, because blue is team colour and gets tinted. The points are written to `b3d_<id>.json` together with the building's visual height, which places health bars and effects.
 
 ## Shadows and anchors
 

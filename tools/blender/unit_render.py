@@ -216,8 +216,8 @@ class Retarget:
         bpy.context.view_layer.update()
 
 # ---------------------------------------------------------------- materials
-def hsv_mask(nt, color):
-    """0..1 where the albedo is the saturated blue team marker."""
+def hsv_mask(nt, color, hue_lo=(0.52, 0.56)):
+    """0..1 where the albedo is the saturated blue team marker. hue_lo is where the ramp up from cyan starts and ends."""
     sep = nt.nodes.new("ShaderNodeSeparateColor"); sep.mode = "HSV"
     nt.links.new(color, sep.inputs[0])
     def mr(v, a, b):
@@ -229,7 +229,7 @@ def hsv_mask(nt, color):
         n = nt.nodes.new("ShaderNodeMath"); n.operation = "MULTIPLY"
         nt.links.new(a, n.inputs[0]); nt.links.new(b, n.inputs[1]); return n.outputs[0]
     hue = sep.outputs[0]
-    return mul(mul(mr(hue, 0.52, 0.56), mr(hue, 0.72, 0.68)), mul(mr(sep.outputs[1], 0.35, 0.55), mr(sep.outputs[2], 0.08, 0.18)))
+    return mul(mul(mr(hue, *hue_lo), mr(hue, 0.72, 0.68)), mul(mr(sep.outputs[1], 0.35, 0.55), mr(sep.outputs[2], 0.08, 0.18)))
 
 def prepare_materials(meshes, fix):
     """Optionally recolour all-blue models to Brood chitin; build mask materials. Returns {name: (lit, mask)}."""
@@ -251,7 +251,7 @@ def prepare_materials(meshes, fix):
             elif src is not None:
                 msrc = mt.nodes[src.node.name].outputs[list(src.node.outputs).index(src)]
                 k = mt.nodes.new("ShaderNodeMath"); k.operation = "MULTIPLY"; k.inputs[1].default_value = mask_strength
-                mt.links.new(hsv_mask(mt, msrc), k.inputs[0]); mt.links.new(k.outputs[0], em.inputs["Color"])
+                mt.links.new(hsv_mask(mt, msrc, fix.get("hue_lo", (0.52, 0.56))), k.inputs[0]); mt.links.new(k.outputs[0], em.inputs["Color"])
             else:
                 em.inputs["Color"].default_value = (0, 0, 0, 1)
             out = next(n for n in mt.nodes if n.type == "OUTPUT_MATERIAL")
