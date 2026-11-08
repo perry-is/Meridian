@@ -5,6 +5,10 @@
 # Writes Meridian/Buildings3D/b3d_<id>.png (lit, with ground shadow), b3d_<id>m.png (team-colour mask) and
 # b3d_<id>.json ({"height": points above the footprint centre, "lights": [[x, y], ...]}).
 #
+# A Tripo model in art/tripo/buildings/<id>.glb replaces the procedural builder: it is scaled to fill the footprint
+# (and to fit under the canvas headroom), its bright-blue texture areas become the team mask, and its light points
+# are found from the brightest saturated spots in the render. building_fixes.json can set "yaw" (degrees) and "fill".
+#
 # Geometry is in tile units with the footprint centred on the origin. The camera matches Iso and
 # WorldArt.buildingCanvas: canvas 64n x (32n + headroom) points, footprint centre 16n points above the bottom.
 import bpy, bmesh, sys, os, math, json, random
@@ -18,6 +22,9 @@ OUT = os.environ.get("PREVIEW") or os.path.join(ROOT, "Meridian/Buildings3D")
 os.makedirs(OUT, exist_ok=True)
 PX = 32 * math.sqrt(2)          # points per world unit (screen plane)
 SCALE = 2
+TRIPO = os.environ.get("TRIPO_DIR") or os.path.join(ROOT, "art/tripo/buildings")
+FIXES_PATH = os.path.join(ROOT, "tools/blender/building_fixes.json")
+FIXES = json.load(open(FIXES_PATH)) if os.path.exists(FIXES_PATH) else {}
 HEADROOM = {"hq": 150, "tower": 140, "forward": 120, "air": 112, "research": 112}   # BuildingArt.headroom
 R = Vector((1, 1, 0)).normalized(); U = Vector((-1, 1, 0)).normalized()
 ELEV = math.radians(30)
@@ -574,6 +581,55 @@ def a_forward(n):
 
 BUILDERS = {k: v for k, v in globals().items() if k[:2] in ("h_", "m_", "a_") and callable(v)}
 
+# ---------------------------------------------------------------- Tripo models
+def import_model(path, n, fix):
+    """Imports a glb as one mesh, standing on the ground, centred and scaled to fill an n x n footprint."""
+    bpy.ops.import_scene.gltf(filepath=path)
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    for o in bpy.context.scene.objects: o.select_set(o in meshes)
+    bpy.context.view_layer.objects.active = meshes[0]
+    if len(meshes) > 1: bpy.ops.object.join()
+    obj = bpy.context.object
+    bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+    obj.rotation_euler = (0, 0, math.radians(fix.get("yaw", 0)))
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    tris = sum(len(p.vertices) - 2 for p in obj.data.polygons)
+    if tris > 250_000:
+        dm = obj.modifiers.new("dec", "DECIMATE"); dm.ratio = 250_000 / tris
+        bpy.ops.object.modifier_apply(modifier="dec")
+    P = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    lo = Vector((min(p.x for p in P), min(p.y for p in P), min(p.z for p in P)))
+    hi = Vector((max(p.x for p in P), max(p.y for p in P), max(p.z for p in P)))
+    k = n * fix.get("fill", 0.94) / max(hi.x - lo.x, hi.y - lo.y)
+    obj.data.transform(Matrix.Scale(k, 4) @ Matrix.Translation(-Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))))
+    obj.data.update()
+    for p in obj.data.polygons: p.use_smooth = True
+    return obj
+
+def find_lights(png, w_pt, h_pt, n, limit=3):
+    """Points (relative to the footprint centre) of the brightest saturated glows in a lit render."""
+    import numpy as np
+    img = bpy.data.images.load(png)
+    W, H = img.size
+    a = np.array(img.pixels[:], dtype=np.float32).reshape(H, W, 4)
+    bpy.data.images.remove(img)
+    rgb, alpha = a[..., :3], a[..., 3]
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    sat = (mx - mn) / np.maximum(mx, 1e-4)
+    r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    blue = (b_ >= mx) & (b_ - np.maximum(r_, g_) > 0.25 * b_)     # team panels, which are tinted, not lit
+    score = np.where((alpha > 0.9) & (mx > 0.8) & (sat > 0.45) & ~blue, mx * sat, 0)
+    pts = []
+    r = max(4, int(W / (n * 6)))                    # suppression radius in pixels
+    for _ in range(limit):
+        i = int(score.argmax()); y, x = divmod(i, W)
+        if score[y, x] <= 0: break
+        blob = score[max(0, y - r):y + r, max(0, x - r):x + r]
+        if (blob > 0).sum() < 6: score[max(0, y - r):y + r, max(0, x - r):x + r] = 0; continue
+        pts.append([round(x / W * w_pt - w_pt / 2, 1), round(y / H * h_pt - 16 * n, 1)])   # pixels start at the bottom
+        score[max(0, y - 2 * r):y + 2 * r, max(0, x - 2 * r):x + 2 * r] = 0
+    return pts
+
 # ---------------------------------------------------------------- render
 def render_building(bid):
     d = DEFS[bid]; n = d["size"]
@@ -587,7 +643,17 @@ def render_building(bid):
     sc.render.film_transparent = True
     sc.render.image_settings.file_format = "PNG"; sc.render.image_settings.color_mode = "RGBA"
     make_materials(); LIGHTS.clear()
-    BUILDERS[bid](n)
+    fix = FIXES.get(bid, {})
+    tripo = os.path.exists(os.path.join(TRIPO, f"{bid}.glb")) and not fix.get("procedural")
+    if tripo:
+        sys.path.insert(0, os.path.dirname(__file__))
+        from unit_render import prepare_materials
+        model = import_model(os.path.join(TRIPO, f"{bid}.glb"), n, fix)
+        # Buildings carry more turquoise glass and glow than units, so the team ramp starts further from cyan.
+        pairs = prepare_materials([model], {"hue_lo": (0.57, 0.61), **fix})
+        if bid.startswith("a_"): creep(n)            # Brood buildings sit on the same organic mat as before
+    else:
+        BUILDERS[bid](n)
     geo = [o for o in sc.objects if o.type == "MESH"]
 
     # Shadow catcher ground
@@ -603,6 +669,13 @@ def render_building(bid):
     up = cam.rotation_euler.to_matrix() @ Vector((0, 1, 0))
     cam.location = -view * 60 + up * ((h_pt / 2 - 16 * n) / PX)
     sc.render.resolution_x = int(w_pt * SCALE); sc.render.resolution_y = int(h_pt * SCALE)
+    if tripo:
+        # Shrink tall models to fit under the canvas top (screen height is linear in scale about the origin).
+        bpy.context.view_layer.update()
+        room = h_pt - 16 * n - 4
+        top = max(world_to_camera_view(sc, cam, model.matrix_world @ Vector(c)).y * h_pt - 16 * n for c in model.bound_box)
+        if top > room:
+            model.data.transform(Matrix.Scale(room / top, 4)); model.data.update()
 
     def sun(direction, energy, color, angle=3):
         ld = bpy.data.lights.new("sun", "SUN"); ld.energy = energy; ld.color = color; ld.angle = math.radians(angle)
@@ -631,7 +704,8 @@ def render_building(bid):
         nt.links.new(em.outputs[0], nt.nodes["Material Output"].inputs["Surface"])
     for o in geo:
         for i, m in enumerate(o.data.materials):
-            o.data.materials[i] = white if m.get("team") else black
+            if tripo: o.data.materials[i] = pairs[m.name][1] if m and m.name in pairs else black
+            else: o.data.materials[i] = white if m.get("team") else black
     sc.view_settings.view_transform = "Raw"; sc.view_settings.look = "None"   # mask values are data
     sc.cycles.samples = 8; sc.cycles.use_denoising = False
     sc.render.filepath = os.path.join(OUT, f"b3d_{bid}m.png")
@@ -646,8 +720,10 @@ def render_building(bid):
     for o in geo:
         for c in o.bound_box:
             top = max(top, to_pt(o.matrix_world @ Vector(c))[1])
-    json.dump({"height": round(top, 1), "lights": [to_pt(l) for l in LIGHTS]}, open(os.path.join(OUT, f"b3d_{bid}.json"), "w"))
-    print("BUILDING", bid, "height", round(top, 1), "lights", len(LIGHTS))
+    lights = find_lights(os.path.join(OUT, f"b3d_{bid}.png"), w_pt, h_pt, n, fix.get("lights", 3)) if tripo \
+        else [to_pt(l) for l in LIGHTS]
+    json.dump({"height": round(top, 1), "lights": lights}, open(os.path.join(OUT, f"b3d_{bid}.json"), "w"))
+    print("BUILDING", bid, "tripo" if tripo else "procedural", "height", round(top, 1), "lights", len(lights))
 
 if __name__ == "__main__":
     for bid in (args or list(DEFS)):

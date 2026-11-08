@@ -5,7 +5,7 @@
 # Writes Meridian/Props3D/e3d_<name>.png for cliff0-5, tree0-2, iron0-2, gold0-2, flora<k>_<v> (k 0-4, v 0-1).
 # Canvas sizes (points) and ground anchors match EnvironmentArt and the sprites that use them.
 import bpy, sys, os, math, random
-from mathutils import Vector
+from mathutils import Vector, Matrix
 sys.path.insert(0, os.path.dirname(__file__))
 import buildings as K
 from buildings import mat, sph, cyl, strut, horn, finish, MATS
@@ -14,6 +14,8 @@ ROOT = K.ROOT
 OUT = os.environ.get("PREVIEW") or os.path.join(ROOT, "Meridian/Props3D")
 os.makedirs(OUT, exist_ok=True)
 args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+# Tripo models in art/tripo/props/<name>.glb replace the procedural iron and gold deposits.
+TRIPO = os.path.join(ROOT, "art/tripo/props")
 
 # Shadowed props get a margin so their shadows are not clipped: the canvas grows by MX each side and MB below /
 # MT above (fractions of the original size); PropModels.anchorY in the game applies the same arithmetic.
@@ -76,8 +78,23 @@ def blades(cx, cy, n, h, m, spread=0.12, lean=0.5, w=0.012, seed=0):
         t = b + Vector((math.cos(a) * h * lean * rnd.random(), math.sin(a) * h * lean * rnd.random(), h * (0.6 + rnd.random() * 0.4)))
         horn(b, t, w, m, bend=(0, 0, 0), segs=4)
 
+def tripo(name):
+    """Imports a Tripo deposit sized like the procedural one: about 80% of the canvas across, and short enough to
+    stay inside the top of the canvas. Returns the framing width, or None if there is no model."""
+    path = os.path.join(TRIPO, f"{name}.glb")
+    if not os.path.exists(path) or not (name.startswith("iron") or name.startswith("gold")): return None
+    width = 1.35 if name.startswith("iron") else 1.2
+    W, H, anchor, _ = SPECS[name]
+    o = K.import_model(path, width * 0.8, {"fill": 1.0})
+    zmax = max((o.matrix_world @ v.co).z for v in o.data.vertices)
+    room = (H * (1 - anchor) - 3) / (W / width) / math.cos(K.ELEV)     # world units of height the canvas allows
+    if zmax > room: o.data.transform(Matrix.Scale(room / zmax, 4)); o.data.update()
+    return width
+
 def build(name):
     rnd = random.Random(hash(name) % 1000)
+    w = tripo(name)
+    if w: return w
     if name.startswith("cliff"):
         v = int(name[5:]); m = ("rock", "rock2", "rock3")[v % 3]
         chunks = [(-0.45, 0.15, 0.55, 0.62), (0.4, 0.2, 0.5, 0.5), (0.0, -0.3, 0.6, 0.42)]
