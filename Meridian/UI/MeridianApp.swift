@@ -211,8 +211,10 @@ struct RootView: View {
 
     func backToMenu() {
         let wasTutorial = controller?.tutorial != nil
+        // A finished match or a replay goes back to the title, where its recording waits under REPLAYS.
+        let finished = controller?.gameOver != nil || controller?.isReplay == true
         controller = nil
-        screen = SaveStore.info != nil || wasTutorial ? .title : .setup
+        screen = SaveStore.info != nil || wasTutorial || finished ? .title : .setup
         DispatchQueue.main.async { backdrop.start() }
     }
 

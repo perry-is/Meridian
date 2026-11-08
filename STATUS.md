@@ -222,7 +222,7 @@ Decision-making only; Hard still gets no stat or resource bonus.
 ## Mission 8: menus and interface (verified on macOS, Xcode 27.1, RTS Duo simulator)
 
 - **Setup screen**: a live battlefield preview (generated off the main thread, isometric like the minimap, each start in its commander's colour with the team letter) that redraws for layout, commander count, length and seed; a seed field and a dice to re-roll; the seed is fixed on this screen so the preview is the real map. Phones get Commanders / Rules pages with a one-line summary and a fixed Deploy bar.
-- **HUD**: the site strip groups pips by side (mine, allies, neutral, each enemy team); allies' unit rings lean toward the player's colour; the rail shows six control groups where there is room; long-press Army (or Y) selects idle soldiers.
+- **HUD**: the site strip groups pips by side (mine, allies, neutral, each enemy team); allies' unit rings are a paler version of their own colour; the rail shows six control groups where there is room; long-press Army (or Y) selects idle soldiers.
 - **Game over**: the fog lifts and the camera tours the bases; team games show team totals with a toggle to every commander; Rematch replays the same commanders, rules and seed.
 - **Pause**: the match line (shape, map, mode, difficulty, seed), every commander with their team letter, and a two-tap Restart.
 - **Fog**: enemy buildings remembered through the fog show their last-seen hit points and construction progress ("· last seen" in the selection panel) instead of their live state.
@@ -243,4 +243,14 @@ Decision-making only; Hard still gets no stat or resource bonus.
   - Replay: a Quick match (three orders: two workers queued, workers sent out) lost to Hard Machines at 6:52; the replay from REPLAYS ended at 6:52 with the same result, and the saved file replayed headlessly ends identically (winner P2, "Enemy base destroyed", 412.05 s). After a finished match, Return to Command lands on battle setup (no saved game to continue), so REPLAYS is one BACK away.
   - Beacon (`-beaconcheck`): the configure menu shows the Beacon with its blurb. As first written, a barracks 14 tiles out was refused as "Unexplored": a site reveals only 9 tiles, so most of the Beacon's 17-tile build zone stayed in fog until a unit walked it. **Beacons now see across their whole build zone** (`beaconRadius`, 17 tiles, used for both the zone and the fog), so the same unscouted spot reads "Valid · 14 tiles from the site" and the barracks goes down. `InstallationTests.testBeaconRevealsItsBuildZone` covers it.
 - Pre-existing, not from Mission 8: the resource bar wraps four-digit numbers on the cover screen ("2,18 / 2").
+
+### Follow-up fixes (2026-11-08)
+
+All re-checked with `FeatureChecksUITests` on the RTS Duo (setup, 2v2, pause, replay); screenshots refreshed.
+
+- **Truncated pickers**: on narrow screens Battlefield and Temperament are dropdowns, so "Shattered Highlands" and "Expansionist" show in full; wide screens keep the segments.
+- **Pause buttons**: the bottom row stays on one line (scaling down slightly if it must), and the restart confirmation reads "Restart?" so it fits.
+- **Resource bar**: numbers never wrap ("2,038" on the cover screen); the site strip gives way instead.
+- **Ally rings**: blending toward the player's hue could land on an enemy's colour (red ally + blue player = purple, beside a purple enemy). Allies now get a paler version of their own colour, which can't collide.
+- **Replays after a match**: Return to Command after a finished match or a replay goes to the title screen, where REPLAYS is, instead of battle setup. The replay check still ends at 6:52 with the same result.
 

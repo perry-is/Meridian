@@ -577,7 +577,7 @@ struct SetupView: View {
                                         Text(settings.difficulty.blurb).font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
                                     }
                                     labeled("BATTLEFIELD") {
-                                        Picker("Map", selection: $settings.layout) { ForEach(MapLayout.playable, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                                        Picker("Map", selection: $settings.layout) { ForEach(MapLayout.playable, id: \.self) { Text($0.title).tag($0) } }.fitStyle(wide: wide)
                                         HStack(alignment: .top, spacing: 10) {
                                             MapPreview(layout: settings.layout, seed: settings.seed, players: settings.slots.count, quick: settings.quick, teams: settings.teams)
                                                 .frame(width: wide ? 220 : 150, height: wide ? 120 : 84)
@@ -592,7 +592,7 @@ struct SetupView: View {
                                         }
                                     }
                                     labeled("TEMPERAMENT") {
-                                        Picker("Temperament", selection: $settings.strategy) { ForEach(AIStrategy.allCases, id: \.self) { Text($0.temperament).tag($0) } }.pickerStyle(.segmented)
+                                        Picker("Temperament", selection: $settings.strategy) { ForEach(AIStrategy.allCases, id: \.self) { Text($0.temperament).tag($0) } }.fitStyle(wide: wide)
                                         Text(settings.strategy.temperamentBlurb).font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
                                     }
                                     Toggle(isOn: $watch) {
@@ -809,5 +809,13 @@ struct SetupView: View {
             }
         }
         .padding(.horizontal)
+    }
+}
+
+extension Picker {
+    /// Segmented where there is room for every label; a dropdown on narrow screens, where segments would truncate
+    /// names like "Shattered Highlands" and "Expansionist".
+    @ViewBuilder func fitStyle(wide: Bool) -> some View {
+        if wide { pickerStyle(.segmented) } else { pickerStyle(.menu).tint(.white) }
     }
 }

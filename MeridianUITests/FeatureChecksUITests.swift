@@ -98,9 +98,9 @@ final class FeatureChecksUITests: XCTestCase {
         shot("pause_01_match_line")
         let restart = app.buttons["Restart"]
         XCTAssertTrue(restart.waitForExistence(timeout: 3), "Restart button"); restart.tap()
-        XCTAssertTrue(app.buttons["Restart: sure?"].waitForExistence(timeout: 2), "first tap should ask")
+        XCTAssertTrue(app.buttons["Restart?"].waitForExistence(timeout: 2), "first tap should ask")
         shot("pause_02_restart_confirm")
-        app.buttons["Restart: sure?"].tap()
+        app.buttons["Restart?"].tap()
         XCTAssertTrue(hud(), "restart should begin a fresh match"); sleep(2)
         shot("pause_03_after_restart")
     }
@@ -166,8 +166,7 @@ final class FeatureChecksUITests: XCTestCase {
         print("LIVE-RESULT \(result)")
         shot("replay_02_live_game_over")
         back.tap()
-        // A finished match lands on the battle setup screen (no saved game to continue); BACK reaches the title.
-        if app.buttons["BACK"].waitForExistence(timeout: 10) { shot("replay_02b_after_match_setup"); app.buttons["BACK"].tap() }
+        // A finished match returns to the title screen, where its recording is under REPLAYS.
         let replays = app.buttons["REPLAYS"]
         XCTAssertTrue(replays.waitForExistence(timeout: 20), "REPLAYS on the title screen"); replays.tap(); sleep(1)
         shot("replay_03_list")

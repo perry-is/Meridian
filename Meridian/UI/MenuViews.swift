@@ -196,12 +196,13 @@ struct PauseView: View {
                             Button("Save & quit") { controller.saveNow(); onQuit() }.buttonStyle(.bordered).tint(.white)
                         }
                         if let r = onRestart {
-                            Button(confirmRestart ? "Restart: sure?" : "Restart") {
+                            Button(confirmRestart ? "Restart?" : "Restart") {
                                 if confirmRestart { if !controller.spectating { SaveStore.delete() }; r() } else { confirmRestart = true }
                             }.buttonStyle(.bordered).tint(confirmRestart ? .orange : .white)
                         }
                         Button("Surrender", role: .destructive) { if !controller.spectating { SaveStore.delete() }; onQuit() }.buttonStyle(.bordered)
                     }
+                    .lineLimit(1).minimumScaleFactor(0.75)
                 }
                 .foregroundColor(.white)
             }

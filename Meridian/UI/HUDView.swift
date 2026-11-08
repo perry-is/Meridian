@@ -74,6 +74,7 @@ struct ResourceLabel: View {
             ResourceGlyph(kind: kind).frame(width: 15, height: 15)
             VStack(alignment: .leading, spacing: -2) {
                 Text("\(value)").font(.system(size: compact ? 12.5 : 14, weight: .bold, design: .monospaced))
+                    .lineLimit(1).fixedSize()
                     .contentTransition(.numericText())
                 if !compact { Text("+\(Int(income))/m").font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.5)) }
             }
